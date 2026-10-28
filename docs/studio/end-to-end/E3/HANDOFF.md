@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: FIX
+status: HANDOFF
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -273,7 +273,101 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
 - Live plan started: `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E3\profile` copied (below). Nothing launched,
   no importer run, no model turn.
 
+### Built (builder #5, fix round 1, 2026-10-28) — F1 (`b176881`) + the `generate_music` `force` pin (`788c8d2`)
+
+- **F1** — `src/main/services/library/sound-match.ts`: `PLACEMENT` (the set after `CLAUSE_CUT`) = `when whenever while
+  whilst until till once if unless because where wherever as`; `startsPlacement` / `promptClauses` (before `headClause`)
+  cut each PROMPT clause where one of them starts, to that clause's end (`as` is one unless `a` / `an` follows — "as a
+  transition" stays a qualifier through the old preposition cut; "as soon as" / "as the logo lands" are placement);
+  `headClause` reads `promptClauses` instead of `clauses`. **What the placement words weigh now: nothing** — dropped like
+  negated words, never the head word, never a 0.5 qualifier. Reason: the catalog describes sounds, not scene events, so a
+  placement word hits no clip and, having the highest idf, only dilutes the coverage (the F1 misses); when it does hit,
+  it is a coincidence choosing the sound ("switches" → `ui-toggle-on`'s `switch` tag — the WRONG-sound case). A leading
+  placement clause ("When the logo lands, add a deep impact hit.") is skipped whole. Entry fields (descriptions) are
+  untouched — only the prompt is cut. `after` / `before` / `between` / `during` keep the builder-#1 rule (a preposition
+  cut, qualifiers at 0.5) — they are as often a plain preposition ("before the cut"); on the real index "a hit after the
+  logo lands" → impact-soft 0.39 and "a whoosh before the slide changes" → whooshes 0.32 still MATCH (borderline, noted).
+- Tests: `library/sound-match-placement.test.ts` (NEW, 13 tests; a fixture of 21 entries copied from the E3 profile's
+  REAL imported index — description / tags / category / duration verbatim, `usedIn` count as the catalog's; the nine
+  verifier prompts + the leading-clause form + "as soon as" + "as a transition" + three no-match controls).
+  `sound-match.test.ts` untouched (all 14 still green).
+- **Note 2** — `agent-tools/audio-tools.test.ts` (302 → 202 lines) split: the E3 reuse describe moved to
+  `agent-tools/audio-tools-reuse.test.ts` (NEW, 173 lines, same mocks; the generate mock now answers per `kind`) + a new
+  test "generate_music force: true generates even though a library bed matches (and skips the lookup)" (control first:
+  the same ask without `force` answers `library:music/lofi-warm.mp3`). The old file keeps the `loadIndex` mock with an
+  EMPTY library (no match → generates as before).
+
 ## Verified (exact commands + outputs)
+
+- **Fix round 1 (builder #5, 2026-10-28, worktree root):**
+  - **F1 red** at HEAD `7a0d6ad` + the new test file only: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+    src/main/services/library/sound-match-placement.test.ts` (log `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\fix1-red.log`)
+    → `Tests 11 failed | 2 passed (13)`: `expected 'changes' to be 'whoosh'` (headWord), `expected [] to deeply equal [
+    'impact-deep-soft', 'impact-soft' ]` (×3 incl. the leading-clause form), `expected undefined to be 'ui-click-soft'` /
+    `'riser-soft'` / `'impact-soft'`, `expected [] to deeply equal [ 'chime-magic', 'chime-reward' ]`, and the once-case
+    `expected [ … ] to include 'ui-toggle-on'` (the not-contain failed: the toggle WAS offered); the 2 passing = "as a
+    transition" and the no-match controls (unchanged behaviour, by design).
+  - **Green** after the fix: `vitest run src/main/services/library/ src/main/services/studio/agent-tools/` (`fix1-green.log`)
+    → `Test Files 38 passed (38)` · `Tests 301 passed (301)` (incl. `sound-match.test.ts` 14 — the cuckoo / dog-bark /
+    metallic-ring no-match cases and the music `minDurationSec` drop). Commit `b176881`.
+  - **Real index, old vs new** (app stopped; READ-ONLY — `index.json` SHA-256 `E5352386…12C5` and mtime
+    `2026-10-28T18:13:42.105Z` identical before / after): driver `…\E3\catalog-fix1.e3.test.ts` (OLD = `git show
+    HEAD:…/sound-match.ts` at `7a0d6ad` → `…\E3\sound-match-old.ts`, imports re-pointed; NEW = the worktree file), `node
+    …/vitest.mjs run --config …\E3\vitest.e3.config.ts catalog-fix1` → rc 0 →
+    **`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\catalog-order-fix1.txt`**: index 59 entries (57 without
+    `generated/`, 51 audio candidates); 70 prompts (the nine; builder #1's 13 sfx + 4 music; the verifier's 29 other sfx
+    + 4 other music; this round's 9 sfx + 2 music); **16 changed, every one from no-match / weaker to the right sound; 0 lost a match or its first
+    result.** The nine (old → new): quick whoosh when the slide changes ∅ → whoosh-soft / whoosh-wind / whoosh-data-burst
+    0.85 · whoosh while the card flies in ∅ → whoosh-soft / -reverse / -wind 1.00 · deep impact hit when the logo lands ∅
+    → impact-soft / impact-deep-soft 0.65, stamp-hit 0.35 · an impact when … ∅ → impact-soft / impact-deep-soft 1.00,
+    launch-thump 0.90 · a hit when … ∅ → impact-soft / stamp-hit 1.00 · a click when the button is pressed ∅ →
+    ui-click-soft / ui-toggle-on 1.00, trap-snap 0.60 · a chime when the answer is right ∅ → chime-reward / chime-magic
+    1.00 · a tension riser until the reveal ∅ → riser-soft 1.00, scan-hum 0.50, warm-shimmer 0.30 · a whoosh once the
+    scene switches `ui-toggle-on 0.30` → whoosh-soft / -reverse / -wind 1.00. The other 7 changed: "a deep impact hit as
+    the logo lands" impact-soft 0.42 → + impact-deep-soft 0.65, stamp-hit (first kept); "a pop when the bubble appears"
+    pop-reveal 0.86 → pop-reveal 1.00 + party-popper 1.00 (first kept; "appears" no longer weighs); "a chime as soon as
+    the answer is right" chimes 0.30 → 1.00; "When the logo lands, add a deep impact hit." ∅ → the impacts; "a whoosh if
+    you have one" ∅ → whooshes; music "a calm ambient bed while the host talks" ∅ → ambient-pad 1.00, "warm lo-fi bed
+    until the outro" ∅ → lofi-warm 1.00. Unchanged incl. every no-match (cuckoo ×2 + "… when the timer ends", dog bark
+    ×2, ding, applause, x / a / the / "sound effect", corporate rock, lo-fi ≥ 120 s, "music").
+  - **Note 2 green**: `vitest run src/main/services/studio/agent-tools/audio-tools` (`fix1-audio-green.log`) → `Test
+    Files 2 passed (2)` · `Tests 13 passed (13)` (7 + 6; was 12 in one file). **M2b red** (the verifier's exact from /
+    to on `audio-tools.ts`: `if (!args.force && args.prompt && !args.compositionPlan) {` → `if (args.prompt &&
+    !args.compositionPlan) {`, then restored from a copy — `git diff` empty after): same command (`fix1-m2b-red.log`) →
+    `Tests 1 failed | 12 passed (13)`: "generate_music force: true generates …" — `expected "vi.fn()" to not be called at
+    all, but actually been called 1 times` (the lookup ran). Commit `788c8d2`.
+  - **Gates at HEAD `788c8d2`** (no app — 0 `electron.exe`; guard C: 49.3 GB, D: 43.8 GB, headroom 27.3–28.4 GB → default
+    workers; **another session held the CPU at 79–99 %** — `Win32_Processor LoadPercentage` before runs 3 / 4 / 5 — two
+    foreign `node` processes at ~217 s CPU each). Full worktree vitest, logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\`:
+    | run | log | files failed / passed / skipped (503) | tests failed / passed / skipped (4,273) | beyond the 3 E-d2a suites |
+    |---|---|---|---|---|
+    | 1 default 21:06 | `vitest-full-fix1.log` | 6 / 492 / 5 · 96.5 s | 12 / 4,226 / 35 | `render-jobs.test.ts:100` + `project-package.test.ts:247` (5000 ms timeouts), `flow-render.test.ts:255` |
+    | 2 default 21:08 | `vitest-full-fix1-2.log` | 4 / 494 / 5 · 88.0 s | 11 / 4,227 / 35 | `flow-render.test.ts` :188 (5000 ms) + :255 |
+    | 3 `--maxWorkers=4` 21:10 | `vitest-full-fix1-3-mw4.log` | 4 / 494 / 5 · 144.5 s | 10 / 4,228 / 35 | `shot-module-resolver.test.ts:151` ("a changed transpiler fingerprint…", `waitForFile` "never written" :158) |
+    | 4 default 21:13 | `vitest-full-fix1-4.log` | 6 / 492 / 5 · 103.7 s | 13 / 4,225 / 35 | `agent-memory.test.ts` (2), `flow-render.test.ts` (1), `shot-module-resolver.test.ts:151` |
+    | 5 `--maxWorkers=2` 21:15 | `vitest-full-fix1-5-mw2.log` | 4 / 494 / 5 · 239.3 s | 10 / 4,228 / 35 | `shot-module-resolver.test.ts:151` only |
+    Every extra file passed ALONE: `render-jobs` + `project-package` + `flow-render` → 3 / 3 files, 32 / 32
+    (`vitest-fix1-alone.log`); `shot-module-resolver` → 10 / 10 (`vitest-fix1-alone-2.log`); `agent-memory` + `flow-render` +
+    `shot-module-resolver` → 3 / 3, 30 / 30 (`vitest-fix1-alone-3.log`). `flow-render:255` and `shot-module-resolver:151` are
+    DRIVING's named LOAD timeouts; none of these files imports `sound-match` / `audio-tools`. The 3 E-d2a suites fail only on
+    package resolution in every run (`builder-libraries` 1 — `@remotion/paths (builder-libraries.ts) is not installed` +
+    its `builder-unpack.mjs:73` stderr; `shot-bundle` 5 — `Could not resolve` roughjs / @remotion/shapes /
+    @react-three/fiber / chroma-js / @remotion/google-fonts/SpaceGrotesk; `shot-bundle-in-place` 3 — chroma-js). **DRIVING's
+    load rule (b) is NOT yet met** (no default run green within 3 tries, the mw4 run not green) → the counted run is
+    still owed (Next step). Rule (b) of E-d2a: `git diff --name-only 5d77600..HEAD > …\E3\diff-list-fix1.txt` at `788c8d2`
+    → **101 files (86 under `src/`)**; `node C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs <wt>
+    …\E3\diff-list-fix1.txt > …\E3\import-graph-fix1.txt` → rc 0: `builder-libraries.test.ts` 2 local modules ·
+    `shot-bundle.test.ts` 15 · `shot-bundle-in-place.test.ts` 23 (vi.mock'd, not loaded: shot-generator.ts,
+    shot-import-land.ts, media-import.ts) · `scripts/builder-unpack.mjs` 1 — touched by the E diff: **NONE** each (method:
+    esbuild metafile per suite, packages external, `?raw` as leaves, `vi.mock`'d modules not followed). Types: `tsc -p
+    tsconfig.web.check.json --noEmit` → **26** `error TS` (`tsc-web-fix1.log`), `-p tsconfig.node.check.json` → **10**
+    (`tsc-node-fix1.log`); 0 lines name `sound-match`, `sound-reuse` or `audio-tools`.
+  - **`wt/out` rebuilt at `788c8d2`** (`src/` as of `788c8d2`; DRIVING "Track E"; guard C: 49.3 GB, D: 43.8 GB, headroom
+    28.4 GB, 0 `electron.exe`): `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+    D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build >
+    D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\build-fix1.log` (21:22:02) → exit 0, renderer "✓ built in 3m 21s";
+    `out/main/index.js` 21:22:29, `out/renderer/index.html` 21:25:49; `out/main/index.js` contains the `PLACEMENT` set
+    (`whilst` — 1 hit).
 
 - 2026-10-28, builder #2, worktree root, HEAD `c3f9276` + the new test files only — **red**: `node
   D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/features/asset-library/services/` → `asset-search.test.ts`
@@ -405,7 +499,22 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 1 — builder #5 (orchestrator, 2026-10-28; verifier round 1 FAILED on F1, a matcher defect — see "Verifier round 1"
+**Builder #6 (fix round 1, continued): get the COUNTED full worktree vitest run, then write the records (step 4 below).**
+Steps 1–2 and the rest of step 3 are DONE (Built / Verified "Fix round 1"; commits `b176881`, `788c8d2`; `wt/out` rebuilt —
+see the build line in Verified). First check `(Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average)`,
+the guard and 0 `electron.exe`; run `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run >
+C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\vitest-full-fix1-6.log 2>&1` from the worktree root (default workers; if a known
+LOAD timeout appears, the rule allows up to 3 default tries in total for YOUR session, or one `--maxWorkers=4` run) — the
+counted run must be green except the three E-d2a suites (resolution only); if every try under load still shows only DRIVING's
+named LOAD timeouts green alone, say so in the records with the table above and let the verifier judge. No `src/` change is
+expected (if one is needed, rebuild `wt/out` again and re-run rule (b)). Then step 4 exactly as written below (the records:
+Status.md E3 entry — title, "Result" / the code list (+ `b176881` `788c8d2`, `sound-match.ts` now ~250 lines, the new test
+files), `wt/out` line :118 (rebuilt at `788c8d2`), the Gates paragraph :186 (replace with this round's), "Not measured / open"
+:203 (items (1) and (5) MEASURED by the verifier — move them out with its evidence; (8) `audio-tools.test.ts` now 202 + 173;
+add the four new open notes), the evidence list; TESTING §18.17 likewise; every git / build statement "as of `<hash>`",
+re-checked AFTER the records commit), commit, HANDOFF `status: DONE`, LOG line, commit.
+
+(Steps 1–3 below: DONE by builder #5 except the counted run.) **FIX ROUND 1 — builder #5 (orchestrator, 2026-10-28; verifier round 1 FAILED on F1, a matcher defect — see "Verifier round 1"
 under Open problems).** In order, red first, commit at each green checkpoint:
 1. **F1 — the head clause ends at a subordinating conjunction.** `src/main/services/library/sound-match.ts` (`CLAUSE_CUT`
    :45-48, `headClause` :104-117, `promptTerms` :125-131): a placement clause introduced by `when` / `while` / `until` / `once` / `if` /
@@ -478,6 +587,14 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   controls>` renders as a light pill on the dark theme; `TilePlayButton` is a role=button span inside the tile `<button>` (as the copy
   control).
 
+- **Fix round 1 (builder #5) — open, none blocking:** (1) the counted full run is owed (Next step) — the machine was at
+  79–99 % CPU from another session for all five runs. (2) `after` / `before` + a clause still weigh as 0.5 qualifiers
+  (a preposition just as often): "a hit after the logo lands" 0.39 / "a whoosh before the slide changes" 0.32 — they match,
+  but near the 0.3 floor. (3) For the records (step 4): negation only drops words, never demotes ("a whoosh but not soft"
+  still ranks `whoosh-soft` first); `list_assets` "whoosh" also lists `dash-zip` (and `flame-snuff`); the native `<audio
+  controls>` renders as a light pill on the dark theme; and, for later tracks, the live assistant could not see where the
+  cut was when ONE source asset is split into two V1 clips (verifier's whoosh turn 1). (4) The importer's gitignored
+  `wt/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs` is rewritten per run (verifier note 6) — scratch.
 - None blocking.
 - `AssetLibraryScreen.tsx` is **464** lines (it was 456 before E3 — already over the ~300 rule); E3 added +8 net (the
   inline URL blocks moved to `asset-urls.ts`). A split (e.g. the rename / delete / dialogs block) is a later cleanup,
@@ -507,6 +624,10 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 - The live step (builder #3): the import into the E3 library (51 clips — the library now ALSO holds two generated
   stand-in files under `generated/`), the Assets-screen CDP check, the tool-level checks (both drivers), the three live
   turns. Do NOT re-run the model turns (E-d9 budget spent: 3 turns + the probe).
+- Fix round 1 steps 1–3 (builder #5): the F1 fix + `sound-match-placement.test.ts` (`b176881`), the real-index old-vs-new
+  table (`E3\catalog-order-fix1.txt` — re-run only if `sound-match.ts` changes again), the `audio-tools` split + the
+  music `force` test + the M2b red (`788c8d2`), the gates and the `wt/out` rebuild (Verified). No app launch is needed for
+  the records.
 
 ## For Hasan (real-video list candidates)
 
@@ -527,3 +648,7 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 - 2026-10-28 · builder #4 · ~38 calls · the gates (2 full worktree vitest runs — run 2 counted, run 1's `flow-render`
   load timeout passed alone; rule (b) NONE over 99 files; tsc 26 / 10), Status.md E3 entry, TESTING §18.17, the E2 / E4
   title fixes (`bc2cc9b`); HANDOFF DONE. No `src/` change, no launch, no model turn.
+- 2026-10-28 · builder #5 (fix round 1) · ~40 calls · steps 1–3 of the fix brief: F1 red (11 / 13) → fixed (placement
+  clauses dropped) → green, `b176881`; the real-index old-vs-new driver (16 changed, 0 lost); the `generate_music` `force`
+  pin + the `audio-tools.test.ts` split, M2b red, `788c8d2`; gates (5 full runs under another session's ~95 % CPU) + rule
+  (b) + tsc + the `wt/out` rebuild. No launch, no model turn. Step 4 (records) handed to builder #6.
