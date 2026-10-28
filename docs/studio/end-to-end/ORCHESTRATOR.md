@@ -1051,7 +1051,7 @@
   WSL — not ours). **Decision E-d13** (DRIVING "Track E"): under measured external load the counted run is `--maxWorkers=2
   --testTimeout=20000 --hookTimeout=20000`, green except the E-d2a suites and DRIVING's named known list (each green alone); stated in
   STATUS. Builder #6 spawned (the counted run under E-d13, then the records).
-- 21:45 · E3 builder #6 DONE (docs only): CPU 21:28 `LoadPercentage` 85, `vmmemWSL` 74.8 % of 16 cores → **E-d13 counted**: `--maxWorkers=2
+- 21:36 · E3 builder #6 DONE (docs only): CPU 21:28 `LoadPercentage` 85, `vmmemWSL` 74.8 % of 16 cores → **E-d13 counted**: `--maxWorkers=2
   --testTimeout=20000 --hookTimeout=20000` at `55b223a` → 494 passed / 4 failed / 5 skipped files, 4,228 / 10 / 35 tests, 212.6 s, 0
   "timed out"; failures = the 3 E-d2a suites (resolution only) + `shot-module-resolver.test.ts` (:151, the named known list; its own
   `waitForFile` explicit wait) — alone 10 / 10. Rule (b) diff list unchanged (101) → NONE stands; tsc 26 / 10 at `788c8d2` stands.
