@@ -56,6 +56,22 @@ function formatMetaSuffix(entry: LibraryIndexEntry): string {
   return clauses.map((clause) => ` · ${clause}`).join('');
 }
 
+/**
+ * The query filter (E3): EVERY whitespace-separated word of the query must
+ * appear (case-insensitive substring) in the path, the description, a tag or
+ * the category. A one-word query works as before, now also over tags and
+ * category; "soft whoosh" finds `sfx/whoosh-soft.mp3`, which the old
+ * whole-phrase substring missed.
+ */
+function matchesQuery(entry: LibraryIndexEntry, query: string | undefined): boolean {
+  const words = (query ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const haystack = [entry.relPath, entry.description ?? '', ...(entry.tags ?? []), entry.audio?.category ?? '']
+    .join('\n')
+    .toLowerCase();
+  return words.every((word) => haystack.includes(word));
+}
+
 /** The library listing: playable kinds only (what insert_asset / assetRefs take), filtered, capped. */
 export function formatLibraryListing(
   entries: LibraryIndexEntry[],
@@ -66,8 +82,7 @@ export function formatLibraryListing(
   for (const entry of entries) {
     const kind = entry.kind ?? mediaKindOf(entry.relPath);
     if (!isPlayableMediaKind(kind) || (filter.kind && kind !== filter.kind)) continue;
-    const q = filter.query;
-    if (q && !entry.relPath.toLowerCase().includes(q) && !(entry.description ?? '').toLowerCase().includes(q)) continue;
+    if (!matchesQuery(entry, filter.query)) continue;
     rows.push(formatLibraryRow(entry, kind, refPrefix));
     if (rows.length >= LIBRARY_LIST_CAP) {
       rows.push(`… capped at ${LIBRARY_LIST_CAP} — narrow with query/kind.`);

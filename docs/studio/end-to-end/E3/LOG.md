@@ -1,3 +1,4 @@
 # E3 — log (append-only)
 
 - 2026-10-24 09:25 · orchestrator · HANDOFF.md created (row, the E5 exit verbatim, how the whoosh case is measured live + at tool level, the prompt-rule lines, the Assets screen facts, the B6 live-assistant kit); status NEW. Runs after E4.
+- 2026-10-28 · builder #1 · design note (a)–(f) in HANDOFF; built `library/sound-match.ts` (pure, idf coverage + head word, top 3) + `agent-tools/sound-reuse.ts`, wired into `generate_sfx` / `generate_music` before the provider check with `force`; `list_assets` query all-words over path/description/tags/category; prompt rule at `:21/:31/:32/:70/:75` pinned; 39 files / 314 tests green, tsc 26/10; status HANDOFF → builder #2 does the Assets screen (c).

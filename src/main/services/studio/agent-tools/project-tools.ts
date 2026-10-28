@@ -28,7 +28,10 @@ export function buildProjectTools(ctx: StudioToolContext): StudioTool[] {
     {
       scope: z.enum(['project', 'library']).optional(),
       kind: z.enum(['video', 'audio', 'image']).optional().describe('Filter by media kind'),
-      query: z.string().optional().describe('Case-insensitive substring over names/paths and descriptions'),
+      query: z
+        .string()
+        .optional()
+        .describe('Case-insensitive. Project scope: a substring of the name or description. Library scope: EVERY word must appear in the path, description, tags or category ("soft whoosh")'),
     },
     async (args) => {
       const scope = args.scope ?? 'project';

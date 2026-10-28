@@ -42,6 +42,20 @@ describe('list_assets library rows (E1)', () => {
     expect(formatLibraryListing(entries, { query: 'nothing' }, 'library:')).toBe('No matching assets in the library.');
   });
 
+  it('E3: every query word must appear in the path, the description, a tag or the category', () => {
+    const entries = [
+      e('sfx/whoosh-soft.mp3', { kind: 'audio', description: 'A short, soft air whoosh', tags: ['whoosh', 'transition'], audio: { category: 'motion' } }),
+      e('sfx/impact-soft.mp3', { kind: 'audio', description: 'a muted hit', tags: ['impact'], audio: { category: 'emphasis' } }),
+    ];
+    const refs = (query: string) =>
+      formatLibraryListing(entries, { kind: 'audio', query }, 'library:').split('\n').map((row) => row.split(' ')[1]);
+    expect(refs('soft whoosh')).toEqual(['library:sfx/whoosh-soft.mp3']);
+    expect(refs('Transition')).toEqual(['library:sfx/whoosh-soft.mp3']);
+    expect(refs('emphasis')).toEqual(['library:sfx/impact-soft.mp3']);
+    expect(refs('soft')).toEqual(['library:sfx/whoosh-soft.mp3', 'library:sfx/impact-soft.mp3']);
+    expect(formatLibraryListing(entries, { query: 'whoosh impact' }, 'library:')).toBe('No matching assets in the library.');
+  });
+
   it(`caps at ${LIBRARY_LIST_CAP} rows`, () => {
     const many = Array.from({ length: LIBRARY_LIST_CAP + 3 }, (_, i) => e(`s${i}.wav`, { kind: 'audio' }));
     const rows = formatLibraryListing(many, {}, 'library:').split('\n');

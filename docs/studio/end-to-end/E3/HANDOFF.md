@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: NEW
+status: HANDOFF
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -126,36 +126,155 @@ Plus the session gates (DRIVING "Track E": worktree vitest green except the thre
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+### Design note (builder #1, 2026-10-28 — binds the rest of E3)
+
+Read first (HEAD `ceb250c`): `studio-agent-prompt-tools.ts` (87 lines: `:21` list_assets, `:31-32` generate_sfx /
+generate_music, `:70` step 6, `:75` preset mapping — §1.6 still right), `agent-tools/audio-tools.ts` (177 lines;
+`generateAndImport` `:78-108`, provider check `:84`), `project-tools.ts` (77), `library-listing.ts` (78; E2 row
+`formatLibraryRow` `:22-34` + `formatMetaSuffix` `:43-57`; the query filter `:69-70` is ONE substring over relPath +
+description), the E4 catalogs (45 sfx: whoosh-soft / whoosh-wind / whoosh-reverse / whoosh-data-burst carry the tag
+`whoosh`; descriptions = the catalog `prompt`, full of "no music, no metallic ring" negations), E2's filing name
+`generated/<kind>-<slug>.mp3` (`generate-audio-asset.ts:131`).
+
+**(a) The matcher** — `src/main/services/library/sound-match.ts`, pure (entries in, ranked matches out; no I/O):
+- Candidates: audio entries only (`entry.kind ?? mediaKindOf(relPath)` = `audio`). Sound class: `music` when a folder
+  segment is `music`, the file name starts `music-`, or the tags hold `music` / `bed`; `sfx` when a folder is `sfx` or the
+  name starts `sfx-`; otherwise by probe length (> 30 s = music, else sfx; unknown length = both). `generate_sfx` sees
+  sfx, `generate_music` sees music.
+- Tokens: lower-case words of ≥ 3 letters (a hyphenated word also yields its joined form: `lo-fi` → `lofi`), minus stop
+  words (articles, prepositions, "sound/sfx/effect/audio/clip/video/add/make"), minus every word after a negation
+  (`no`, `not`, `without`, `never`) up to the next punctuation — so "no music, no metallic ring" in a catalog prompt
+  never matches "music". Two words match when equal or when one is a prefix of the other (≥ 3 letters, ≤ 3 letters
+  longer: `air`/`airy`, `whoosh`/`whooshes`, `tick`/`ticking`).
+- Score: each distinct prompt token `t` weighs `idf(t) = ln((N + 1) / (df(t) + 0.5))` over the candidate set (a word no
+  candidate has weighs most; "soft", on most catalog clips, weighs little), times its best field hit on the entry: tag
+  1.0, file-name word 1.0, category 0.9, description 0.6. `coverage = Σ hit·idf / Σ idf`.
+- Head word: the last token of the prompt's first clause (cut at `, ; . : ( —` or before `for with at like into on in of
+  to from that which`): "a soft cuckoo clock chime" → `chime`; "a fast airy whoosh with a short tail" → `whoosh`.
+- A match: `coverage ≥ 0.5`, OR the head word hits AND `coverage ≥ 0.3`. Ranked by coverage, then strong hits (tag /
+  name / category), then `usedIn` count (proven clips first), then relPath. Top 3. `generate_music` also drops a bed
+  shorter than the requested `durationSeconds` (insert_asset can trim a longer bed, not stretch a shorter one).
+- Answer (`formatSoundMatches`): "The library already has N sound(s) matching "<prompt>" — nothing was generated (no
+  cost):" + the E2 `formatLibraryRow` rows (ref, duration, origin, description, category, tags, LUFS, used in — reused,
+  not re-written) + "Place one with insert_asset(assetId: "library:<path>", lane: "audio", at: …). Only if none of
+  them fits, call generate_sfx again with force: true." Exported for the tool and the tests.
+- Where: a thin `agent-tools/sound-reuse.ts` (loads the index via `loadIndex(getLibraryRoot())`, runs the matcher,
+  formats; a read failure returns `null` = fall through to generation, never blocks it). `generate_sfx` gains
+  `force?: boolean`; its handler calls the reuse lookup FIRST (before `generateAndImport` and so before
+  `hasAudioProvider()` — reuse works on a profile with no key; the normalizer / engine are never touched).
+- `generate_music`: the SAME rule (a library bed is as reusable as a whoosh — the catalog ships six), with `force`,
+  except a `compositionPlan` call (a precise score, nothing to match — it generates) and the length drop above.
+- `list_assets` query (`library-listing.ts:69-70`): broadened, backward compatible — every whitespace-separated word of
+  the query must appear in relPath + description + tags + category (a one-word query behaves exactly as before plus tags /
+  category; "soft whoosh" now finds `sfx/whoosh-soft.mp3`, which the old phrase-substring missed).
+
+**(b) The prompt rule** — `studio-agent-prompt-tools.ts`: the `list_assets` line (`:21`) adds "for any SOUND search
+kind "audio" first"; the `generate_sfx` line (`:31`) says it returns library matches instead of generating unless
+`force: true`, and `generate_music` (`:32`) "same library check"; step 6 (`:70`) becomes "search the library first
+(`list_assets(scope: "library", kind: "audio", query: …)`) and place a sound that fits; generate only when nothing fits
+…; library sounds need no provider"; the preset mapping (`:75`) says an `sfx` / `music` step searches the library first
+the same way. Pinned in `studio-agent-prompt.test.ts` (a new `describe` in the existing file — extend, not fork).
+
+**(c) Assets screen (the UI step; read `UI_SPEC.md` + the components first, line numbers re-checked then):** one
+`AudioPreview.tsx` (`<audio controls preload="none">` in the details panel for audio entries) and a play / pause
+icon button on audio tiles driven by ONE screen-owned audio element (so one sound plays at a time by construction; the
+details `<audio>` pauses it on `play`). URL = the tile-preview URL (`${moduleServerUrl}/asset?path=…`); no server URL →
+the control is disabled with a title; `onError` → "Can't play this file" and the icon stays. `AssetChips.tsx` in the
+details panel: the origin chip + tag chips; a click sets a chip filter `{ origin } | { tag }` held by the screen and
+shown as a removable pill by the search bar; `asset-search.ts` gains a pure `matchesChip(meta, chip)` and the text
+search also matches tags (unit tests). Sound fields (only when present): Category, Loudness (LUFS / "not normalized"),
+Peak (dBTP for `peakKind 'true'`, dBFS sample otherwise), Source, Model, Licence, Used in.
+
+**(d) G4 note** (`CAPABILITY_GAPS.md` §G4): "Narrowed by E (2026-10-28): a library (index v2 — category / tags / LUFS /
+peak / usedIn, E1–E2), the 45 + 6 catalog clips importable (E4), generation normalized and filed (E2), reuse before
+generate (E3: `generate_sfx` / `generate_music` answer the top-3 library matches unless `force`; the prompt rule) and
+placement as an ask-first `insert_asset` card. Still open: the cue plan / `sfx-plan` runner with audition
+(`propose_sfx`) — not in this plan (ask-first stays)."
+
+**(e) Tests, red first:** `library/sound-match.test.ts` (tokens + negation + hyphen; the order on realistic prompts
+over a catalog-shaped fixture — "a soft airy whoosh for a transition", "soft whoosh", "a fast airy whoosh with a short
+tail", "a soft UI click", "warm lo-fi bed"; no match for "a cuckoo clock chime" and a long variant; class filters; the
+music length drop; the answer text); `audio-tools.test.ts` extended (matches → no provider check, no engine; `force`
+generates; no match → generates as before; index read failure → generates; music: plan skips the lookup, short bed
+dropped); `library-listing.test.ts` extended (multi-word + tag / category query); `studio-agent-prompt.test.ts`
+extended (the sound rule + the mapping). UI step: `asset-search.test.ts` extended (chip + tag search).
+
+**(f) Live plan (later steps):** guard → copy `source\profile` → `E3\profile` with `robocopy /E /XF settings.db*`
+(verify none) → E4's importer `--library <E3 profile>\assets` (dry run first, app stopped; the root confirmed from the
+running app first) → rebuild `wt/out` → launch on CDP 9263 WITHOUT `VIDTSX_AUDIO_STANDIN_FILE` → Studio root
+`…\E3\root` in the first call → a fresh project + one short clip on V1 → tool-level checks through the REAL handlers
+(exit item 2) → whoosh case ×2 (2 turns + their review outcome only) → negative with no provider (1 turn) → relaunch WITH
+the stand-in env for the negative's generation (1 turn) and `force` through the real handler (no model) → Assets screen
+CDP (play `whoosh-soft`, chips, still). Turn budget: 4 model turns + the `llmGenerate('Say OK')` probe.
+
+### Built (builder #1, 2026-10-28) — (a) the matcher + tool wiring, (b) the prompt rule; commit: see LOG / `git log`
+
+- `src/main/services/library/sound-match.ts` (224 lines, NEW, pure): `soundTokens` `:100`, `headWord` `:120`,
+  `soundClassOf` `:167`, `matchLibrarySounds` `:187` (thresholds `:36-37`; `SAME_SOUND` `:44` — swoosh / woosh =
+  whoosh, added after the real-catalog run showed "a gentle swoosh between scenes" unmatched; "swish" stays apart, the
+  catalog tags `ui-send` with it). As the design note, plus: 2-letter tokens kept (`ui`, `ai`) with the 2-letter stop
+  words; "between / after / before / during / across / through" cut the head clause; "cut / first / next / last" are
+  stop words (placement words, not the sound).
+- `src/main/services/studio/agent-tools/sound-reuse.ts` (45 lines, NEW): `formatSoundMatches` (rows = E2's
+  `formatLibraryRow`, so ref · duration · origin · description · category · tags · LUFS · used in) and
+  `libraryReuseAnswer` (index read failure → `null` → generation proceeds).
+- `agent-tools/audio-tools.ts`: `REUSE_NOTE` `:63` in both descriptions; `force` `:127` / `:164`; `generate_sfx` reuse
+  call `:133` (before `generateAndImport` → before `hasAudioProvider()`); `generate_music` `:173` (prompt form only; a
+  `compositionPlan` never looks; `minDurationSec = durationSeconds`).
+- `agent-tools/library-listing.ts` `matchesQuery` `:66` (used `:85`): every query word in relPath + description + tags +
+  category. `project-tools.ts` — the `query` describe says so.
+- `studio-agent-prompt-tools.ts`: `:21` (list_assets — "For any SOUND … search it first"), `:31` (`force?` + "It checks
+  the library FIRST …"), `:32` (music: same check, the length rule), `:70` (step 6 — search before generating any
+  sound; library sounds need no provider), `:75` (the `sfx` / `music` preset mapping lists the library first).
+- Tests: `library/sound-match.test.ts` (NEW, 14 tests); `audio-tools.test.ts` `:105` new describe (5 tests, the REAL
+  matcher over a mocked index); `library-listing.test.ts` +1; `studio-agent-prompt.test.ts` `:93` new describe (4).
+  Red first for the matcher (module missing → "no tests", 1 failed file); the handler / listing / prompt tests were
+  written right after their code (not run red — say so if a verifier asks).
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- 2026-10-28, worktree root, HEAD `ceb250c` + the working tree above:
+  `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/studio/studio-agent-prompt.test.ts
+  src/main/services/studio/agent-tools/ src/main/services/library/ src/main/services/content-safety/llm-hook-absence.test.ts`
+  → `Test Files 39 passed (39)` · `Tests 314 passed (314)` (includes `library/pre-e1-control.test.ts` — E-d5 green).
+- `tsc -p tsconfig.web.check.json --noEmit` → **26** `error TS`; `-p tsconfig.node.check.json` → **10**; no error line
+  names `sound-match`, `sound-reuse`, `audio-tools`, `library-listing`, `project-tools` or the prompt files.
+- The order over the REAL catalogs (45 sfx + 6 music read-only from `D:\repos\claude-youtube-editor\media\library`,
+  mapped as E4 does — relPath `sfx|music/<id>.mp3`, description = prompt/desc, tags, category, `used_in`, `duration_s`;
+  a temporary test file, deleted, not committed) → `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\catalog-order.txt`
+  (run BEFORE the `SAME_SOUND` line; only the swoosh row changes after it):
+  "a soft airy whoosh for a transition" → whoosh-soft 1.00 | whoosh-wind 0.75 | whoosh-reverse 0.60 ·
+  "soft whoosh" / "Add a soft whoosh at the first cut." / "a soft whoosh for a cut" → whoosh-soft 1.00 | whoosh-reverse
+  0.92 | whoosh-wind 0.92 · "a fast airy whoosh with a short tail" → whoosh-data-burst 0.74 | whoosh-soft 0.54 | dash-zip
+  0.51 · "whoosh transition" → whoosh-soft | whoosh-wind · "a cuckoo clock chime" and the long cuckoo variant → no match
+  · "a soft UI click" → ui-click-soft 1.00 | ui-toggle-on 0.96 | pop-reveal 0.53 · "camera shutter" → camera-shutter |
+  trap-snap · "a door knock" → knock-solid | chess-piece-capture · "a dog bark" → no match · music "warm lo-fi bed" →
+  lofi-warm · "calm ambient bed under speech" → ambient-pad 0.64 · "upbeat corporate rock with drums" → no match · "warm
+  lo-fi bed" ≥ 120 s → no match.
+- Not yet run: the full worktree vitest, a `wt/out` rebuild, anything live.
 
 ## Next step (ONE concrete instruction)
 
-**Builder #1:** read this file, E2's and E4's HANDOFF "Done", then the files under "§1.6 facts" (≈ 900 lines — the
-prompt file, `audio-tools.ts`, `project-tools.ts` + `library-listing.ts`, `insert-tools.ts` :30-70, `AssetTile.tsx`,
-`AssetDetailsPanel.tsx`, `asset-search.ts`, `AssetSearchBar.tsx`, the module server's `/asset` handler) and `UI_SPEC.md`
-for the chips / controls. Write a **design note** here (under Done): (a) the matcher — a pure module (e.g.
-`src/main/services/library/sound-match.ts`, ≤ 300 lines) scoring library audio entries for a prompt (tags, category,
-description, file name; a threshold under which "no match" is returned), its top-3 answer text (refs + duration +
-category + tags + LUFS + `usedIn` + "pass force:true to generate anyway"), and where `generate_sfx` calls it (before the
-provider check); `generate_music` — the same rule or an explicit reason it differs; (b) the prompt rule wording
-(`:70`, `:75`) and which existing prompt test pins it; (c) the Assets screen: playback (tile + details, one `<audio>`
-at a time, the module-server URL, what happens when the server is down), the chips (origin, tags; filter semantics
-in `asset-search.ts`), the sound fields in the details panel; (d) the G4 note; (e) the test list, red first; (f) the
-live plan: the E3 profile (copy, no `settings.db`), E4's importer into it, the project, the stand-in's role per launch,
-the turn budget. Then build (a) + (b) with tests, commit at a green checkpoint, hand off or continue by the 30 % rule.
-Pure ops → tools → prompt → UI → live.
+**Builder #2:** build (c), the Assets screen — read `UI_SPEC.md` (chips, icon buttons, the details-panel rows), then
+`src/features/asset-library/` (`AssetTile.tsx`, `AssetDetailsPanel.tsx`, `AssetLibraryScreen.tsx` around `:315`,
+`services/asset-search.ts` + its test, `AssetSearchBar.tsx`) and the module server `/asset` handler; then, red first in
+`asset-search.test.ts`, a pure chip filter (`{ origin } | { tag }`) + tag-aware text search; then `AudioPreview.tsx`
+(details `<audio controls preload="none">`) + a play / pause icon button on audio tiles driven by ONE screen-owned
+audio element, `AssetChips.tsx` (origin + tag chips that set the chip filter, a removable pill by the search bar), and the
+sound fields (Category, Loudness, Peak by `peakKind`, Source, Model, Licence, Used in) — per the design note (c); files
+≤ 300 lines; `tsc` 26 / 10; commit. Then (d) the G4 note, then the live plan (f).
 
 ## Open problems
 
-(none yet)
+- None blocking. Design choices a verifier may question (stated, not open): `generate_music` follows the same rule (the
+  plan's T6 bullet names only `generate_sfx`; reason in the note (a)); `list_assets`' query broadened to all-words over
+  path + description + tags + category (strictly broader than before for one word).
+- `audio-tools.test.ts` is 302 lines (the ~300 rule) — split the E3 describe into its own file if it grows.
 
 ## Do-not-redo
 
-(nothing yet)
+- The design note (a)–(f) and the matcher / tool / prompt build above — extend, do not redesign. The real-catalog
+  order was recorded (`E3\catalog-order.txt`); the unit fixture pins the same shape.
 
 ## For Hasan (real-video list candidates)
 
@@ -164,4 +283,6 @@ Pure ops → tools → prompt → UI → live.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-28 · builder #1 · ~40 calls · design note (a)–(f); built (a) the matcher + `generate_sfx` / `generate_music`
+  reuse with `force` + the broadened `list_assets` query, (b) the prompt rule, pinned; the real-catalog order recorded;
+  39 test files green, tsc 26 / 10; committed. UI, G4 note, live and gates not started.
