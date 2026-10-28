@@ -1,5 +1,5 @@
 # E4 — The importer over the reference `sfx/` and `music/` catalogs
-status: HANDOFF
+status: DONE
 
 > Track E, session 5 — **runs BEFORE E3** (E3's exit, the whoosh case, needs the imported library). **Work only in
 > the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are
@@ -302,7 +302,12 @@ Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-t
 
 ## Next step (ONE concrete instruction)
 
-**Builder #3:** run the gates, then write the records. Exit items 1–5 are MET (Verified, builder #2 live run) — never redo
+**E4 verifier:** check the records against the evidence — Status.md E4 entry (lines 10–150, commit `ce9aaac`), TESTING §18.16
+(lines 509–520), the gates above (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\vitest-full-1.log`, `import-graph.txt`, `tsc-*.log`)
+and the live evidence (`exit.json`, `live-*.json`, `index.after-*.json`, the three stills) — on the verifier's OWN isolated profile /
+scratch root if anything is re-run (never the E4 profile's library, which E3 may use; never Hasan's library).
+
+**Builder #3 (done):** run the gates, then write the records. Exit items 1–5 are MET (Verified, builder #2 live run) — never redo
 them. No app running; no `src/` change since `4aed92f` (so `wt/out` at `5247ed9` is current — rebuild only if you change
 `src/`). (1) Resource guard; full worktree vitest `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run` (add
 `--maxWorkers=2` if headroom < 10 GB) logged to `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\vitest-full-1.log`; green except the
@@ -360,6 +365,8 @@ files on screen + the durations in the index / `list_assets` row.
 - The script `scripts/import-sfx-library.mjs` (`5247ed9`) + its smoke; the E4 profile copy; the `wt/out` build at `5247ed9`;
   the whole live run (dry run, import, re-run, changed COPY + back, Studio-id mark + re-run, exit check, `list_assets`, the
   three Assets stills). The E4 library now holds the 51 clips (whoosh-soft `usedIn` ends with `e4-exit`) — E3 may use it.
+- The gates at `cf5328d` (`8dba927`) and the records — Status.md E4 entry, TESTING §18.16 (`ce9aaac`). Re-run the gates only if
+  `src/` changes.
 
 ## For Hasan (real-video list candidates)
 
@@ -373,3 +380,6 @@ files on screen + the durations in the index / `list_assets` row.
   (records `dc41822` + this one).
 - 2026-10-28 · builder #2 · ~45 calls · `scripts/import-sfx-library.mjs` + smoke (`5247ed9`); E4 profile; `wt/out` build; the
   live run — exit items 1–5 MET; gates + records left (Next step).
+- 2026-10-28 · builder #3 · ~38 calls · the gates (vitest 489 / 3 / 5 files, 4,165 / 9 / 35 tests, 74.43 s; rule (b) none;
+  tsc 26 / 10 — `8dba927`); Status.md E4 entry (lines 10–150) + TESTING §18.16 (lines 509–520) (`ce9aaac`); status DONE (this
+  commit). No `src/` change, no rebuild, no app launch, no importer run.
