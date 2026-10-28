@@ -45,6 +45,11 @@ export interface LibraryAudioMeta {
   gainDb?: number;
   /** Set when the normalize step failed and the file was kept as generated (un-normalized). */
   normalizeError?: string;
+  /**
+   * The licence as the source recorded it, verbatim (the catalog importer, E4). Absent when none was
+   * recorded — the importer then says "no licence recorded in the catalog" in the entry's description.
+   */
+  license?: string;
 }
 
 /**

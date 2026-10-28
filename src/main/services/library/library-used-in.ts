@@ -26,6 +26,20 @@ export function addUsedIn(entry: LibraryIndexEntry, projectId: string): boolean 
 }
 
 /**
+ * Pure (E4): `existing` with every value of `incoming` appended once — the existing order is
+ * kept and nothing is ever dropped (the catalog importer's editor video ids and E2's Studio
+ * project ids share the array). `undefined` when both are empty.
+ */
+export function mergeUsedIn(
+  existing: readonly string[] | undefined,
+  incoming: readonly string[] | undefined,
+): string[] | undefined {
+  const out = [...(existing ?? [])];
+  for (const id of incoming ?? []) if (id.length > 0 && !out.includes(id)) out.push(id);
+  return out.length > 0 || existing !== undefined ? out : undefined;
+}
+
+/**
  * Mark `projectId` on the EXISTING entries for `relPaths` (POSIX index keys).
  * Deduplicated; nothing is written when nothing changed; resolves on failure.
  */

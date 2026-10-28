@@ -30,7 +30,7 @@ vi.mock('../../../logging/log-engine', () => ({
 
 import { loadIndex, writeIndex } from './library-index-io';
 import { getLibraryIndexPath } from './library-paths';
-import { addUsedIn, markLibraryUsedIn, markLibraryUsedInForPaths } from './library-used-in';
+import { addUsedIn, markLibraryUsedIn, markLibraryUsedInForPaths, mergeUsedIn } from './library-used-in';
 
 const A = 'generated/sfx-a.mp3';
 const B = 'generated/sfx-b.mp3';
@@ -97,6 +97,16 @@ describe('addUsedIn (pure)', () => {
     expect(e.usedIn).toEqual(['p1']);
     expect(addUsedIn(e, 'p2')).toBe(true);
     expect(e).toEqual({ ...entry(A, { description: 'd', tags: ['x'] }), usedIn: ['p1', 'p2'] });
+  });
+});
+
+describe('mergeUsedIn (pure, E4)', () => {
+  it('keeps the existing order, appends new values once, never drops one', () => {
+    expect(mergeUsedIn(undefined, ['short-1', 'video-2'])).toEqual(['short-1', 'video-2']);
+    expect(mergeUsedIn(['proj-a', 'short-1'], ['short-1', 'video-2', 'video-2'])).toEqual(['proj-a', 'short-1', 'video-2']);
+    expect(mergeUsedIn(['proj-a'], [])).toEqual(['proj-a']);
+    expect(mergeUsedIn(undefined, [])).toBeUndefined();
+    expect(mergeUsedIn(['proj-a'], undefined)).toEqual(['proj-a']);
   });
 });
 

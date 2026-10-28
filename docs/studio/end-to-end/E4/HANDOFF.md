@@ -119,7 +119,87 @@ Plus the session gates (DRIVING "Track E": worktree vitest green except the thre
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+### Design note (builder #1, 2026-10-28 — binds the rest of E4)
+
+Code read: `asset-library.ts` (types), `library-store.ts` (all; `upsertEntry` :135-186 always probes + always writes),
+`library-index-io.ts` (all; `loadIndex` is READ-ONLY — the backup / mkdir happen only in `writeIndex`), `library-filing.ts`
+(exports), `library-used-in.ts` (`addUsedIn`), `library-paths.ts` (exports; imports `utils/paths` → `electron`, and
+`settings-db`), `media-import.ts` (imports; ffprobe via `RenderInternals.getExecutablePath`, null binaries dir when
+`!app.isPackaged`), `library-probe-duration.test.ts` (mock pattern: `electron` only), `pre-e1-control.test.ts` (pins the
+v2 fields `kind / tags / audio / usedIn`; `audio` is pinned as a whole object), `migrate-editor-project.mjs` (esbuild
+pattern), E1 kit `list-assets.e1.test.ts` + `vitest.e1.config.ts`. Catalogs inspected read-only with `node -e` (counts
+match the HANDOFF: sfx 45 — 41 with category/tags/peak/lufs/model/license/prompt, 4 chords with desc/function; music 6 —
+all fields + requested_ms / force_instrumental; every `file` is `clips/<id>.mp3`; no tag needs normalizing; max 8 tags).
+
+1. **Module split.** `src/main/services/library/catalog-import-map.ts` (pure, no IO): `parseCatalog` (narrows `unknown`,
+   per-clip problems), `mapCatalogClip`, `changedFields`, `NO_LICENCE_NOTE`. `src/main/services/library/catalog-import.ts`
+   (IO, ≤ 300 lines): `planCatalogImport(libraryRoot, sources)` (read-only: reads the catalogs, sha256 of every source,
+   stat + sha256 of an existing target, `loadIndex` — which never writes) and `applyCatalogImport(libraryRoot, plan)`
+   (copies, then `upsertEntry` per file — the app's own seam: probe, `hashFileHead`, the per-root chain, `version 1 /
+   rev 2`, the one-time backup). `mergeUsedIn` (pure) goes in `library-used-in.ts`; `upsertEntry`'s meta gains
+   `usedIn?: string[]`, **merged** inside the chain (existing order kept, catalog values appended once — never drops a
+   Studio project id E2 marked). `scripts/import-sfx-library.mjs` esbuild-bundles `catalog-import.ts` (cjs, node) into
+   `<repo>/.vidtsx-temp/import-sfx-library/` (gitignored, inside the repo so `@remotion/renderer` resolves by walking up
+   to the main checkout's `node_modules`), with a plugin: `electron` → a stub (`isPackaged: false`, `getPath(name)` →
+   a temp dir, `userData` THROWS — the importer has no implicit library), `settings-db` → a stub that throws on use
+   (never a settings store), every other bare package external.
+2. **relPath scheme (stable):** `sfx/<basename of file>` and `music/<basename of file>` under the assets root — i.e.
+   `sfx/whoosh-soft.mp3`, `music/ambient-pad.mp3` (basename = `<id>.mp3` for all 51). A `file` with `..`, an absolute
+   path or a non-audio extension is `invalid`.
+3. **Field mapping.**
+   | catalog | index | |
+   |---|---|---|
+   | `file` | relPath `<section>/<basename>`; source = `<clips dir>/<file>` | clips dir = the catalog's folder unless overridden |
+   | `id` | (= the file's basename) | not stored separately |
+   | `prompt` (else `desc`) | `description` | chords: `desc` + ` (no licence recorded in the catalog)` |
+   | `category` | `audio.category` (trim + lower-case) | absent on the 4 chords → absent |
+   | `tags` | `tags` via `normalizeTags` | absent → not written |
+   | `loudness_lufs` | `audio.loudnessLufs` | recorded, not re-measured (session-6 note 2) |
+   | `peak_dbfs` | `audio.peakDbfs` + `peakKind: 'sample'` | only when present |
+   | `source` | `audio.source` VERBATIM | `elevenlabs:sound-generation` / `elevenlabs:music` / the gen_chords.py text |
+   | `model` | `audio.model` | |
+   | `license` | **NEW optional `audio.license`** (verbatim) | absent → not written; the note goes in the description + the report |
+   | `used_in` | `usedIn` VERBATIM (editor video ids), merged with existing | E2's Studio ids join the same array |
+   | `duration_s` | not stored — `probe` is MEASURED by `upsertEntry` | the report prints `probe − duration_s` per clip |
+   | `requested_ms`, `force_instrumental` (music), `function` (chords) | **dropped** — generation request parameters / the editor mixer's role; listed per clip as `dropped` in the plan | |
+   | — | `origin: 'imported'`, `kind: 'audio'` (by `upsertEntry`) | no `gainDb` / `normalizeError` — the importer never re-encodes |
+4. **Actions per clip (the plan):** `copy` (target absent, no index entry elsewhere with the same bytes) · `update`
+   (same bytes at the target — or at the relPath of an entry with the same `hashFileHead` whose file's sha256 matches, i.e.
+   the user moved it — and `changedFields` non-empty: fields only, no copy) · `unchanged` (same bytes, fields equal → no
+   write at all) · `conflict` (different bytes at the target → skipped, never overwritten) · `missing-source`. A
+   clip the parser cannot use (no id, `..` / absolute / non-audio `file`, bad `used_in`) is a plan `problem` line, never
+   an item. Catalog is the truth for the mapped fields (a re-run re-applies them; `usedIn` only grows).
+
+### Built (builder #1) — the service + tests (design §1–§6, §8; the script §7 NOT built yet)
+
+- `src/main/services/library/catalog-import-map.ts` (165 lines, pure): `parseCatalog` :92, `mapCatalogClip` :106,
+  `changedFields` :151, `NO_LICENCE_NOTE` :16, dropped fields `requested_ms / force_instrumental / function` :19.
+- `src/main/services/library/catalog-import.ts` (196 lines): `CatalogSource` :31, actions :45, `planCatalogImport` :131
+  (read-only), `applyCatalogImport` :178 (refuses a plan made for another root), `copyIn` :155 (`COPYFILE_EXCL` + sha256
+  re-check, removes a bad copy), moved-file lookup by `hashFileHead` + sha256 :119-125.
+- `src/shared/types/asset-library.ts:48-52` — `LibraryAudioMeta.license?` (optional, verbatim).
+- `src/main/services/library/library-used-in.ts:28-40` — `mergeUsedIn` (pure). `library-store.ts` — `upsertEntry` meta
+  `usedIn?` :144, merged inside the chain :170 (doc comment :133-134).
+- Tests: `catalog-import-map.test.ts` (8), `catalog-import.test.ts` (7, real bundled ffprobe, WAV fixtures),
+  `library-used-in.test.ts` (+1 `mergeUsedIn`), `pre-e1-control.test.ts` (fixture `audio` gains `peakKind: 'sample'` +
+  `license`, asserted :91; the old-code rewrite keeps `audio` whole — `toEqual` at :139).
+5. **Dry run proof:** the CLI's `--dry-run` calls only `planCatalogImport` (no mkdir, no copy, no `upsertEntry`) and
+   prints every item (target relPath, action, mapped fields, dropped fields, notes). Unit test: tree snapshot (paths +
+   sha256) equal before/after, no `.vidtsx/` created. Live: a sha256 over every file of the target tree (incl.
+   `.vidtsx/index.json`) before = after.
+6. **Idempotency:** second run → 51 × `unchanged` → no write: `index.json` BYTE-EQUAL. Changed catalog COPY (one tag
+   added; `--sfx-catalog <copy>` while the clips still resolve against the editor repo's `sfx/` folder) → that one clip
+   `update` (`changed: ['tags']`), every other entry equal.
+7. **CLI:** `node scripts/import-sfx-library.mjs --library <assets root> --from <editor repo> [--dry-run]
+   [--sfx-catalog <file>] [--music-catalog <file>] [--report <json>]` — refuses without `--library` or `--from`, when
+   `--library` is not an existing directory, or when it lies inside `--from`. Exit 0 = no conflict / missing / invalid.
+8. **Tests (red first):** `catalog-import-map.test.ts` (parse + map of an sfx clip / a chord / a music clip shaped like
+   the real ones; `changedFields`), `catalog-import.test.ts` on a temp root with the REAL bundled ffprobe (`electron`
+   mocked only) — **fixtures are WAVs written from JS, not copies of the real clips** (a unit suite must not depend on
+   another repo on disk; the 51 real mp3s go through the live run): dry run writes nothing; import byte-identical +
+   fields + probe; re-run byte-equal index; changed catalog → one entry; Studio id in `usedIn` kept; conflict not
+   overwritten; moved file not re-copied. `library-used-in.test.ts` + `mergeUsedIn`; `pre-e1-control.test.ts` extended
+   with `audio.license` (E-d5).
 
 ## Verified (exact commands + outputs)
 

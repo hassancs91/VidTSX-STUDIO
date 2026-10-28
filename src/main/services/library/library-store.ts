@@ -15,6 +15,7 @@ import { loadIndex, serialize, writeIndex } from './library-index-io';
 import { probeLibraryFile } from './library-probe';
 import { scheduleProbeBackfill } from './library-backfill';
 import { hasUsableDuration, makeProbeStamp, needsProbe } from './library-probe-state';
+import { mergeUsedIn } from './library-used-in';
 
 const log = logEngine.createLogger('LibraryStore');
 
@@ -130,7 +131,8 @@ export function setDescription(root: string, relPath: string, description: strin
  * E1: also writes `kind` and, for audio/video, `probe` — ffprobe runs BEFORE
  * the chain so a slow probe never holds other index ops; a failed probe keeps
  * the old one only when the file is unchanged, else the back-fill retries.
- * `tags` / `audio` pass through (filled by E2 / E4).
+ * `tags` / `audio` pass through (filled by E2 / E4); `usedIn` (E4, the catalog
+ * importer) is MERGED into the entry's list — it never drops a project id.
  */
 export async function upsertEntry(
   root: string,
@@ -141,6 +143,7 @@ export async function upsertEntry(
     brandId?: string;
     tags?: string[];
     audio?: LibraryAudioMeta;
+    usedIn?: string[];
   },
 ): Promise<LibraryIndexEntry> {
   const absPath = resolveLibraryPath(root, relPath); // traversal guard
@@ -167,6 +170,7 @@ export async function upsertEntry(
       ...(meta.brandId !== undefined ? { brandId: meta.brandId } : {}),
       ...(meta.tags !== undefined ? { tags: meta.tags } : {}),
       ...(meta.audio !== undefined ? { audio: meta.audio } : {}),
+      ...(meta.usedIn !== undefined ? { usedIn: mergeUsedIn(existing?.usedIn, meta.usedIn) } : {}),
       size: stat.size,
       mtimeMs: stat.mtimeMs,
     };

@@ -72,7 +72,8 @@ describe('E-d5: an E1-written index under the pre-E1 code', () => {
     });
     await newStore.upsertEntry(root, 'sfx/b.wav', {
       origin: 'generated', description: 'a riser', tags: ['riser'],
-      audio: { category: 'tension', loudnessLufs: -20, peakDbfs: -1.5, source: 'synth' },
+      // E4: the catalog importer's `audio.license` + `peakKind: 'sample'` ride inside `audio` (pinned below).
+      audio: { category: 'tension', loudnessLufs: -20, peakDbfs: -1.5, peakKind: 'sample', source: 'synth', license: 'catalog licence text' },
     });
     await updateIndex(root, (index) => {
       for (const e of index.entries) e.usedIn = ['proj-1'];
@@ -87,6 +88,7 @@ describe('E-d5: an E1-written index under the pre-E1 code', () => {
     for (const p of ['clip.mp4', 'sfx/a.mp3', 'sfx/b.wav', 'sfx/d.ogg']) expect(m.get(p)?.probe?.duration).toBe(2.5);
     expect(m.get('img/c.png')?.probe).toBeUndefined();
     expect(m.get('sfx/b.wav')?.audio?.category).toBe('tension');
+    expect(m.get('sfx/b.wav')?.audio?.license).toBe('catalog licence text');
     // No index existed before → nothing to back up.
     await expect(fs.access(getLibraryIndexBackupPath(root))).rejects.toThrow();
   });
