@@ -1,7 +1,9 @@
 # Track-E exit — §0 E5, a fresh check
 status: NEW
 
-> Track E, session 7 — runs only AFTER E3 verifier round 3 PASSES. **Work only in the worktree**
+> Track E, session 8 — runs only AFTER E3 verifier round 4 (E3's last, bar E-d15) PASSES. Updated 2026-10-29 for fix round 3's
+> **miss rule** (E-d15, code `7967c6f`): on a miss with candidates `generate_sfx` answers the three closest library sounds and
+> generates nothing — generation needs `force: true` (step 0's marker, step 6 (b), step 8). **Work only in the worktree**
 > `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`) for anything under git; the kit and the
 > scratch root live OUTSIDE it. This is a CHECK, not a build: no `src/` or `scripts/` change. Written by the orchestrator.
 
@@ -21,8 +23,10 @@ CDP **9280**, the worktree's own build (`wt/out`).
    launch; a watchdog that stops only OUR app (matched by profile path + `Name='electron.exe'`) if C: < 1.5 GB (kit
    `.vidtsx-temp\end-to-end\E1\watchdog.ps1`). 0 `electron.exe` of Hasan's running (his = `--user-data-dir` of `%APPDATA%\VidTSX
    Studio` or none) — if his app runs, E-d4 applies. Confirm `wt/out` is the build of the current `src/` (`git log -1 --format=%h --
-   src/` vs the build stamp: `out/main/index.js` mtime after that commit's time, and a marker of the last matcher change in
-   `out/main/index.js`, e.g. `PLACEMENT_BONUS`); if not, STOP and say so (the orchestrator decides on a rebuild).
+   src/` must be the fix-round-3 code hash `7967c6f` (or a later one the orchestrator names) and the build stamp must follow it:
+   `out/main/index.js` mtime after that commit's time, and the markers of the last matcher / tool changes present in
+   `out/main/index.js` — `No library sound matched` (the miss rule, `7967c6f`) and `PLACEMENT_BONUS`); if not, STOP and say so
+   (the orchestrator decides on a rebuild).
 1. **Profile.** `robocopy C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\source\profile
    C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E-exit\profile /E /XF settings.db*` — then list `settings.db*` in the copy:
    must be 0 (the app creates its own store at first launch; never open it). Never launch on `source`.
@@ -50,21 +54,31 @@ CDP **9280**, the worktree's own build (`wt/out`).
      clip) whose asset is a LIBRARY whoosh (`library:sfx/whoosh-…`), and NO generation: `<library>\generated\` file count and the
      index's `generated/` entries unchanged; no `standin` call in the app log; the tool calls of the turn (from the Assistant's
      messages) show `list_assets` and/or `generate_sfx` answering library matches.
-   - (b) project A: **"Add a cuckoo clock chime at the first cut. Generate it if the library has none."** (explicit, so ask-first
-     does not cost a turn) → PASS = generated ONCE through the stand-in (`generated/` +1 file, one new index entry with
+   - (b) project A: **"Add a cuckoo clock chime at the first cut. The library has no cuckoo clock — generate a new one with force
+     rather than reusing another chime."** (explicit, so ask-first costs no turn AND the model is told to pass `force`: under the miss
+     rule (E-d15, `7967c6f`) the first `generate_sfx` call on a clean 51-clip library answers "No library sound matched … The closest
+     library sounds:" — the chimes / clock-tick — and generates NOTHING; the model must call again with `force: true`) → PASS = the
+     turn's tool calls show `generate_sfx` answering the closest library sounds (nothing generated, no `standin` call yet) and then
+     `generate_sfx(…, force: true)` generating ONCE through the stand-in (`generated/` +1 file, one new index entry with
      `audio.source`/`model` `standin`, `audio.loudnessLufs` ≈ −20, `tags`, `probe.duration`, `usedIn` containing project A's id after
      the import/insert), an independent `ebur128` on the generated file = −20 ± 0.5 LUFS integrated and true peak ≤ −1.5 dBTP, and
-     placed (an `insert_asset` card or clip for it).
-   - (c) project **B**: **"Add a cuckoo clock chime at the first cut."** → PASS = FOUND in the library (the generated chime offered /
-     placed by its `library:generated/…` ref), `generated/` count unchanged, no second `standin` call.
+     placed (an `insert_asset` card or clip for it). If the model places a library chime or asks instead of forcing, that is the
+     turn's result — record it; then turn (c) becomes **"Generate it with force: true."** on project A (still inside the 3-turn
+     budget) and the "asked again → FOUND" clause (c below) is measured through the REAL handler with the app STOPPED (no model; the
+     E3 kit's `tools-noprovider-fix3.e3.test.ts` recipe on THIS profile's library) — stated in the report as a partial-live
+     measurement.
+   - (c) project **B**: **"Add a cuckoo clock chime at the first cut."** → PASS = FOUND in the library — now a MATCH (the generated
+     chime's tags / description carry the words): the generated chime offered / placed by its `library:generated/…` ref ("The library
+     already has …", not the miss answer), `generated/` count unchanged, no second `standin` call.
    If a turn ends asking a question instead of acting, that is the turn's result — record it (do not spend turns beyond the budget);
    one retry is allowed ONLY for an API / transport error.
 7. **Assets screen (CDP, no model):** the generated chime's tile and details show duration, tags and loudness (the details' sound
    rows), and it PLAYS: click its tile play control (or the details `<audio controls>`) → an `<audio>` element with that file's
    module-server `src`, `!paused`, `currentTime` advancing over ~1 s, `readyState` ≥ 2. A still of the details panel.
-8. **Report:** five lines (verdict per clause of E5: "found before regenerated", "placed from the library, no generation call", "a
-   generated one appears with duration, tags, loudness", "and plays"), the evidence paths. The orchestrator records it in
-   ORCHESTRATOR.md.
+8. **Report:** six lines (verdict per clause of E5: "found before regenerated", "placed from the library, no generation call", "a
+   generated one appears with duration, tags, loudness", "and plays"; plus the miss rule — on the cuckoo's first ask the tool
+   answered the closest library sounds and generated nothing, and generation happened only with `force` — or what happened), the
+   evidence paths. The orchestrator records it in ORCHESTRATOR.md.
 
 ## Rules (binding)
 
