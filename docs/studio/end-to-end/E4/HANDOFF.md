@@ -1,5 +1,5 @@
 # E4 — The importer over the reference `sfx/` and `music/` catalogs
-status: DONE
+status: FIX
 
 > Track E, session 5 — **runs BEFORE E3** (E3's exit, the whoosh case, needs the imported library). **Work only in
 > the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are
@@ -328,7 +328,25 @@ Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-t
 
 ## Next step (ONE concrete instruction)
 
-**E4 verifier round 2:** check fix round 1 against the evidence — `4fa1551` (the test: `snapshot` records folders; re-apply M1
+**FIX ROUND 2 — builder #5, RECORDS ONLY (orchestrator, 2026-10-28; verifier round 2 FAILED on one stale line, R3 — see
+"Verifier round 2" under Open problems). E4 has 2 of 3 FAILs: a third stops the run, so this round must leave NO false
+statement in the E4 records.** No `src/`, `scripts/` or test change. In order: (1) **R3:** `Status.md:22` "`src/` last changed in
+`4aed92f` — `git diff --stat 4aed92f..HEAD -- src/` is empty" is false since `4fa1551` → "product code last changed in `4aed92f`;
+since then only the test `catalog-import.test.ts` (`4fa1551`, fix round 1)" (run the commands and quote their output as of your
+commit). (2) **Note 1:** TESTING:518 / Status:141-143 "then it is `unchanged`" → `unchanged` when the catalog entry is unchanged,
+`update` (fields only, still no copy) when its fields changed. (3) **Note 2:** Status:140's conflict claim "no entry" — cite its
+evidence: verifier round 1's persisted `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\neg-lib\.vidtsx\index.json` (49 entries,
+none at the conflicting relPath — open it and confirm; if the path differs, find the right one under `E4-verify\`), and say the
+printed check in `negatives.txt` crashed on a path-escaping MODULE_NOT_FOUND (the verifier's own driver, not the product). (4)
+**The audit — the point of this round:** list EVERY statement in the E4 Status entry (:10 to the E2 entry's title) and TESTING
+§18.16 that describes the git / tree / build state or a "since" / "last" / "HEAD" / "empty" / "unchanged" / "current" claim, a
+count of commits, files or lines, or a file:line pointer; re-check each one against HEAD (or mark it explicitly as historical
+with its hash, e.g. "at `cf5328d`", "built at `5247ed9`") and fix any that is false or ambiguous; write the audit table (statement
+· line · check command · result · action) into this HANDOFF under Verified. (5) A line "verifier round 2 FAIL (records: R3) →
+fix round 2 `<hash>`" in the Status entry and §18.16. Commit the docs (`docs(studio): E4 — fix round 2 records (R3, notes 1–2,
+audit)`) with explicit paths; HANDOFF `status: DONE`, LOG line, commit. Edit/Write tools only.
+
+(Superseded 2026-10-28 by the round-2 FAIL:) **E4 verifier round 2:** check fix round 1 against the evidence — `4fa1551` (the test: `snapshot` records folders; re-apply M1
 and see it red, `fix1-red.log` / `fix1-green.log`), `51dff42` (records: TESTING §18.16 :511 / :518 / :520, Status.md E4 entry
 :10 / :27-29 / :46 / :84-89 / :139-149 / :157-167 — the "Records changed" line under Verified) and that `git diff --stat
 3a39dc7..HEAD -- src/ scripts/` is the test file only (so the round-1 gates, exit evidence and `wt/out` at `5247ed9` still stand).
@@ -406,6 +424,24 @@ and hand off or continue by the 30 % rule; the script, the live run on the E4 pr
 `list_assets` → the Assets still) and the gates follow.
 
 ## Open problems
+
+### Verifier round 2 — FAIL on one stale records line (2026-10-28; no launch; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\r2\`)
+
+- **R3 (records defect, new).** `Status.md:22` "The code (pointers read at HEAD; `src/` last changed in `4aed92f` — `git diff
+  --stat 4aed92f..HEAD -- src/` is empty)" is false at HEAD: that diff shows `catalog-import.test.ts | 7 +++++--`, `git log -1 --
+  src/` → `4fa1551`. It contradicts the same entry's :165 (`git diff 3a39dc7..HEAD -- src/ scripts/` = the test only); `51dff42`
+  edited :27-29 of that bullet but not its header. Historical lines with an explicit hash (TESTING:510 "at `5247ed9` (`src/` as of
+  `4aed92f`)", TESTING:519 / Status:127 "HEAD `cf5328d`") are still true.
+- Passed (its own checks): the code unchanged (`catalog-import.ts` blob `c6342087…`, the script `4fcb4b25…` at `3a39dc7`, HEAD and
+  the working tree); N1's test catches M1, M1' nested, M1' `.vidtsx/tmp`, M1c (old test caught only `.vidtsx/tmp`); gates
+  (default workers, headroom 28.8 GB) 489 / 3 / 5 files, 4,165 / 9 / 35 tests, FAIL lines identical to round 1's; rule (b) its
+  `graph-esbuild.cjs` NONE (control 16 hits); tsc 26 / 10; targeted 25 / 219. **R1, R2, N1, N2 FIXED** (every cited round-1 evidence
+  file holds; no unconditional "not re-copied" left in any `*.md`).
+- Notes (non-blocking): **1** "then it is `unchanged`" (TESTING:518 / Status:141-143) holds only when the catalog entry is
+  unchanged — with changed fields it is `update` (fields only, no copy); **2** Status:140's conflict "no entry" is not in
+  `negatives.txt` as printed (round 1's index check crashed there on a path-escaping MODULE_NOT_FOUND) — the persisted index
+  confirms it, but Status cites no file; **3** with `vi.mock`'d modules followed, `shot-bundle-in-place` hits 18 files (rule (b) as
+  written does not follow them); **4** vitest from the worktree updates the gitignored `wt/node_modules/.vite/vitest/…/results.json`.
 
 **Fix round 1 (builder #4, 2026-10-28): R1, R2, N1, N2 CLOSED** — R1 + R2 + N2 in the records (`51dff42`), N1 by the test
 (`4fa1551`, red with M1 → green); N3 / N4 / N5 need no change (already recorded). Nothing open.
