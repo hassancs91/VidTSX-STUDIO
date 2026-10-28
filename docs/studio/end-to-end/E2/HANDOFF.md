@@ -1,5 +1,5 @@
 # E2 — Generation writes loudness-normalized files with category/tags; `usedIn` written on every landing
-status: BUILDING
+status: DONE
 
 > Track E, session 5. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 + E-d2a in ORCHESTRATOR.md
@@ -10,8 +10,9 @@ status: BUILDING
 > (§5 done — the code of E2 is complete). **The LIVE step is DONE (builder #5, 2026-10-24): the exit's items 1–4,
 > the ceiling-binding case and the music path ran through the REAL handlers on the E2 profile with the stand-ins,
 > every number is in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\exit.json` + `exit-summary.md`; the live CDP
-> click-through (port 9262) and its still are taken; the gates ran (under Verified).** The RECORDS are next
-> (Status.md entry, TESTING §18.15, V4-N1, HANDOFF DONE, LOG) — nothing left to measure.
+> click-through (port 9262) and its still are taken; the gates ran (under Verified).** **The RECORDS are written
+> (builder #6, 2026-10-28, `3249cbe`, docs only): the Status.md entry at the top (`Status.md:10-192`), TESTING §18.15
+> (`docs/studio/TESTING.md:492-506`), V4-N1. E2 is DONE on the builder side; the E2 verifier (round 1) is next.**
 
 ## Goal (the §3 row verbatim + the exit)
 
@@ -433,6 +434,27 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   tiles with descriptions, the whoosh's details panel), `build-1.log`, `watchdog.log`, `diff-list.txt` + `import-graph.txt` (rule
   (b)), `vitest-full-1.log`, `tsc-web-5.log` / `tsc-node-5.log`.
 
+### Records (builder #6, 2026-10-28 — docs only, commit `3249cbe`)
+
+- `Status.md:10-192` — the E2 entry at the TOP (above E1's, now at :194), dated 2026-10-24, titled like E1's ("— DONE
+  (builder records; the E2 verifier is next)"): What · The code per commit (`60b5537` / `841e311` / `68bbe44` / `3084668`, file:line
+  re-read at HEAD — see Open problems for the shifted numbers) · the loudness rule + the bundled-ffmpeg toolset · `peakKind 'true'`
+  · libmp3lame 192k · the un-normalized policy · the DEV-ONLY stand-in named (`VIDTSX_AUDIO_STANDIN_FILE`, `!app.isPackaged`, after
+  the BYOK loop, `costUsd 0`, mp3 only) · builder #2's notes answered · the three `usedIn` seams (pool import helper-tested only) ·
+  the listing row · the live exit numbers (main / ceiling / music, the independent meter, the CDP outputs, the still) + the
+  Assets-screen-prints-no-duration note · gates (import-graph method + the 3 E-d2a suites, 485 / 4,138, tsc 26 / 10) · V4-N1 ·
+  not measured · for Hasan · evidence. Every number copied from `exit.json` / `exit-summary.md` / `vitest-full-1.log` /
+  `import-graph.txt` / `tsc-*-5.log` / `build-1.log` (opened this session), not from memory.
+- `docs/studio/TESTING.md:492-506` — §18.15 after §18.14's shape (E-d10): a Material paragraph + 13 items; ✎ only on the Assets
+  click-through (the one thing that ran in the app over CDP); the handler items say "stopped-app driver on the live index".
+- V4-N1: `Status.md:98` (now `:282`, the E1 entry's W2 line) — "`sync-probes.ts:141` fall back to the composition size; proxies
+  (`proxy-generator.ts:231`); `AssetCard`'s "· W×H"" → "`sync-probes.ts:141` fall back to the composition size; `AssetCard`'s
+  "· W×H""; `docs/studio/TESTING.md:486` — "fall back to the composition size, proxies, `AssetCard`; none changes for a real
+  video." → "fall back to the composition size, `AssetCard`; none changes for a real video (proxies are not a consumer:
+  `proxy-generator.ts` reads `probe.duration` + `probe.hasAudio` only — E1 verifier round 4, V4-N1)." Checked at HEAD:
+  `proxy-generator.ts` reads `probe.duration` (:240) and `probe.hasAudio` (:251, :321) only. V4-N2 not needed
+  (`pre-e1-control.test.ts` untouched).
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-24 · builder #1 · from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
@@ -563,10 +585,25 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   "roughjs"` / `"@remotion/shapes"` / `"@react-three/fiber"` / `"chroma-js"` …) — resolution only; no timeouts. Types:
   `tsc -p tsconfig.web.check.json --noEmit` → **26** `error TS` lines; `-p tsconfig.node.check.json` → **10**; none in E2's files
   (`…\E2\tsc-web-5.log`, `tsc-node-5.log`).
+- 2026-10-28 · builder #6 · **records, docs only** (no build, no launch, no driver re-run, no measurement, no vitest run). Evidence
+  re-read for the numbers: `cat exit-summary.md exit.json` (75 + 265 lines; every Status / TESTING number matches them and the
+  Verified lines above); `grep -E "Test Files|Tests |Start at|Duration" vitest-full-1.log` → `Test Files 3 failed | 485 passed | 5
+  skipped (493)` · `Tests 9 failed | 4138 passed | 35 skipped (4182)` · `Start at 10:36:10` · `Duration 51.80s`; the 9 `FAIL` lines are
+  `shot-bundle-in-place.test.ts` ×3, `shot-bundle.test.ts` ×5, `builder-libraries.test.ts` ×1; `cat import-graph.txt` → the four
+  "touched by the E diff: NONE" lines; `wc -l < diff-list.txt` → 68; `grep -c "error TS" tsc-web-5.log tsc-node-5.log` → 26 / 10;
+  `build-1.log` → `✓ built in 2m 30s`; `assets-generated.png` 73,513 bytes. Line numbers for the Status entry re-read at HEAD with
+  `grep -n` over the E2 files. Commit `3249cbe` (`git add -- Status.md docs/studio/TESTING.md`). Then, from the worktree root:
+  `git diff --stat 3084668..HEAD -- src/` → **empty output** (no `src/` file changed since the last code commit).
 
 ## Next step (ONE concrete instruction)
 
-**Builder #6 — the RECORDS only (no new measurement, no launch, no build, no driver run; everything is measured and under
+**E2 is DONE on the builder side. Orchestrator: spawn the E2 verifier, round 1** (ORCHESTRATOR "Session 6": the exit, the gates,
+its own negative / control cases on ITS OWN profile copy `profiles\E2-verify` without `settings.db*`, CDP 9272, its own stand-in
+sounds through the dev seam `VIDTSX_AUDIO_STANDIN_FILE`, an independent meter; the E2 profile's library read-only). Its inputs:
+`Status.md:10-192`, `docs/studio/TESTING.md:492-506`, this file, `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\exit.json` +
+`exit-summary.md`.
+
+(Done by builder #6, kept for the record:) **Builder #6 — the RECORDS only (no new measurement, no launch, no build, no driver run; everything is measured and under
 Verified / `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\exit-summary.md` + `exit.json`).** In order: (1) read `Status.md:10-219`
 (E1's entry = the house format) and `docs/studio/TESTING.md:476-493` (§18.14's shape); (2) write the E2 `Status.md` entry at the
 TOP, dated 2026-10-24, titled like E1's, with: What · The code (every E2 commit: `60b5537` normalizer + rule, `841e311` call site +
@@ -744,6 +781,20 @@ scratch; never read, copy or open a `settings.db`.
 - (builder #5, note) `generate_music` with `durationSeconds: 3` (the engine's `MUSIC_MIN_SECONDS`) → the stand-in's 2.0 s file; the
   index `probe.duration` is the real 2.0 s and the answer prints `2.00 s` (the probe wins over the request, as designed); no
   `category` given → none written (`audio` without `category`), tags none.
+- (builder #6, discrepancy — records vs the code at HEAD; the Status entry uses HEAD's numbers) Several file:line refs in "Done"
+  above no longer match the code at `3084668` (= HEAD for `src/`): `generate-audio-asset.ts` — `normalizeAudioFile` is at :135 (Done:
+  :131), `peakKind: 'true'` :142 (the meta, Done: :134-143), `upsertEntry` :152 (Done: :148-154), `probe?.duration` :159 (Done:
+  :155-156), `normalizeCategory` :102 (Done: :108-111); `library-listing.ts` is 78 lines with `formatLibraryRow` :22 and
+  `formatMetaSuffix` :43 (Done: 57 lines, :21-33 / :35-57); `library-paths.ts` `libraryRelPathOf` :69 (Done: :63-75);
+  `library-import.ts` existing-asset mark :51 (Done: :50-53); `audio-tools.ts` `describeLevel` :61-63 (Done: :66-74, before builder
+  #4 moved `signed()` out); and the engine's hard-coded `ext: '.mp3'` is at `audio-generation-engine.ts:155`, not :158 (design note
+  §2, builder #2's note). No behaviour claim is affected — only the line numbers.
+- (builder #6, note — not in HANDOFF before) The music path's answer names the SAME project asset id as the ceiling case
+  (`266dace6-b947-4506-852a-f1dded303690`, `exit.json` `ceiling.answer` / `music.answer`): both generated files are byte-identical
+  (one stand-in through the same +4.18 dB; index `hash 836dabd68d5c49cd6541da85f78e611424ec87e6` on both), so `importLibraryFile`'s
+  `matchExistingAsset(known, absPath, hash)` (`library-import.ts:46`, pre-E2) returned the tick train's project asset; the music
+  entry's `usedIn ["e2-exit"]` was still marked (:51). A stand-in artefact (a real provider never returns identical bytes for two
+  prompts); recorded in Status / TESTING, not a finding. A verifier may want its two stand-ins to differ.
 
 ## Do-not-redo
 
@@ -769,6 +820,8 @@ scratch; never read, copy or open a `settings.db`.
   and `exit.json` / `exit-summary.md` (re-running them adds MORE generated files to the live library — `-3.mp3` …; do not re-run
   for the records). The live click-through + the still `assets-generated.png`. The import-graph run (`…\E2\import-graph.txt`) —
   re-run only if the diff list changes (a `src/` commit).
+- (builder #6) The records: `Status.md:10-192`, `docs/studio/TESTING.md:492-506`, V4-N1 (`3249cbe`). A verifier fix round edits
+  them in place; it does not rewrite them from scratch.
 
 ## For Hasan (real-video list candidates)
 
@@ -807,3 +860,8 @@ scratch; never read, copy or open a `settings.db`.
   ceiling case, the music path — all within tolerance, numbers in `exit.json`); the live click-through on 9262 (Studio root first,
   library root confirmed, Assets → generated, the still); the gates (import graph, full vitest, tsc); records + hand-off at the
   step boundary (the records are the next step). No `src/` change.
+- 2026-10-28 · builder #6 · ~25 · the RECORDS only: read CLAUDE.md, this HANDOFF in full, `Status.md:1-225` (E1's entry), TESTING
+  §18 head + §18.14, DRIVING "Never touch" + "Track E", ORCHESTRATOR "Track B decisions" + "Session 6", PLAN T6 + the E2 row, the
+  evidence (`exit-summary.md`, `exit.json`, the gate logs) and `grep -n` line checks of the E2 files; wrote the Status entry
+  (`Status.md:10-192`), TESTING §18.15 (`:492-506`), V4-N1 (Status W2 line now :282, TESTING :486); commit `3249cbe`; HANDOFF
+  DONE + LOG. No `src/` change (`git diff --stat 3084668..HEAD -- src/` empty), no build, no launch, no driver run, no vitest.
