@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: STOPPED — three verifier FAILs (round 3 FAIL on F3, 2026-10-28 23:15); a fix round 3 waits for Hasan's go
+status: FIX — fix round 3 (Hasan's go 2026-10-28 23:34, decision E-d15: items 1–4 incl. the miss rule), then verifier round 4 = E3's LAST
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -624,9 +624,9 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**WAITING FOR HASAN (orchestrator, 2026-10-28 23:15).** Verifier round 3 FAILED on F3 (Open problems → "Verifier round 3"), E3's
-third FAIL → the run stopped (session-7 rule). Nothing starts on E3 until Hasan says go. **Proposed fix round 3** (one builder,
-red first, the corpus stays the bar), if he says go:
+**FIX ROUND 3 — builder #9 (Hasan's go 2026-10-28 23:34 = decision E-d15 in ORCHESTRATOR.md "Session 7": items 1–4 below, item 3
+INCLUDED — read E-d15 for the exact miss rule and verifier round 4's bar).** Verifier round 3 FAILED on F3 (Open problems →
+"Verifier round 3"). Red first, commit at each green checkpoint, hand off per the 30 % rule:
 1. **Corpus first:** add verifier round 3's probes (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r3\b-probes.txt`,
    `c-probes2.txt`, `c-probes3.txt`) with the right outcome by plain meaning — at least "running water" / "the sound of running
    water" / "a running brook" / "a running stream" → `stream-soft` first; "a tap running" / "water running over rocks" → never
@@ -640,13 +640,13 @@ red first, the corpus stays the bar), if he says go:
    second`) and the adverbs that lead into a placement or a preposition (`right`, `exactly`, `only`, `even`, `just`, `shortly`,
    `immediately`; trailing `here` / `now` / `again` / `too`) never become the head word. **F3c:** stem before the `SAME_SOUND` map
    (swooshing = whooshing). Pin MI (the bonus cap) and MJ (the bonus applied only after the match threshold) with tests.
-3. **Hasan's design call (recommended with 1–2):** make a matcher MISS cheap — when nothing reaches the threshold but the library
+3. **The miss rule (Hasan chose it, E-d15):** make a matcher MISS cheap — when nothing reaches the threshold but the library
    holds candidates (coverage > 0), `generate_sfx` / `generate_music` answer the three nearest as "closest library sounds — none
    matched well; call again with `force: true` to generate", so every generation follows the model having seen the library. Then
    the matcher's bar is recall (the right clip in the top 3) and the model picks; one extra tool call on a true miss (the cuckoo).
 4. Regression report old `788c8d2` and `09e81ea` vs new over the whole extended corpus; gates; rebuild `wt/out`; records (Status.md
    E3 entry — also its title, which still says "the E3 verifier round 3 is next" — and TESTING §18.17).
-5. **Verifier round 4** — only with Hasan's explicit go (the three-FAIL limit is reached).
+5. **Verifier round 4** (Hasan's go, E-d15) — E3's LAST: a FAIL stops the run; its bar is E-d15's (i)–(iv).
 
 (Superseded 2026-10-28 23:15 by the round-3 FAIL:) **E3 verifier round 3 — the bar is E-d14** (CDP 9273, its own `profiles\E3-verify` copy WITHOUT `settings.db*` may be reused;
 range `0e168cf..HEAD` — the fix `09e81ea`, the records `5e56594`; the records to check: Status.md E3 entry :10-453, TESTING

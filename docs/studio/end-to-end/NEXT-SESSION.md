@@ -1,4 +1,7 @@
-# Next session — END_TO_END_PLAN.md, session 8 (track E: Hasan's call on E3 after its third FAIL, then the track-E exit)
+# Next session — END_TO_END_PLAN.md, session 8 (track E: E3 fix round 3 + its last verifier, then the track-E exit)
+
+> **Hasan, 2026-10-28 23:34: "go with the recommendation"** → fix round 3 WITH the miss rule, then verifier round 4 (decision
+> **E-d15**, ORCHESTRATOR.md "Session 7"). The paste-in below is final.
 
 > **This file's current copy lives on branch `end-to-end-p0-e`** (worktree
 > `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`); the main checkout's copy (branch `end-to-end-p0`) is the
@@ -33,7 +36,7 @@
   working on `end-to-end-p0-e`.
 - **TESTING §18 numbering (E-d10):** unchanged (E3 18.17; C / D / F from 18.18).
 
-## Session 8 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO` (edit the SCOPE paragraph to your call)
+## Session 8 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`
 
 ```
 You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),
@@ -44,26 +47,27 @@ builder and verifier briefs, the stop report, the "things you never do") with th
 first: CLAUDE.md; docs/studio/END_TO_END_PLAN.md (esp. §0 E5, §1.6, T6, §3 Track E, §5); the top of
 Status.md (the E3 entry); docs/studio/end-to-end/NEXT-SESSION.md (state, lessons); docs/studio/end-to-end/
 ORCHESTRATOR.md ("Answers in force", "Session 4 — track E" with E-d1…E-d10 + E-d2a, "Session 6" with
-E-d11…E-d14, "Session 7" with its log and stop, "For Hasan's real-video test"); docs/studio/end-to-end/
-DRIVING.md (esp. "Track E" incl. E-d13); docs/studio/end-to-end/E3/HANDOFF.md (all of it — "Next step" =
-the proposed fix round 3, "Open problems" → "Verifier round 3" / 2 / 1); docs/studio/end-to-end/E-exit/
-HANDOFF.md; docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
+E-d11…E-d14, "Session 7" with its log, its stop and E-d15, "For Hasan's real-video test");
+docs/studio/end-to-end/DRIVING.md (esp. "Track E" incl. E-d13); docs/studio/end-to-end/E3/HANDOFF.md (all
+of it — "Next step" = fix round 3, "Open problems" → "Verifier round 3" / 2 / 1);
+docs/studio/end-to-end/E-exit/HANDOFF.md; docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
 
 FIRST check the main checkout: if its uncommitted work is gone/committed and Hasan's dev app is not running,
 say so in one line; either way keep working in the worktree (decision E-d1) unless I say to land it.
 
-SCOPE, in order, no stop between parts: (1) E3 — fix round 3 as proposed in the E3 HANDOFF "Next step"
-items 1, 2 and 4 [AND item 3, the design call: a matcher miss answers the three nearest library sounds and
-generation needs force — DELETE this bracket if you do not want it], then E3 VERIFIER ROUND 4 — E3's LAST
-(my extension past the three-FAIL limit; a FAIL stops the run): the bar is E-d14 plus verifier round 3's
-probes as corpus rows; its own profile (E3-verify may be reused), the gates, its own negative / mutation
-cases, the records. (2) The track-E exit (docs/studio/end-to-end/E-exit/HANDOFF.md). Stop after the
-track-E exit, on BLOCKED, or on E3's FAIL. Do NOT touch B7's verifier, the track-B exit, or tracks C, D, F.
-Anything that needs my hands, ears or keys: build + verify up to it, mark it DEFERRED-HASAN, add it to
-ORCHESTRATOR's "For Hasan's real-video test" list, continue.
+SCOPE, in order, no stop between parts: (1) E3 — fix round 3 exactly as the E3 HANDOFF "Next step" items
+1–4 and decision E-d15 say, INCLUDING the miss rule (when nothing reaches the match threshold but the
+library has candidates, generate_sfx / generate_music answer the three nearest library sounds and generate
+only with force); then E3 VERIFIER ROUND 4 — E3's LAST (my extension past the three-FAIL limit; a FAIL
+stops the run), judged by E-d15's bar (i)–(iv); its own profile (E3-verify may be reused), the gates, its
+own negative / mutation cases and its own broad probe set, the records. (2) The track-E exit
+(docs/studio/end-to-end/E-exit/HANDOFF.md — update its step 6 for the miss rule if it changes what a turn
+must show). Stop after the track-E exit, on BLOCKED, or on E3's FAIL. Do NOT touch B7's verifier, the
+track-B exit, or tracks C, D, F. Anything that needs my hands, ears or keys: build + verify up to it, mark
+it DEFERRED-HASAN, add it to ORCHESTRATOR's "For Hasan's real-video test" list, continue.
 
 OVERRIDES for the whole run
-- Answers in force: ORCHESTRATOR.md Q1–Q6 and decisions E-d1…E-d14, E-d2a (rule (a) withdrawn).
+- Answers in force: ORCHESTRATOR.md Q1–Q6 and decisions E-d1…E-d15, E-d2a (rule (a) withdrawn).
 - Paid providers: no call on a paid key. Generation only through E2's dev-only stand-in
   (VIDTSX_AUDIO_STANDIN_FILE, non-packaged builds only); the one live ElevenLabs call stays on my list.
 - Model calls only through the app's own keyless Claude subscription provider, only as much as a part needs

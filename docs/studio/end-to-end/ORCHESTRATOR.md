@@ -1179,3 +1179,23 @@
   `8ee0642`); E3 verifier round 3 FAIL on F3 (a matcher regression vs `788c8d2` + the F2 / F1 classes; the records were true). Not
   run: the track-E exit (its HANDOFF is prepared). Proposed next: Hasan's go / no-go for a fix round 3 + verifier round 4, and his design
   call (E3 HANDOFF "Next step" item 3). No `src/` change this session. Nothing pushed; `end-to-end-p0-e` not merged.
+- 2026-10-28 23:34 · **Hasan: "go with the recommendation, give me a prompt to do it in a continue in a new session"** → fix round 3
+  WITH the design call (item 3), then verifier round 4, in session 8 (paste-in in NEXT-SESSION.md). Recorded as E-d15.
+
+### E-d15 (Hasan's go, 2026-10-28 23:34) — E3 fix round 3, the miss rule, and verifier round 4's bar
+
+- **Scope:** one more fix round on E3 past the three-FAIL limit (E3 HANDOFF "Next step" items 1–4, item 3 included) and **verifier round 4
+  — E3's LAST: a FAIL there stops the run.**
+- **The miss rule (item 3):** when no library sound reaches the match threshold but some candidates of the right class score above zero,
+  `generate_sfx` / `generate_music` generate NOTHING: they answer the three nearest as "closest library sounds — none matched well; call
+  again with `force: true` to generate" (rows in E2's format, so the model reads each description). Only when no candidate scores at all
+  does the tool generate without `force`. `force: true` always generates (as now). The reuse lookup stays before the provider check;
+  the prompt rule and the tool descriptions say so. A `compositionPlan` music call still skips the lookup.
+- **Verifier round 4's bar (replaces E-d14 for round 4):** it FAILS E3 only for (i) a corpus row failing — the corpus being the 150 rows
+  plus verifier round 3's probes (`…\E3-verify\r3\b-probes.txt`, `c-probes2.txt`, `c-probes3.txt`) with plain-meaning outcomes; (ii) an
+  ordinary phrasing where the library clearly has the sound and the tool GENERATES without `force` (the right clip is not among the
+  matches or the three nearest); (iii) an F1 / F2 / F3-class phrasing (placement clauses / openers / leading adverbs; inflection or
+  prefix word matching) where a confident match (above the threshold) puts a clearly wrong sound first while the right clip exists; (iv)
+  a false record. Anything else — a right clip second or third, a near-miss list that holds a stranger clip, other classes — is a NOTE for
+  Hasan's list. The builder runs old (`788c8d2`, `09e81ea`) vs new over a broad probe set of its own (inflections of every catalog tag
+  word, placement openers, leading adverbs) before claiming no regression.
