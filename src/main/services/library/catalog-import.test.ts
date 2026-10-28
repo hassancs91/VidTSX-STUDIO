@@ -42,12 +42,15 @@ function wav(seconds: number, freq: number): Buffer {
 const sha = async (abs: string): Promise<string> =>
   crypto.createHash('sha256').update(await fs.readFile(abs)).digest('hex');
 
-/** Every file under `dir` (dot-folders included) → sha256, sorted. */
+/**
+ * Every folder (a `<rel>/` line — so an EMPTY folder a dry run created shows up, verifier round 1 N1) and every
+ * file (`<rel> <sha256>`) under `dir`, dot-folders included, sorted.
+ */
 async function snapshot(dir: string, base = dir): Promise<string[]> {
   const out: string[] = [];
   for (const e of await fs.readdir(dir, { withFileTypes: true })) {
     const abs = path.join(dir, e.name);
-    if (e.isDirectory()) out.push(...(await snapshot(abs, base)));
+    if (e.isDirectory()) out.push(`${path.relative(base, abs)}/`, ...(await snapshot(abs, base)));
     else out.push(`${path.relative(base, abs)} ${await sha(abs)}`);
   }
   return out.sort();
