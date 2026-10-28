@@ -24,22 +24,22 @@ const ROWS: CorpusRow[] = [
   ['a dies roll', '*'], ['dice rolling', '∅'],
   ['a swinging door', 'knock-solid|∅'], ['a winding clock', 'clock-tick-soft'], ['a wind-up toy', '*'], ['winding up', '*'],
   ['a running joke sting', 'sting-scare-comic|∅'],
-  ['a run', 'dash-zip|∅'], ['runs', 'dash-zip|∅'], ['a running man', 'dash-zip|∅'], ['a man running', 'dash-zip|∅'], ['a runner', 'dash-zip|∅'],
+  ['a run', 'dash-zip|∅'], ['runs', 'dash-zip|∅'], ['a running man', 'dash-zip|∅'], ['a man running', 'dash-zip|∅'], ['a runner', '∅'], // recall (fix 3): runner ≠ run (no -er), no clip scores
   ['running', 'dash-zip|∅'], ['a running engine', '∅'], ['a running fan', '∅'],
   ['a scanning laser', 'scan-hum|∅'], ['a hummingbird', '∅'], ['a human voice', '∅'], ['a timer beep', 'clock-tick-soft|∅'],
   ['timers', 'clock-tick-soft'], ['a ticket machine', '∅'],
   ['a floating island ambience', '*'], ['a gliding plane', 'whoosh-wind|∅'], ['a sweeping broom', '*'], ['a swept floor', '∅'], ['sweeping strings', '*'],
   ['a bubbly pop', 'pop-reveal'], ['a puffy cloud', '*'], ['puffing', 'flame-snuff|∅'], ['a gone moment', '*'], ['going', '*'],
-  ['an eating sound', 'crunch-bite'], ['eaten', 'crunch-bite|∅'],
+  ['an eating sound', 'crunch-bite'], ['eaten', '∅'], // recall (fix 3): eaten ≠ eat (no -en), no clip scores
   ['a sliding door', 'knock-solid|∅'], ['a slide whistle', '∅'], ['sliding', '*'], ['a light switch', 'ui-toggle-on'], ['lighting', '*'],
   ['a lightning strike', '*'],
   ['a magical moment', '*'], ['magic', 'chime-magic|sparkle-soft'], ['a positive ding', `${CHIME}|∅`], ['positively', '*'],
   ['a hopeful chime', CHIME], ['hopes', '*'],
   // ── c-probes2 "running" (F3: `running` → dash-zip's `run` tag) ──
   ['the sound of running water', 'stream-soft', NO_DASH], ['gently running water', 'stream-soft'], ['softly running water', 'stream-soft'],
-  ['cool running water', 'stream-soft'], ['running water from a tap', 'stream-soft'], ['a tap running', 'stream-soft|∅', NO_DASH],
+  ['cool running water', 'stream-soft'], ['running water from a tap', 'stream-soft'], ['a tap running', '∅', NO_DASH], // recall (fix 3): stream-soft carries neither word; dash-zip is the one near miss (never a match)
   ['water running from a tap', 'stream-soft|∅', NO_DASH], ['a running brook', 'stream-soft', NO_DASH], ['a brook running over stones', 'stream-soft', NO_DASH],
-  ['a stream running through a forest', 'stream-soft|∅', NO_DASH], ['running creek', 'stream-soft|∅', NO_DASH],
+  ['a stream running through a forest', 'stream-soft|∅', NO_DASH], ['running creek', '∅', NO_DASH], // recall (fix 3): stream-soft carries neither word; dash-zip the one near miss
   ['a gentle stream of running water', 'stream-soft'], ['water running over rocks', 'stream-soft|∅', NO_DASH], ['calm running water', 'stream-soft'],
   ['running water ambience', 'stream-soft|∅', NO_DASH], ['running water, soft and calm', 'stream-soft'],
   // ── c-probes2 "shutting" (F3: `shutting` → trap-snap's `shut` tag) ──
@@ -67,7 +67,7 @@ const ROWS: CorpusRow[] = [
   ['a lid shutting', 'trap-snap|∅'], ['a box shutting', 'trap-snap|∅'], ['a trap shutting', 'trap-snap'],
   ['a door shutting', 'knock-solid|trap-snap'], ['shutting the door', 'knock-solid|trap-snap'], ['a gate closing', '*'], ['a case closing', '*'],
   // ── c-probes3 "synonymInflections" (F3c: swoosh / woosh = whoosh on the stem too) ──
-  ['a swooshing sound', W], ['swooshed', W], ['a swooshy transition', W], ['wooshing', W], ['a wooshing sound', W], ['woooosh', `${W}|∅`],
+  ['a swooshing sound', W], ['swooshed', W], ['a swooshy transition', W], ['wooshing', W], ['a wooshing sound', W], ['woooosh', '∅'], // recall (fix 3): an elongated spelling no clip carries
   ['swishing', 'ui-send'], ['a swishing sound', 'ui-send'],
   // ── c-probes3 "comparatives" ──
   ['a softer whoosh', W], ['a whoosh but softer', W], ['a deeper impact', 'impact-deep-soft'], ['a louder pop', POP], ['a quicker whoosh', W],

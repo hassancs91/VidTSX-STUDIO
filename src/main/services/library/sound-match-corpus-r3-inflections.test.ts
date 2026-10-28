@@ -47,7 +47,7 @@ const ROWS: CorpusRow[] = [
   ['party poppers', 'party-popper'], ['confetti popping', 'party-popper'], ['a celebration', 'party-popper'],
   ['a toggle switching on', 'ui-toggle-on'], ['switching on', 'ui-toggle-on'], ['a switch flip', 'ui-toggle-on'], ['flipping a switch', 'ui-toggle-on'], ['toggling', 'ui-toggle-on'],
   ['sending a message', 'ui-send'], ['message sent', 'ui-send|∅'], ['a swish', 'ui-send'],
-  ['a camera taking a photo', 'camera-shutter'], ['taking a photo', 'camera-shutter'], ['taking a picture', 'camera-shutter|∅'],
+  ['a camera taking a photo', 'camera-shutter'], ['taking a photo', 'camera-shutter'], ['taking a picture', '∅'], // recall (fix 3): camera-shutter has no word of it; chess-piece-capture is the one near miss
   ['photo capture', 'camera-shutter'], ['capturing a screenshot', 'camera-shutter'], ['a screenshot', 'camera-shutter'],
   ['a chess piece moving', 'chess-piece-thock'], ['moving a chess piece', 'chess-piece-thock'], ['chess moves', 'chess-piece-thock'],
   ['a chess capture', 'chess-piece-capture'], ['capturing a piece', 'chess-piece-capture'],

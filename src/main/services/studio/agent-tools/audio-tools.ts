@@ -58,10 +58,10 @@ const CATEGORY_HINT_SFX =
 const CATEGORY_HINT_MUSIC = 'Music category, one word: bed / sting / intro / outro / loop / transition';
 const TAGS_HINT = 'Search tags for the library (lower-cased, deduplicated, at most 20): "whoosh", "air", "fast"';
 const FORCE_HINT =
-  'Generate even though the library has matching sounds — only after this tool returned library matches and none of them fits';
+  'Generate even though the library has matching sounds — only after this tool returned library matches and none of them fits. The same on a miss: the tool answers the closest library sounds instead of generating, and force: true is the only way to generate while anything in the library scores.';
 /** E3: what both descriptions say about the library check that runs first. */
 const REUSE_NOTE =
-  'It FIRST searches the asset library: when sounds there match the prompt it returns the top three as library:<path> refs (duration, category, tags, loudness, where used) INSTEAD of generating — no cost, no provider needed; place one with insert_asset, or call again with force: true if none fits.';
+  'It FIRST searches the asset library: when sounds there match the prompt it returns the top three as library:<path> refs (duration, category, tags, loudness, where used) INSTEAD of generating — no cost, no provider needed; place one with insert_asset, or call again with force: true if none fits. On a miss it answers the three closest library sounds instead of generating; only when nothing in the library scores does it generate without force.';
 
 /** What the clip measures (E2): the loudness line, or the honest "kept raw" line. */
 function describeLevel(filed: GeneratedAudioAsset): string {
@@ -128,10 +128,11 @@ export function buildAudioTools(ctx: StudioToolContext): StudioTool[] {
     },
     async (args) => {
       emitTool(ctx, 'generate_sfx', args.prompt.slice(0, 60));
-      // E3: reuse before generate — BEFORE the provider check, so it works with no key.
+      // E3: reuse before generate — BEFORE the provider check, so it works with no key. A match or a
+      // near miss (E-d15) answers from the library and generates nothing; only a true miss generates.
       if (!args.force) {
         const reuse = await libraryReuseAnswer('generate_sfx', args.prompt, { soundClass: 'sfx' });
-        if (reuse) return text(reuse);
+        if (reuse) return text(reuse.text);
       }
       return generateAndImport(
         ctx,
@@ -174,7 +175,7 @@ export function buildAudioTools(ctx: StudioToolContext): StudioTool[] {
           soundClass: 'music',
           ...(args.durationSeconds !== undefined ? { minDurationSec: args.durationSeconds } : {}),
         });
-        if (reuse) return text(reuse);
+        if (reuse) return text(reuse.text);
       }
       return generateAndImport(
         ctx,

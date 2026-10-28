@@ -10,7 +10,7 @@
 // `music` = generate_music (a number = the asked length in seconds: shorter beds are dropped).
 // Not here: `list_assets` queries (a plain word filter, not this matcher).
 import { describe, expect, it } from 'vitest';
-import { matchLibrarySounds } from './sound-match';
+import { expectCorpusRow } from './sound-match-corpus-rows';
 import { CORPUS_LIBRARY } from './sound-match-corpus.fixture';
 
 interface Opts { music?: true | number; not?: string[] }
@@ -69,7 +69,7 @@ const ROWS: Row[] = [
   ['keyboard typing', 'keys-typing-soft'],
   ['chime', CHIME],
   ['a pop when the bubble appears', 'pop-reveal'],
-  ['a ding', `${CHIME}|∅`], // a synonym the matcher does not know — finding nothing is fair
+  ['a ding', '∅'], // a synonym the matcher does not know — finding nothing is fair
   ['applause', '∅'],
   ['soft', '*'],
   ['x', '∅'],
@@ -113,7 +113,7 @@ const ROWS: Row[] = [
   ['a whoosh as loud as possible', W],
   ['a pop as the bubble appears', 'pop-reveal'],
   ['a sound like rain while it pours', '∅'],
-  ['a ding if correct', `${CHIME}|∅`],
+  ['a ding if correct', '∅'],
   ['a whoosh where the cut is', W],
   ['a bell rung once', BELLISH, { not: ['dash-zip'] }], // F2: `rung` matched dash-zip's `run` tag
   ['until', '∅'],
@@ -140,7 +140,7 @@ const ROWS: Row[] = [
   ['a bell', BELLISH.replace('|∅', '')],
   ['a bell, rung once', BELLISH, { not: ['dash-zip'] }],
   ['a doorbell when the door opens', '∅'],
-  ['a ding when the answer is right', `${CHIME}|∅`],
+  ['a ding when the answer is right', '∅'],
   ['as the title appears a soft whoosh', 'whoosh-soft'],
   ['if the answer is right a chime', CHIME],
   ['a whoosh when the slide changes and a soft airy tail', W],
@@ -181,28 +181,12 @@ const ROWS: Row[] = [
   ['a tender lullaby while the story is read', 'lullaby-tender', { music: 40 }],
 ];
 
-const idOf = (relPath: string) => (relPath.split('/').pop() ?? relPath).replace(/\.mp3$/, '');
-function run(prompt: string, opts: Opts = {}): string[] {
-  const music = opts.music !== undefined;
-  const minDurationSec = typeof opts.music === 'number' ? opts.music : undefined;
-  return matchLibrarySounds(CORPUS_LIBRARY, prompt, {
-    soundClass: music ? 'music' : 'sfx',
-    ...(minDurationSec !== undefined ? { minDurationSec } : {}),
-  }).map((m) => idOf(m.entry.relPath));
-}
-
 describe('the matcher corpus (E-d14): every prompt used so far, the right outcome by plain meaning', () => {
   it('covers the whole catalog and every recorded prompt', () => {
     expect(CORPUS_LIBRARY).toHaveLength(51);
     expect(ROWS).toHaveLength(150);
   });
 
-  it.each(ROWS)('%j → %s', (prompt, expected, opts) => {
-    const out = run(prompt, opts);
-    if (expected !== '*') {
-      const allowed = expected.split('|');
-      expect(allowed, `got ${out.join(', ') || '∅'}`).toContain(out[0] ?? '∅');
-    }
-    for (const wrong of opts?.not ?? []) expect(out).not.toContain(wrong);
-  });
+  // The shared assertion (fix round 3): the first result, the RECALL of a named clip in matches ∪ nearest (E-d15), the `not` list.
+  it.each(ROWS)('%j → %s', (prompt, expected, opts) => expectCorpusRow(prompt, expected, opts));
 });

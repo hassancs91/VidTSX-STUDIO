@@ -133,14 +133,14 @@ describe('Studio audio tools — reuse before generate (E3)', () => {
     expect(res.content[0].text).not.toContain('The library already has');
   });
 
-  it('a sound the library does not have generates as before — or, with no provider, says so', async () => {
+  it('a TRUE miss (no word of the prompt in any clip) generates as before — or, with no provider, says so; a near miss is audio-tools-miss.test.ts', async () => {
     const { ctx } = makeCtx();
     const tools = toolsByName(ctx);
-    await tools.generate_sfx.handler({ prompt: 'a cuckoo clock chime' }, {});
+    await tools.generate_sfx.handler({ prompt: 'a dog bark' }, {});
     expect(generateAudioAsset).toHaveBeenCalledTimes(1);
 
     hasAudioProvider.mockResolvedValue(false);
-    const none = await tools.generate_sfx.handler({ prompt: 'a cuckoo clock chime' }, {});
+    const none = await tools.generate_sfx.handler({ prompt: 'a dog bark' }, {});
     expect(none.isError).toBe(true);
     expect(none.content[0].text).toContain('No audio provider is configured');
     expect(generateAudioAsset).toHaveBeenCalledTimes(1);

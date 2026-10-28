@@ -118,6 +118,14 @@ describe('buildAgentSystemPrompt — reuse before generate: search the library b
     expect(prompt).toContain('a `music` step the same — a library bed first, else `generate_music`');
     expect(prompt).not.toContain('an `sfx` step means `generate_sfx` + `insert_asset');
   });
+
+  it('the miss rule (E-d15, fix round 3): a miss answers the closest library sounds; `force: true` is the only way to generate while the library scores', () => {
+    expect(prompt).toContain('Even a sound the library lacks starts there: on a miss generate_sfx / generate_music answer the closest library sounds before anything is generated.');
+    expect(prompt).toContain('When nothing matches well it STILL generates nothing: it answers the three closest library sounds — place one that fits, or call again with `force: true` to generate; it generates without `force` only when nothing in the library scores at all.');
+    expect(prompt).toContain('and the same miss rule — the closest library beds instead of a new track, `force: true` to generate');
+    expect(prompt).toContain('A miss answers the closest library sounds, not a new file — call again with `force: true` only when none of them fits either.');
+    expect(prompt).toContain('on a miss either tool answers the closest library sounds instead of generating — `force: true` generates when none fits');
+  });
 });
 
 describe('buildAgentSystemPrompt — W3 state block and workflows', () => {
