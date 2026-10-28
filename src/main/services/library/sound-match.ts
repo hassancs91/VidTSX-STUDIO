@@ -8,12 +8,19 @@
 // more than "soft", which most catalog clips carry), and a match needs either
 // half the weight covered, or the prompt's HEAD word (the sound itself — the
 // last word of its first clause) plus 30 %. Words after a negation ("no music,
-// no metallic ring" — the catalog prompts are full of them) never count, and
-// neither do a prompt's placement words ("… when the slide changes", "… until
-// the reveal"): they say WHEN the sound plays, not what it is.
+// no metallic ring" — the catalog prompts are full of them) never count. A
+// prompt's placement words ("… when the slide changes", "… until the reveal")
+// say WHEN the sound plays: they never count in the coverage, so they cannot
+// sink a match (F1), but one that names a clip in its tags / name / category
+// ("a snap when the TRAP closes") adds a small ranking bonus — never a match.
+// The words themselves (tokens, inflections, the head word) are in
+// `sound-match-words.ts` (fix round 2, F2).
 
 import type { LibraryIndexEntry } from '../../../shared/types/asset-library';
 import { mediaKindOf } from '../../../shared/media-kinds';
+import { promptTerms, soundTokens, wordsMatch } from './sound-match-words';
+
+export { headWord, soundTokens } from './sound-match-words';
 
 export type SoundClass = 'sfx' | 'music';
 
@@ -27,140 +34,22 @@ export interface SoundMatchOptions {
 
 export interface SoundMatch {
   entry: LibraryIndexEntry;
-  /** 0–1: the share of the prompt's (idf-weighted) words this entry covers. */
+  /** 0–1: the share of the prompt's (idf-weighted) sound words this entry covers. */
   coverage: number;
   /** Prompt words hit in a tag, the file name or the category. */
   strongHits: number;
+  /** Placement words hit in a tag, the file name or the category (a ranking bonus only). */
+  placementHits: number;
 }
 
 /** Above this probed length an unlabelled clip is music, not an effect (the SFX generator's own maximum). */
 const SFX_MAX_SECONDS = 30;
 const MATCH_COVERAGE = 0.5;
 const HEAD_MATCH_COVERAGE = 0.3;
-/** Words after the head clause ("… with a short tail") describe the sound; they weigh half. */
-const QUALIFIER_WEIGHT = 0.5;
+/** Per placement word with a strong hit, capped — enough to break a tie, never to beat a real coverage gap. */
+const PLACEMENT_BONUS = 0.05;
+const PLACEMENT_BONUS_MAX = 0.1;
 const FIELD_WEIGHT = { tag: 1, name: 1, category: 0.9, description: 0.6 } as const;
-
-const NEGATIONS = new Set(['no', 'not', 'non', 'without', 'never']);
-/** Spellings of one sound that share no prefix ("swish" stays its own word — the catalog tags it apart). */
-const SAME_SOUND: Readonly<Record<string, string>> = { swoosh: 'whoosh', woosh: 'whoosh', swooshes: 'whoosh' };
-const CLAUSE_CUT = new Set([
-  'for', 'with', 'at', 'like', 'into', 'on', 'in', 'of', 'to', 'from', 'that', 'which', 'as', 'over', 'under', 'between',
-  'after', 'before', 'during', 'across', 'through',
-]);
-/**
- * A prompt's subordinating conjunctions: from one of these to the clause end the words say WHEN the sound plays
- * ("when the slide changes", "until the reveal", "once the scene switches", "as soon as …"), so they are dropped
- * like negated words — they never pick the head word nor weigh as qualifiers. No catalog clip describes the scene
- * event, so such a word hits nothing and, carrying the highest idf, only dilutes the coverage; when it does hit, it
- * is a coincidence ("switches" → a toggle's `switch` tag). "as" is one unless "a" / "an" follows ("as a
- * transition" names the sound's role — the preposition cut keeps it as a qualifier).
- */
-const PLACEMENT = new Set([
-  'when', 'whenever', 'while', 'whilst', 'until', 'till', 'once', 'if', 'unless', 'because', 'where', 'wherever', 'as',
-]);
-const STOP_WORDS = new Set([
-  'a', 'an', 'the', 'and', 'or', 'but', 'so', 'as', 'at', 'be', 'by', 'do', 'if', 'in', 'is', 'it', 'me', 'my', 'of', 'on',
-  'to', 'up', 'us', 'we', 'for', 'with', 'into', 'onto', 'from', 'that', 'this', 'these', 'those', 'which', 'when', 'where',
-  'then', 'than', 'very', 'some', 'any', 'its', 'our', 'your', 'their', 'was', 'were', 'are', 'has', 'have', 'had', 'will',
-  'can', 'just', 'also', 'like', 'about', 'over', 'under', 'one', 'two', 'three', 'four', 'five', 'second', 'seconds', 'sec',
-  'sound', 'sounds', 'sfx', 'effect', 'effects', 'audio', 'clip', 'clips', 'video', 'music', 'track', 'add', 'make', 'use',
-  'place', 'need', 'want', 'please', 'give', 'get', 'put', 'first', 'next', 'last', 'cut', 'between', 'after', 'before',
-  'during', 'across', 'through',
-]);
-
-interface Term {
-  word: string;
-  weight: number;
-}
-
-/** Split into clauses on punctuation; each clause a list of lower-case raw words. */
-function clauses(text: string): string[][] {
-  return text
-    .toLowerCase()
-    .split(/[,;.:!?()—–]+/)
-    .map((c) => c.match(/[a-z0-9]+(?:[-'][a-z0-9]+)*/g) ?? []);
-}
-
-/** One raw word → its tokens: a hyphenated word yields its joined form and its long parts (not after a "no-"). */
-function expand(raw: string): string[] {
-  const bare = raw.split("'")[0];
-  const word = SAME_SOUND[bare] ?? bare;
-  if (!word.includes('-')) return word.length >= 2 && !STOP_WORDS.has(word) && !/^\d+$/.test(word) ? [word] : [];
-  const parts = word.split('-');
-  const joined = parts.join('');
-  if (NEGATIONS.has(parts[0])) return [joined];
-  return [joined, ...parts.filter((p) => p.length >= 3 && !STOP_WORDS.has(p))];
-}
-
-/** Each clause's content tokens, with the words a negation governs (to the clause end) removed. */
-function clauseTokens(text: string): string[][] {
-  return clauses(text).map((words) => {
-    const out: string[] = [];
-    let negated = false;
-    for (const raw of words) {
-      if (NEGATIONS.has(raw)) {
-        negated = true;
-        continue;
-      }
-      if (!negated) out.push(...expand(raw));
-    }
-    return out;
-  });
-}
-
-/** The distinct content tokens of a text, in order (negated words dropped). */
-export function soundTokens(text: string): string[] {
-  return [...new Set(clauseTokens(text).flat())];
-}
-
-function startsPlacement(words: string[], i: number): boolean {
-  return PLACEMENT.has(words[i]) && !(words[i] === 'as' && (words[i + 1] === 'a' || words[i + 1] === 'an'));
-}
-
-/** The prompt's clauses, each cut where a placement clause starts ("a whoosh when the slide changes" → "a whoosh"). */
-function promptClauses(prompt: string): string[][] {
-  return clauses(prompt).map((words) => {
-    const at = words.findIndex((_, i) => startsPlacement(words, i));
-    return at >= 0 ? words.slice(0, at) : words;
-  });
-}
-
-/** The head clause's raw words: the first clause, cut before a preposition once a content word was seen. */
-function headClause(prompt: string): { head: string[]; rest: string } {
-  const all = promptClauses(prompt);
-  const at = all.findIndex((c) => c.some((w) => expand(w).length > 0));
-  const first = at >= 0 ? all[at] : [];
-  const head: string[] = [];
-  for (const raw of first) {
-    if (CLAUSE_CUT.has(raw) && head.some((w) => expand(w).length > 0)) break;
-    head.push(raw);
-  }
-  // The remainder keeps its clause breaks (a negation stops at the next one).
-  const rest = [first.slice(head.length).join(' '), ...all.slice(at + 1).map((c) => c.join(' '))].join(', ');
-  return { head, rest };
-}
-
-/** The sound itself: the last content word of the prompt's first clause ("a soft cuckoo clock chime, …" → chime). */
-export function headWord(prompt: string): string | undefined {
-  const tokens = soundTokens(headClause(prompt).head.join(' '));
-  return tokens.length > 0 ? tokens[tokens.length - 1] : undefined;
-}
-
-function promptTerms(prompt: string): Term[] {
-  const { head, rest } = headClause(prompt);
-  const weights = new Map<string, number>();
-  for (const word of soundTokens(head.join(' '))) weights.set(word, 1);
-  for (const word of soundTokens(rest)) if (!weights.has(word)) weights.set(word, QUALIFIER_WEIGHT);
-  return [...weights].map(([word, weight]) => ({ word, weight }));
-}
-
-/** Equal, or one a short extension of the other: air/airy, whoosh/whooshes, tick/ticking. */
-function wordsMatch(a: string, b: string): boolean {
-  if (a === b) return true;
-  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
-  return short.length >= 3 && long.length - short.length <= 3 && long.startsWith(short);
-}
 
 interface EntryFields {
   tag: string[];
@@ -208,9 +97,11 @@ function isCandidate(entry: LibraryIndexEntry, opts: SoundMatchOptions): boolean
   return opts.minDurationSec === undefined || typeof duration !== 'number' || duration >= opts.minDurationSec;
 }
 
+const rankOf = (m: SoundMatch): number => m.coverage + Math.min(PLACEMENT_BONUS_MAX, PLACEMENT_BONUS * m.placementHits);
+
 /** The library sounds that fit the prompt, best first (at most `limit`, default 3); [] = generate. */
 export function matchLibrarySounds(entries: LibraryIndexEntry[], prompt: string, opts: SoundMatchOptions): SoundMatch[] {
-  const terms = promptTerms(prompt);
+  const { terms, bonus, head } = promptTerms(prompt);
   const candidates = entries.filter((e) => isCandidate(e, opts)).map((entry) => ({ entry, fields: fieldsOf(entry) }));
   if (terms.length === 0 || candidates.length === 0) return [];
   const n = candidates.length;
@@ -221,7 +112,6 @@ export function matchLibrarySounds(entries: LibraryIndexEntry[], prompt: string,
   }
   const total = terms.reduce((sum, t) => sum + t.weight * (idf.get(t.word) ?? 0), 0);
   if (total <= 0) return [];
-  const head = headWord(prompt);
 
   const scored: SoundMatch[] = [];
   for (const { entry, fields } of candidates) {
@@ -236,11 +126,13 @@ export function matchLibrarySounds(entries: LibraryIndexEntry[], prompt: string,
       if (word === head) headHit = true;
     }
     const coverage = covered / total;
-    if (coverage >= MATCH_COVERAGE || (headHit && coverage >= HEAD_MATCH_COVERAGE)) scored.push({ entry, coverage, strongHits });
+    if (coverage < MATCH_COVERAGE && !(headHit && coverage >= HEAD_MATCH_COVERAGE)) continue;
+    const placementHits = bonus.filter((w) => hitWeight(w, fields) >= FIELD_WEIGHT.category).length;
+    scored.push({ entry, coverage, strongHits, placementHits });
   }
   scored.sort(
     (a, b) =>
-      b.coverage - a.coverage ||
+      rankOf(b) - rankOf(a) ||
       b.strongHits - a.strongHits ||
       (b.entry.usedIn?.length ?? 0) - (a.entry.usedIn?.length ?? 0) ||
       a.entry.relPath.localeCompare(b.entry.relPath),
