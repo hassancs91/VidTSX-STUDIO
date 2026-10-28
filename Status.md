@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-24 — END-TO-END E2: generation writes loudness-normalized files with category / tags; `usedIn` written on every landing — DONE (builder records; the E2 verifier is next)
+## 2026-10-24 — END-TO-END E2: generation writes loudness-normalized files with category / tags; `usedIn` written on every landing — DONE (fix round 1 after verifier round 1 FAIL; the E2 verifier round 2 is next)
 
 - **What:** part E2 of `docs/studio/END_TO_END_PLAN.md` (track E, session 5, records in session 6; worktree branch
   `end-to-end-p0-e`, E-d1). Row: "Generation writes loudness-normalized files with category/tags; `usedIn` written on
@@ -17,27 +17,28 @@
   `probe.duration 2` (independent ffprobe n8.1.2: 2.000000 s, 0 ms off), `tags ["whoosh","air"]`, category `motion`,
   −20.27 LUFS recorded / **−20.2 LUFS on an independent `ebur128`**, true peak −10.8 dBTP, and `usedIn ["e2-exit"]` — still
   one entry after the REAL `insert_asset`; the REAL `list_assets(scope:'library')` row prints all of it.
-- **The code** (line numbers are HEAD's; no `src/` change after `3084668`):
-  - `60b5537` — the normalizer. `src/main/services/library/audio-loudness-rule.ts` (pure): `LOUDNESS_TARGET_LUFS = -20`
-    (:6), `LOUDNESS_CEILING_DBFS = -1.5` (:8), `LOUDNESS_GATED_BELOW_LUFS = -50` (:10), `LOUDNESS_MIN_GAIN_DB = 0.1` (:12),
-    `parseLoudnormStats` (:44; `input_i` / `input_tp`, `-inf` → `-Infinity`), `planLoudnessGain` (:59; the rule below).
-    `src/main/services/library/audio-normalize.ts` (172 lines): `measureLoudness` (:105; ONE `loudnorm=I=-20:TP=-1.5:LRA=11:
-    print_format=json` analysis pass, `-vn -f null -`), `applyGain` (:117; ONE re-encode `-af volume=<g>dB` into
-    `<abs>.norm-tmp<ext>`, then `fs.rename` over the original — same extension; codec by extension: `.mp3` libmp3lame
-    `NORMALIZE_MP3_BITRATE = '192k'` (:24), `.wav` pcm_s16le, `.m4a` / `.aac` aac 192k (:30-31), `.ogg` / `.opus` libopus
-    128k, anything else "unsupported container"), `normalizeAudioFile` (:142) → `AudioNormalizeResult { normalized,
-    loudnessLufs?, peakDbfs?, gainDb, clamped, gated, skipped, error?, before? }`; `NORMALIZE_TIMEOUT_MS` 120 s per pass
-    (:22). `src/shared/types/asset-library.ts:27-47` `LibraryAudioMeta` gains `peakKind?: 'true' | 'sample'` (:39),
-    `gainDb?` (:45), `normalizeError?` (:47) — optional only (E-d5).
-  - `841e311` — the call site, the args, the stand-in. `src/main/services/library/generate-audio-asset.ts` (178 lines):
-    `GenerateAudioAssetRequest` gains `category?` / `tags?` (:53, :55); `normalizeAudioFile(absPath, { signal })` (:135) runs
-    after `fs.writeFile` and BEFORE `upsertEntry` (:152), so the index's probe + hash describe the levelled file; the `audio`
-    meta = `{ category?, loudnessLufs?, peakDbfs?, peakKind: 'true' (:142), source: <provider id>, model, gainDb,
-    normalizeError? }`; `normalizeCategory` (:102, trim + lower-case); `GeneratedAudioAsset` gains `normalized` (a REQUIRED
-    boolean), `loudnessLufs?`, `peakDbfs?`, `normalizeError?`, `category?`, `tags?`; `durationSeconds` = the upsert's
-    `probe.duration` (:159) when finite and > 0, else the engine's figure. `library-filing.ts:60-74` `TAGS_MAX = 20` +
+- **The code** (line numbers re-read at HEAD after fix round 1 — `src/` last changed in `f990487`):
+  - `60b5537` — the normalizer. `src/main/services/library/audio-loudness-rule.ts` (pure, 109 lines): `LOUDNESS_TARGET_LUFS =
+    -20` (:7), `LOUDNESS_CEILING_DBFS = -1.5` (:9), `LOUDNESS_GATED_BELOW_LUFS = -50` (:11), `LOUDNESS_MIN_GAIN_DB = 0.1` (:13),
+    `parseLoudnormStats` (:54; `input_i` / `input_tp`, `-inf` → `-Infinity`), `planLoudnessGain` (:69; the rule below).
+    `src/main/services/library/audio-normalize.ts` (281 lines since fix round 1): `measureLoudness` (:118; ONE
+    `loudnorm=I=-20:TP=-1.5:LRA=11:print_format=json` analysis pass, `-vn -f null -`); the gain is ONE re-encode `-af
+    volume=<g>dB` of the ORIGINAL into `<abs>.norm-tmp<ext>`, then `fs.rename` over the original — same extension; codec by
+    extension: `.mp3` libmp3lame `NORMALIZE_MP3_BITRATE = '192k'` (:31), `.wav` pcm_s16le, `.m4a` / `.aac` aac 192k (:39-40),
+    `.ogg` / `.opus` libopus 128k, anything else "unsupported container" (`60b5537`'s `applyGain`; since `f990487`
+    `encodeWithGain` :130 inside the ceiling loop, below); `normalizeAudioFile` (:237) → `AudioNormalizeResult { normalized,
+    loudnessLufs?, peakDbfs?, gainDb, clamped, gated, skipped, error?, before?, correctivePasses?, overCeiling? }`;
+    `NORMALIZE_TIMEOUT_MS` 120 s per pass (:29). `src/shared/types/asset-library.ts:27-47` `LibraryAudioMeta` gains `peakKind?:
+    'true' | 'sample'` (:39), `gainDb?` (:45), `normalizeError?` (:47) — optional only (E-d5).
+  - `841e311` — the call site, the args, the stand-in. `src/main/services/library/generate-audio-asset.ts` (181 lines):
+    `GenerateAudioAssetRequest` gains `category?` / `tags?` (:53, :55); `normalizeAudioFile(absPath, { signal })` (:137) runs
+    after `fs.writeFile` and BEFORE `upsertEntry` (:154), so the index's probe + hash describe the levelled file; the `audio`
+    meta = `{ category?, loudnessLufs?, peakDbfs?, peakKind: 'true' (:144), source: <provider id>, model, gainDb,
+    normalizeError? }`; `normalizeCategory` (:104, trim + lower-case); `GeneratedAudioAsset` gains `normalized` (a REQUIRED
+    boolean), `loudnessLufs?`, `peakDbfs?`, `normalizeError?`, `category?`, `tags?` (and `loudnessGated?` :80 since fix round
+    1); `durationSeconds` = the upsert's `probe.duration` (:161) when finite and > 0, else the engine's figure. `library-filing.ts:60-74` `TAGS_MAX = 20` +
     `normalizeTags` (trim, lower-case, drop empties, dedupe, cap; `undefined` when nothing is left). `agent-tools/
-    audio-tools.ts`: `generate_sfx` (:113-114) / `generate_music` (:144-145) gain `category` (1–40 chars; hints
+    audio-tools.ts`: `generate_sfx` (:119) / `generate_music` (:150) gain `category` (1–40 chars; hints
     `CATEGORY_HINT_SFX` :55 motion / tension / emphasis / snap / foley / reward / texture / impact, `CATEGORY_HINT_MUSIC` :57
     bed / sting / intro / outro / loop / transition) and `tags` (≤ 20); the answer prints `Loudness −20.3 LUFS, peak −10.8
     dBTP. Filed with category: motion · tags: whoosh, air.` (U+2212, one decimal). The stand-in: below.
@@ -62,13 +63,20 @@
   4× oversampled); the reference catalogs' `peak_dbfs` is a sample peak, which E4's import writes with `peakKind: 'sample'`;
   true ≥ sample, so a −1.5 dBTP ceiling is at least as safe. **Bitrate:** an mp3 stays an mp3, re-encoded with libmp3lame
   **192k** — one step above ElevenLabs' `mp3_44100_128`, so the second lossy generation adds little (sample rate / channels
-  kept; the live files read `bit_rate 198284`). **Known limit:** the ceiling is applied to the pre-encode true peak; after
-  the mp3 re-encode the peak can sit a few tenths of a dB off it (live: −1.8 dBTP on the clamped file) — recorded as
-  measured, not forced.
+  kept; the live files read `bit_rate 198284`). **The ceiling holds on the ENCODED file (E-d11, fix round 1 `f990487`):**
+  until fix round 1 the ceiling was applied only to the pre-encode true peak and the lossy re-encode could push the file
+  OVER it (verifier round 1: a 0.25 s burst, gated, +7.2 dB → −1.27 dBTP recorded, −1.268 dBFS sample by `ffmpeg-full`; this
+  entry used to call it "a few tenths of a dB off it", which hid that it can go over). Now the product re-measures the
+  encoded temp (its own `loudnorm` pass) and, while it records over −1.5, re-encodes from the ORIGINAL (never from an encoded
+  temp — one lossy generation) with `correctiveGain` = applied − overshoot − 0.1 dB (`LOUDNESS_CEILING_MARGIN_DB`), at most
+  two corrective passes (`LOUDNESS_MAX_CORRECTIVE_PASSES`). Live re-check: the verifier's burst → 1 corrective pass, −1.88
+  recorded, **−1.9 dBTP / −1.871 dBFS** on the meter; the clamped tick train 0 passes, −1.8 dBTP; the main whoosh 0 passes
+  (numbers under "Verifier round 1 → fix round 1" below).
 - **The un-normalized policy:** the normalizer never throws and never loses bytes. A failed measure or apply (missing
   binary, non-zero exit, the 120 s timeout, bad JSON, an unsupported container) removes the temp output and keeps the
   original; the entry records `audio.normalizeError`; the tool answers "NOT loudness-normalized (<reason>) — the raw file is
-  kept." (`describeLevel`, `audio-tools.ts:61-63`); the `list_assets` row prints ` · −12.3 LUFS (not normalized)` with a
+  kept." (`describeLevel`, `audio-tools.ts:61-70`, :63; since fix round 1 the reason is ONE line —
+  `summarizeFfmpegError`, `audio-normalize.ts:155`); the `list_assets` row prints ` · −12.3 LUFS (not normalized)` with a
   measured value or ` · not normalized` without one. A caller abort DURING the normalize pass is recorded the same way
   (`normalizeError: 'Cancelled'`, bytes kept) and not retried — re-normalizing an existing entry is not in E2.
 - **The DEV-ONLY stand-in (E-d6, named here as required):** `src/audio-engine/generation/providers/
@@ -82,18 +90,23 @@
   `audio-generation-engine.ts:155`, left as is). The live app initialises the engine lazily (first generation, an Agents
   tool, or a key save), so the stand-in's warn line appears on first use, not at launch.
 - **Builder #2's notes, answered:** the tool's progress line still reads "Generating at ElevenLabs…" when the stand-in
-  answers (`audio-tools.ts:80`; cosmetic, the answer itself names no provider) — left as is; `GeneratedAudioAsset.normalized`
+  answers (`audio-tools.ts:86`; cosmetic, the answer itself names no provider) — left as is; `GeneratedAudioAsset.normalized`
   is a REQUIRED boolean (tsc: the agents' `generate-audio.ts` compiles unchanged); the agents' `generate_audio` tool keeps
   its args and gets the normalization for free (its answer prints no LUFS; its test mock gained `normalized: true`); a
   Cancelled normalize is recorded, not retried (above); the stand-in is mp3 only (above).
 - **`usedIn` — the three landings of a `library:` ref (T6):** (1) `importLibraryFile` (`agent-tools/library-import.ts:51`,
   `:62`) marks with `project.id` before BOTH returns (an existing project asset and a fresh import) — reached by
   `insert_asset`'s `resolveAssetRef`, by `generate_sfx` / `generate_music`'s own import and by every tool taking a
-  `library:` ref; (2) `resolveShotAssetRefs` (`src/main/services/studio/shot-asset-refs.ts:164`) marks every library ref
-  it resolved, ONCE after its loop (`generate_tsx_shot` assetRefs; a ref that throws marks nothing); (3) the pool import
-  `handleStudioMediaImport` (`src/main/ipc/studio-handlers.ts:301`) marks the imported paths that lie under the library
-  root — **wired, but covered by the helper's test only** (`library-used-in.test.ts` → `markLibraryUsedInForPaths`; the
-  handler has no test, and the file is 674 lines — over the ~300 rule since before E2, not split here).
+  `library:` ref; (2) `resolveShotAssetRefs` (`src/main/services/studio/shot-asset-refs.ts:166`) marks every library ref
+  it resolved, ONCE after its loop AND after `buildPromptAssets` (:164) has validated the refs (`generate_tsx_shot`
+  assetRefs; a ref that throws marks nothing — true since fix round 1 `f990487`: before it the mark ran BEFORE the
+  validation, so an audio ref's "shots are visual-only" throw left the project in `usedIn` (verifier round 1, F2); pinned by
+  `shot-asset-refs.test.ts` "a library AUDIO ref beside a valid image ref throws … and marks NOTHING"); (3) the pool import
+  `handleStudioMediaImport` (`src/main/ipc/studio-handlers.ts:299`) calls `importMediaFilesMarkingLibrary`
+  (`src/main/services/studio/pool-import.ts:8`, 15 lines, since `f990487`) = `importMediaFiles` → `markLibraryUsedInForPaths`
+  on the imported paths that lie under the library root → the import result; **pinned by `pool-import.test.ts` (2)**, which
+  fails with the mark commented out (red recorded, `…\E2\n3-red.log`; verifier round 1's mutation M3 had left 47 files /
+  352 tests green). The handler file is 672 lines — over the ~300 rule since before E2, not split here.
   `shot-build-media.ts` / `shot-bundle-media.ts` import a shot's own files — a library file cannot reach them; not wired.
   A `usedIn` write is an index patch, never a `project.json` write. A file under the root that the index has never seen is
   logged and left to the next scan — the scan does not know the project id, so that one landing is not recorded.
@@ -132,7 +145,8 @@
     'snap', tags: ['tick','quiet'] })` 555 ms → `generated/sfx-a-quiet-tick-train.mp3`. The wanted +7.4 dB would put the
     peak at +1.7 → **clamped, `gainDb` +4.18** (expected −1.5 − (−5.7) = +4.2); recorded −23.44 LUFS / −1.79 dBTP; meter
     **I −23.4 LUFS** (honestly short of −20; recorded − meter −0.04 LU), **true peak −1.8 dBTP** (0.3 dB under the ceiling
-    after the mp3 re-encode — the known limit; recorded − meter +0.01 dB), sample peak −1.83 dBFS; ffprobe 2.000000 (0 ms);
+    after the mp3 re-encode — this encode landed under; since fix round 1 an encode that lands OVER is corrected, above;
+    recorded − meter +0.01 dB), sample peak −1.83 dBFS; ffprobe 2.000000 (0 ms);
     `usedIn ["e2-exit"]`. Answer `… Loudness −23.4 LUFS, peak −1.8 dBTP. Filed with category: snap · tags: tick, quiet.`
   - **Music path** — same driver, same stand-in: `generate_music({ prompt: 'a soft bed', durationSeconds: 3 })` (3 = the
     engine's music minimum) 232 ms → `generated/music-a-soft-bed.mp3`, the same normalize (`gainDb` 4.18, −23.44 LUFS,
@@ -155,7 +169,7 @@
     `generated/sfx-a-short-airy-whoosh-2.mp3`; footer `4 items · 194 KB`. Still
     `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\assets-generated.png` (73,513 B). Stopped by port / profile +
     `Name='electron.exe'` (4 → 0).
-  - **The Assets screen prints no duration anywhere** (a tile = name + description, `AssetTile.tsx:135`; the details panel
+  - **The Assets screen prints no duration anywhere** (a tile = name + description, `AssetTile.tsx:139-140`; the details panel
     = Type / Size / Origin / Added / Path, `AssetDetailsPanel.tsx:86-90` — pre-E2 UI, unchanged). The exit's "appears with
     duration" is met by the index (`probe.duration 2`) and the `list_assets` row (`2.00 s`) on the same live index, as E1
     recorded it. The tag chips are E3's row; a duration / LUFS line in the details panel is Hasan's call.
@@ -174,12 +188,55 @@
   step red first: (a) 18 tests, (b) 9 files / 67 (incl. the E-d5 control), (c) 4 files / 29 (neighbours 33 / 251), (d) 3
   files / 16 (neighbours 34 / 257) — logs `…\E2\a-red.log` … `d-green-2.log`. The records (builder #6, 2026-10-28) are
   docs only (`git diff --stat 3084668..HEAD -- src/` empty) — nothing re-run.
+- **Verifier round 1 FAIL → fix round 1 (2026-10-28).** Verifier round 1 FAILED on **F1** (the −1.5 ceiling over after the mp3
+  re-encode: a 0.25 s burst, gated, −1.3 dBTP / −1.268 dBFS sample by `ffmpeg-full`) and **F2** (the shot-ref `usedIn` mark
+  before validation) → fix round 1 **`f990487`** (code + tests, builder #7) + docs `d350e6c`, `fd964ad` (the live re-check) and
+  this records commit (builder #8). In `f990487`: E-d11 in `audio-normalize.ts` — `encodeWithGain` (:130) encodes the ORIGINAL
+  into a temp, `measureEncoded` (:176) re-measures it, `encodeUnderCeiling` (:193) re-encodes from the ORIGINAL with
+  `correctiveGain` (`audio-loudness-rule.ts:107`, applied − overshoot − 0.1 dB) while `isOverCeiling` (:102, the recorded
+  two-decimal peak) holds, at most 2 passes; `choosePass` (:227) keeps the last pass that holds, else the lowest peak;
+  `gainDb` = the gain ACTUALLY applied; **`correctivePasses` / `overCeiling` are result fields only, not indexed** (the
+  recorded `peakDbfs` already shows any overshoot; `overCeiling` + a `log.warn` only if every pass stays over — not seen).
+  **One change to the ported `gen_sfx.py` rule:** the 0.1 dB skip no longer keeps a file whose peak is already over the
+  ceiling (`audio-loudness-rule.ts:92`; `plan(−20.05, −1.45)` → −0.05 applied) — within E-d11. F2: `buildPromptAssets` first
+  (`shot-asset-refs.ts:164`), then the mark (:166). N3: `pool-import.ts` + `pool-import.test.ts` (above). N2:
+  `summarizeFfmpegError` (`audio-normalize.ts:155`) — the FIRST stderr line that reads as an error (`ERROR_LINE` :148: error
+  / invalid / no decoder / not found / unsupported / failed / could not / cannot / unable / denied / no such; the `[ctx @
+  0x…]` prefix stripped), else the last line; the absolute path shortened to the file name; prefixed `ffmpeg: `; ≤ 200
+  chars (`NORMALIZE_ERROR_MAX_CHARS` :33); the full stderr stays in the log — the verifier's mp2-in-`.mp3` now reads
+  `measure failed: ffmpeg: Decoding requested, but no decoder found for: mp2`. N5: `GeneratedAudioAsset.loudnessGated?`
+  (`generate-audio-asset.ts:80`, set at :176) → `describeLevel` (`audio-tools.ts:68`) answers ` Peak-normalized to −1.9
+  dBTP — too short or too quiet for a loudness (LUFS) reading.` (silence: ` Silent — no loudness or peak to level; kept as
+  generated.`); the index is unchanged. Tests: `audio-normalize-ceiling.test.ts` (new; the REAL bundled ffmpeg; a JS 0.25 s
+  stereo noise-burst mp3 — red on the old code at −1.44 dBTP), `audio-loudness-rule.test.ts` +4, `audio-normalize.test.ts` +1,
+  `shot-asset-refs.test.ts` +1 (F2 red), `pool-import.test.ts` 2 (red by commenting the mark out), `audio-tools.test.ts` +1
+  (N5 red), `generate-audio-asset.test.ts` +1 — **this one written WITH the code, not run red first**.
+  **Live re-check** (builder #8, stopped-app driver `.vidtsx-temp/end-to-end/E2/fix1.e2.test.ts`, one invocation per
+  stand-in, the REAL handlers on the E2 profile; a pass-through spy on `normalizeAudioFile` records the result-only fields;
+  meter `ffmpeg-full` n8.1.2; `…\E2\fix1.json`):
+  | stand-in (meter in: I / TP / sample) | branch | corrective passes | `gainDb` | recorded LUFS / dBTP | meter out: I / TP / sample | rec − meter (LU / dB) | probe vs ffprobe |
+  |---|---|---|---|---|---|---|---|
+  | `v-short.mp3` (verifier's; −70 gated / −8.7 / −8.705, 0.25 s stereo) | gated | **1** (first encode −1.27) | +6.87 | — / −1.88 | −70 / **−1.9** / **−1.871** | — / +0.02 | 0 ms |
+  | `standin-quiet.mp3` (−27.4 / −5.7 / −5.727) | clamped | 0 | +4.18 | −23.44 / −1.79 | −23.4 / **−1.8** / **−1.832** | −0.04 / +0.01 | 0 ms |
+  | `standin.mp3` control (−9.3 / +0.6 / +0.538) | target | 0 | −10.71 | −20.27 / −10.79 | **−20.2** / −10.8 / −10.791 | −0.07 / +0.01 | 0 ms |
+  Every output ≤ −1.5 dBTP and ≤ −1.5 dBFS; the control is unchanged from the exit (no regression). New library files:
+  `generated/sfx-a-short-noise-hit-fix1.mp3`, `…-quiet-tick-train-fix1.mp3`, `…-short-airy-whoosh-fix1.mp3` (`usedIn
+  ["e2-exit"]` each). **Gates after fix round 1** (app stopped; guard C: 34.8 GB, headroom 22.5 GB): full worktree vitest
+  `--maxWorkers=2` → **487 files passed, 3 failed, 5 skipped (495); 4,149 tests passed, 9 failed, 35 skipped (4,193);
+  262.38 s**, no timeouts (`…\E2\vitest-full-2.log`) — the 3 files / 9 tests are E-d2a's suites, each only on package
+  resolution (`builder-libraries` 1 `@remotion/paths … is not installed`; `shot-bundle-in-place` 3 `Could not resolve
+  "chroma-js"`; `shot-bundle` 5 `roughjs` / `@remotion/shapes` / `@react-three/fiber` / `chroma-js` /
+  `@remotion/google-fonts/SpaceGrotesk`); rule (b) on the new 71-file `git diff --name-only 5d77600..HEAD` (+
+  `audio-normalize-ceiling.test.ts`, `pool-import.ts`, `pool-import.test.ts`): same method (`…\E1\import-graph.cjs`) → 2 / 15 /
+  23 / 1 local modules, touched by the E diff: NONE (`…\E2\diff-list-2.txt`, `import-graph-2.txt`); types web **26** / node
+  **10**, none in E2's files (`tsc-web-6.log`, `tsc-node-6.log`); `wt/out` rebuilt at HEAD (`…\E2\build-2.log`).
 - **Also in this entry's commit — E1 verifier round 4, V4-N1:** the E1 entry's W2 line below and TESTING §18.14 no longer
   list proxies among the consumers of the probe's width / height (`proxy-generator.ts` reads `probe.duration` (:240) and
   `probe.hasAudio` (:251, :321) only). V4-N2 not needed (`pre-e1-control.test.ts` untouched).
 - **Not measured / open:** the live ElevenLabs call (E-d6 — for Hasan); the `generate_tsx_shot` assetRefs seam and the pool
-  import seam are unit-tested only (the pool import through the helper's test); the short-transient case (< ~0.4 s, R128
-  gated → peak to the ceiling) only as unit (C) — no live 0.3 s stand-in; a normalize failure only as unit (F); the Assets
+  import seam are unit-tested only in my runs (the pool import now by `pool-import.test.ts`; the verifier ran it live); the
+  short-transient case ran live in fix round 1 (above); a normalize failure only as unit (F) in my runs (the verifier's
+  mp2-in-`.mp3` ran live); a second corrective pass was never needed live; the Assets
   screen shows no duration / LUFS / tags (above).
 - **For Hasan:** one live ElevenLabs `generate_sfx` (a real key, his profile) — the real response through the same
   normalize / probe / index path as the stand-in (real-video list). Whether the Assets details panel should print the
@@ -187,7 +244,10 @@
 - **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\` — `exit.json` (every number), `exit-summary.md` (what was
   measured by what, with tolerances), `exit-run-1.log` / `exit-run-2.log` (main) / `exit-ceiling-run-1.log`, `app-1.log`,
   `assets-generated.png`, `build-1.log`, `standin.mp3` / `standin-quiet.mp3`, `a-red.log` … `d-green-2.log`,
-  `vitest-full-1.log`, `diff-list.txt` + `import-graph.txt`, `tsc-web-1…5.log` / `tsc-node-1…5.log`, `watchdog.log`; the
+  `vitest-full-1.log`, `diff-list.txt` + `import-graph.txt`, `tsc-web-1…5.log` / `tsc-node-1…5.log`, `watchdog.log`; fix
+  round 1: `fix1.json`, `fix1-short.log` / `fix1-ceiling.log` / `fix1-main.log`, `vitest-full-2.log`, `diff-list-2.txt` +
+  `import-graph-2.txt`, `tsc-web-6.log` / `tsc-node-6.log`, `build-2.log`, and in the kit `f1-red.log`, `f2-red.log`,
+  `n3-red.log`, `n2-red.log`, `n5-red.log` + greens; the
   profile `…\profiles\E2\profile`; kit `.vidtsx-temp/end-to-end/E2/` (`launch.sh`, `live.mjs`, `cdp.mjs`, `e2-common.ts`,
   the two drivers, `vitest.e2.config.ts`). TESTING.md §18.15; HANDOFF `docs/studio/end-to-end/E2/HANDOFF.md`.
 

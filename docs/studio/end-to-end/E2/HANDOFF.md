@@ -1,5 +1,5 @@
 # E2 — Generation writes loudness-normalized files with category/tags; `usedIn` written on every landing
-status: FIX
+status: DONE
 
 > Track E, session 5. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 + E-d2a in ORCHESTRATOR.md
@@ -528,7 +528,47 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   recorded **−20.27 / −10.79**; meter out **I −20.2** (−0.2 LU from −20), TP −10.8, sample −10.791; recorded − meter −0.07 / +0.01;
   0 ms. Identical to builder #5's exit.
 
+### Fix round 1, steps 6–7 — gates, rebuild, records (builder #8, 2026-10-28; no `src/` change)
+
+- **Gates** (app stopped, 0 `electron.exe`): full worktree vitest `--maxWorkers=2` → `Test Files 3 failed | 487 passed | 5 skipped
+  (495)` · `Tests 9 failed | 4149 passed | 35 skipped (4193)` · 262.38 s, no timeouts — the 9 = E-d2a's suites only, resolution
+  only. Rule (b) on the new 71-file diff list → NONE. tsc web 26 / node 10. `wt/out` rebuilt at HEAD (`fd964ad`; `src/` =
+  `f990487`): rc 0, main 19.15 s, preload 307 ms, renderer 4 m 47 s, 3 "use client" warnings only.
+- **Records:** `Status.md` E2 entry (title → "DONE (fix round 1 after verifier round 1 FAIL; the E2 verifier round 2 is next)";
+  "The code" pointers re-read at HEAD — `audio-loudness-rule.ts` :7/:9/:11/:13/:54/:69, `audio-normalize.ts` 281 lines :29/:31/
+  :39-40/:118/:130/:237, `generate-audio-asset.ts` 181 lines :104/:137/:144/:154/:161, `audio-tools.ts` :86/:119/:150, `describeLevel`
+  :61-70; the "Known limit … a few tenths off it" over-claim replaced by "the ceiling holds on the ENCODED file" with the
+  fix1 numbers; seam (2) `shot-asset-refs.ts:164-166` "a throw marks nothing — true since fix round 1, what changed"; seam (3)
+  `studio-handlers.ts:299` → `pool-import.ts:8` + its test; N1 `AssetTile.tsx:135` → `:139-140`; the ceiling bullet's "known
+  limit"; a new bullet "Verifier round 1 FAIL → fix round 1" (F1 / F2, `f990487` + docs, E-d11 loop, result-only
+  `correctivePasses` / `overCeiling`, the skip tweak `audio-loudness-rule.ts:92`, `summarizeFfmpegError`'s line rule, `pool-import.ts`,
+  `loudnessGated` + the answer text, the not-red-first `generate-audio-asset.test.ts` case, the fix1 table, the gate numbers);
+  "Not measured" + "Evidence" updated). TESTING §18.15: Material (+ fix round 1), the ceiling item (re-run numbers; no "known
+  limit"), the short-transient item (WAV −1.5 ± 0.1 vs mp3 ≤ −1.5 on the encoded file; the live `v-short` numbers), a new item
+  "Verifier round 1 FAIL → fix round 1 `f990487` …", the other-two-landings item (F2 + `pool-import.test.ts`), the gates item
+  (+ fix round 1 numbers), "Not measured" (a SECOND corrective pass is not exercised by any test — `audio-normalize-ceiling.test.ts`
+  asserts `≥ 1`, `audio-loudness-rule.test.ts` only the constant 2).
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-28 · builder #8 · from the worktree root. **Step 5:** `E2_FIX1_CASE=short node D:/repos/VidTSX-STUDIO/node_modules/vitest/
+  vitest.mjs run --config D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E2/vitest.e2.config.ts fix1 > …\E2\fix1-short.log` → `Test
+  Files 1 passed (1)` · `Tests 1 passed (1)` · 4.30 s (rc 0); the same with `E2_FIX1_CASE=ceiling` / `main` plus `--reporter=verbose
+  --silent=false` → `✓ … (case "ceiling") … 3227ms` / `✓ … (case "main") … 2858ms`, stdout `[AudioGenerationStandin] DEV stand-in
+  audio provider "standin" registered (VIDTSX_AUDIO_STANDIN_FILE)` · `[AudioNormalize] Loudness normalized`; numbers in `fix1.json`
+  (above). **Step 6:** guard 17:08:58 `C: 34.8 GB · D: 43.8 GB · headroom 22.5 GB`, `electron.exe: 0`; `node …/vitest.mjs run
+  --maxWorkers=2 > …\E2\vitest-full-2.log 2>&1` → `Test Files 3 failed | 487 passed | 5 skipped (495)` · `Tests 9 failed | 4149
+  passed | 35 skipped (4193)` · `Start at 17:09:06` · `Duration 262.38s`; `grep "^ FAIL "` → `shot-bundle-in-place.test.ts` ×3,
+  `shot-bundle.test.ts` ×5, `builder-libraries.test.ts` ×1, errors `@remotion/paths (builder-libraries.ts) is not installed` /
+  `Could not resolve "chroma-js" | "roughjs" | "@remotion/shapes" | "@react-three/fiber" | "@remotion/google-fonts/SpaceGrotesk"`
+  (the `{ ok: false }` / `file:///…` assertions sit inside those same failures); `grep -ci "timed out"` → 0. `git diff --name-only
+  5d77600..HEAD > …\E2\diff-list-2.txt` → 71 lines (vs `diff-list.txt`: + `audio-normalize-ceiling.test.ts`, `pool-import.test.ts`,
+  `pool-import.ts`); `node C:/…/vidtsx-e2e/E1/import-graph.cjs <wt> …\E2\diff-list-2.txt > …\E2\import-graph-2.txt` → builder-libraries
+  2 / shot-bundle 15 / shot-bundle-in-place 23 (3 vi.mock'd) / `scripts/builder-unpack.mjs` 1 local modules, each "touched by the E
+  diff: NONE". `tsc -p tsconfig.web.check.json --noEmit` → `error TS` **26**; `-p tsconfig.node.check.json` → **10**; 0 of them in E2's
+  files (`tsc-web-6.log`, `tsc-node-6.log`). Guard 17:15:41 `C: 40.4 GB · headroom 18.5 GB · electron.exe 0`; `unset
+  ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node …/electron-vite/bin/electron-vite.js build >
+  …\E2\build-2.log 2>&1` → rc 0, `✓ built in 19.15s` / `307ms` / `4m 47s`, 3 "use client" warnings; `out/main/index.js` 17:16.
 
 - 2026-10-28 · builder #7 (fix round 1) · every run from the worktree root, logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\
   E2\`: **F2 red** `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/studio/shot-asset-refs.test.ts`
@@ -691,7 +731,13 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 1, continued — builder #8: steps 1–4 are DONE (builder #7, `f990487`, see "Fix round 1, steps 1–4" under Done and
+**Fix round 1 is DONE (builder #8, 2026-10-28: steps 5–7 — see "Fix round 1, step 5" and "steps 6–7" under Done and their
+Verified entries). Orchestrator: spawn the E2 verifier, round 2** (its own profile `profiles\E2-verify`, CDP 9272; re-check F1
+with its own stand-ins — incl. a short gated burst and a clamped file — on the independent meter, F2 with a shot-ref audio
+ref, the pool-import seam's test by mutation, N2 / N5 texts, the gates, and the corrected records `Status.md` E2 entry +
+TESTING §18.15; inputs: this file, `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\fix1.json`, the range `2156c66..HEAD`).
+
+(Done by builder #8, kept for the record:) **FIX ROUND 1, continued — builder #8: steps 1–4 are DONE (builder #7, `f990487`, see "Fix round 1, steps 1–4" under Done and
 its Verified entry — do not redo them); do steps 5, 6 and 7 below, in order, exactly as written there.** Notes for them: (5) the
 live re-check driver is NEW (`exit-short.e2.test.ts` + a new ceiling driver, e.g. `exit-ceiling-fix1.e2.test.ts`, each its own
 vitest invocation with `--config D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E2/vitest.e2.config.ts <file>`; copy the mocks
@@ -1007,6 +1053,9 @@ scratch; never read, copy or open a `settings.db`.
 
 ## Do-not-redo
 
+- (builder #8) Fix round 1 steps 5–7: the live re-check (`fix1.e2.test.ts`, three invocations — re-running adds `-2.mp3` files to
+  the live library; the numbers are in `fix1.json`), the gates (`vitest-full-2.log`, `import-graph-2.txt`, `tsc-*-6.log`), the
+  rebuild (`build-2.log`, `wt/out` current for `src/` = `f990487`), the records (Status E2 entry, TESTING §18.15).
 - (builder #7) Fix round 1 steps 1–4 (`f990487`): the E-d11 encode loop + `isOverCeiling` / `correctiveGain` / the skip tweak,
   the F2 reorder, `pool-import.ts`, `summarizeFfmpegError`, `loudnessGated` + the answer text, and their tests (red runs under
   Verified; 10 files / 74 green; tsc 26 / 10). `wt/out` is NOT rebuilt yet (step 6); the live re-check has NOT run (step 5).
@@ -1083,3 +1132,8 @@ scratch; never read, copy or open a `settings.db`.
   rule.ts` + its test, `shot-asset-refs.ts:50-167` + its test, `studio-handlers.ts` imports + :280-306, `audio-tools.ts:40-103`,
   `generate-audio-asset.ts:64-178`, the two audio test excerpts); built fix-round steps 1–4 red → green, tsc 26 / 10, commit
   `f990487`; HANDOFF + LOG. No build, no launch, no driver run, no full vitest (steps 5–7 are builder #8's).
+- 2026-10-28 · builder #8 (fix round 1, steps 5–7) · ~55 · read CLAUDE.md, this HANDOFF (Done / Verified / Next step / Open problems /
+  Do-not-redo), DRIVING "Never touch" + "Track E", ORCHESTRATOR "Track B decisions" + "Session 6", the E2 kit (`e2-common.ts`,
+  `exit-ceiling.e2.test.ts`, the config), `Status.md:10-192`, TESTING §18.14 tail + §18.15, and `grep -n` pointer checks only (no
+  `src/` read beyond that); wrote `fix1.e2.test.ts`, ran the three stand-ins, the gates, the rebuild, the records; commits `fd964ad`
+  + the records commit. No `src/` change, no launch.
