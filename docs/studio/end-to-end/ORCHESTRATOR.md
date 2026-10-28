@@ -1244,3 +1244,18 @@
   power-down, "a long whoosh" → whoosh-wind, "a deeper impact" → impact-deep-soft). `65e67fc` HANDOFF + LOG. Tree clean. Builder #10
   (items 3–4: the miss rule's tool / answer / prompt side + drivers; regression vs both old versions, broad probes, gates, rebuild,
   records) spawned.
+- 00:35 · E3 builder #10 HANDOFF (~41 calls, 19 min; item 3 DONE, no launch / model turn / gate run / rebuild): `7967c6f` **the miss rule
+  (E-d15)** — `sound-reuse.ts` (74) `ReuseAnswer { kind: 'match' | 'nearest' }`, `formatNearestSounds()` ("No library sound matched
+  "<prompt>" well — nothing was generated … The closest library sounds:" + E2 rows + "… call <tool> again with force: true"),
+  `libraryReuseAnswer()` → match / nearest / null (a true miss or an unreadable index); `audio-tools.ts` (199) answers both kinds
+  without generating, `force` skips the lookup, a `compositionPlan` never looks, `minDurationSec` applies to the nearest; `REUSE_NOTE`
+  / `FORCE_HINT` + the prompt rule (:21 / :31 / :32 / :70 / :75) one sentence each, pinned; NEW `audio-tools-miss.test.ts` (180, 5
+  tests, red first 11 failed); the corpus RECALL assertion (`sound-match-corpus-rows.ts` `expectCorpusRow()` — a named clip must be in
+  matches ∪ nearest) → **10 rows → ∅** as plain-meaning corrections ("a ding" ×3, a tap running, running creek, woooosh, …); green 48
+  files / 1,187 tests. Real handlers (app stopped, E3 profile; index SHA unchanged on the no-provider run): the near miss "a
+  grandfather clock chiming midnight" → the miss answer (generated cuckoo · clock-tick-soft · chime-reward), the true miss "a dog
+  bark" → the no-provider notice; with the stand-in "a dog bark" generated ONCE (−20.26 LUFS, ebur128 −20.2) then FOUND, the near
+  miss generated nothing, the cuckoo `force` generated once. **Fact corrected:** on the E3 profile "a cuckoo clock chime" is a MATCH
+  (the live step's generated cuckoo — found before regenerated); the brief's "cuckoo → nearest" holds on a clean 51-clip library only.
+  The E3 index now holds 4 `generated/` entries (the regression driver stamps it as is). `13ef262` HANDOFF + LOG. Tree clean. Builder
+  #11 (item 4: regression vs `788c8d2` + `09e81ea`, broad probes, gates, rebuild, records) spawned.
