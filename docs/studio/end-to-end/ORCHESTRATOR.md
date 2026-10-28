@@ -1199,3 +1199,34 @@
   a false record. Anything else — a right clip second or third, a near-miss list that holds a stranger clip, other classes — is a NOTE for
   Hasan's list. The builder runs old (`788c8d2`, `09e81ea`) vs new over a broad probe set of its own (inflections of every catalog tag
   word, placement openers, leading adverbs) before claiming no regression.
+
+## Session 8 — track E continued (started 2026-10-28 23:36, Hasan's paste-in from NEXT-SESSION.md)
+
+- **Scope (Hasan):** (1) E3 — fix round 3 exactly as E3 HANDOFF "Next step" items 1–4 and **E-d15** say, INCLUDING the miss rule;
+  then E3 **verifier round 4 — E3's LAST** (Hasan's extension past the three-FAIL limit; a FAIL stops the run), bar E-d15 (i)–(iv), its
+  own profile (`E3-verify` may be reused), the gates, its own negative / mutation cases and its own broad probe set, the records. (2) The
+  track-E exit (`E-exit/HANDOFF.md`; its step 6 updated for the miss rule if it changes what a turn must show). Stop after the exit, on
+  BLOCKED, or on E3's FAIL. NOT this session: B7's verifier, the track-B exit, tracks C, D, F.
+- **Start state (23:36):** worktree `end-to-end-p0-e` @ `e98190f`, clean. Main checkout `end-to-end-p0` @ `5d77600`, still NOT clean
+  (the other session's 10 modified + 6 untracked files, unchanged — NOT committed); **Hasan's dev app is NOT running** (0
+  `electron.exe`; two Remotion studios of OTHER repos run on ports 3570 / 3906 — not ours, untouched). E-d1 stands: work continues in
+  the worktree.
+- **Resources (23:37):** C: 46.9 GB, D: 43.8 GB free; memory commit 69.5 / 97.7 GB (headroom 28.2 GB → default vitest workers allowed);
+  CPU `LoadPercentage` 28 at one sample, `vmmemWSL` the top CPU holder — the builder measures again before its counted run (DRIVING's
+  normal rule, or E-d13 under external load). Verifier round 3's probe files are present: `…\vidtsx-e2e\E3-verify\r3\b-probes.txt`
+  1,547 lines (513 probes, 138 changed vs `788c8d2`), `c-probes2.txt` 148, `c-probes3.txt` 48.
+- **Overrides in force** (the session-8 paste): Q1–Q6, E-d1…E-d15, E-d2a rule (b) only; no paid-key call (generation only through E2's
+  dev-only stand-in); model calls only via the keyless `claude-subscription` (the exit: ≤ 3 turns + 1 retry on an API error; **fix
+  round 3 and verifier round 4 need NONE** — E-d9, the live turns belong to the exit); isolated profiles only; the resource guard; the
+  builder-brief additions (worktree only; DRIVING + "Track B decisions"; HANDOFF / Status / TESTING by Edit / Write only; no job left
+  running; process selection by port / profile path + Name; Studio root FIRST; never Hasan's stations or B6 / B7 scratch; HANDOFF as
+  you go, commit early; every git / tree / build statement "as of `<hash>`", re-checked after the commit; a BROAD probe set of the
+  builder's own — every inflection of every catalog tag word, placement openers, leading adverbs — before claiming no regression).
+- **CDP ports / profiles this session:** E3 builders 9263 (`profiles\E3`; no launch is planned for fix round 3 — the tool level runs
+  the real handlers with the app stopped); E3 verifier round 4 → 9273 (`profiles\E3-verify`, may be reused); the track-E exit → 9280
+  (`profiles\E-exit`, copied from `source` WITHOUT `settings\settings.db*`).
+
+### Session 8 log
+
+- 23:39 · start checks (above); `wt/out` = the `09e81ea` build (`out/main/index.js` 22:11:17, `PLACEMENT_BONUS` ×3), `git log -1 -- src/`
+  = `09e81ea`. E3 builder #9 (fix round 3: items 1–4 of E3 HANDOFF "Next step" + E-d15's miss rule; no launch, no model turn) spawned.
