@@ -98,6 +98,15 @@ Plus the session gates (DRIVING "Track E": worktree vitest green except the thre
   `getBinaryPath('ffprobe')` (`src/main/utils/paths.ts:122-135`) resolves the Remotion compositor's ffprobe from
   `node_modules` — fine from a script started in the worktree (node walks up to the main checkout's `node_modules`).
 - **§5 items touching E4:** "Docs to update when built": STATUS per part, TESTING §18 (18.16).
+- **Session 6 notes (orchestrator, 2026-10-28):** (1) the 51 catalog files are pairwise DISTINCT by sha256 (checked read-only
+  16:30) — so `importLibraryFile`'s hash dedupe in a project (`matchExistingAsset`, `library-import.ts`) cannot collapse two of
+  them; (2) E4 imports the clips AS-IS (byte-identical is the exit) — never through E2's normalizer (`normalizeAudioFile`
+  re-encodes); the catalogs' `loudness_lufs` / `peak_dbfs` are recorded, not re-measured into the file; (3) E2's fix round 1
+  (`f990487`) changed `audio-normalize.ts` / `audio-loudness-rule.ts` (E-d11: the ceiling holds on the encoded file),
+  `shot-asset-refs.ts` (mark after validation) and added `src/main/services/studio/pool-import.ts` (the pool-import seam) —
+  E2's HANDOFF "Done" line numbers older than that commit have drifted; read the code at HEAD; (4) memory commit headroom has
+  swung between 0.5 and 19 GB this session (Brave / WSL) — measure right before every full run and use `--maxWorkers=2` when
+  it is under 10 GB.
 - **Session-5 overrides:** no paid-key call (nothing here calls a provider); no model call needed; isolated profile
   only — **never Hasan's `%APPDATA%\VidTSX Studio\assets`**; the editor repo read-only; the resource guard (C: ≥ 3 GB
   and C: + headroom ≥ 6 GB before a launch / copy; watchdog at 1.5 GB — kit `.vidtsx-temp/end-to-end/E1/watchdog.ps1`;
