@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-28 — END-TO-END E3: reuse before generate — the prompt rule, `generate_sfx` / `generate_music` answer the top-3 library matches unless `force`; the Assets screen plays audio and filters by origin / tag chips — DONE (builder #4: gates + records; the E3 verifier round 1 is next)
+## 2026-10-28 — END-TO-END E3: reuse before generate — the prompt rule, `generate_sfx` / `generate_music` answer the top-3 library matches unless `force`; the Assets screen plays audio and filters by origin / tag chips — DONE (fix round 1 after verifier round 1 FAIL on F1, a matcher defect — builders #5–#6; the E3 verifier round 2 is next)
 
 - **What:** part E3 of `docs/studio/END_TO_END_PLAN.md` (track E, session 6; worktree branch `end-to-end-p0-e`, E-d1). Row:
   "Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips".
@@ -22,25 +22,74 @@
   without a crash. At tool level `generate_sfx` answered the library's top three BEFORE the provider check; a stand-in-
   generated sound appeared with duration, tags and −20.26 LUFS (meter −20.2) and the same ask then FOUND it instead of
   regenerating; `force: true` generated anyway. The Assets screen plays a tile and the details player (DOM `paused false`,
-  `currentTime` advancing — measured on library clips; the generated stand-in file was not played on screen, see "Not
-  measured / open"), shows origin + tag chips and the sound fields, and the `tag:whoosh` chip narrows `sfx/` 45 → 4. Hasan's
-  library and projects were never touched; no paid-key call.
-- **The code** (every file:line below read at HEAD `5d602fb`; `src/` last changed in `8bde97c` — `git log -1 --format=%h --
-  src/` → `8bde97c` as of `5d602fb`; every later commit is docs):
+  `currentTime` advancing — on library clips (builder #3) and on a GENERATED file (verifier round 1, below)), shows origin +
+  tag chips and the sound fields, and the `tag:whoosh` chip narrows `sfx/` 45 → 4. Hasan's library and projects were never
+  touched; no paid-key call.
+- **Verifier round 1 FAIL (F1 matcher: subordinate clauses) → fix round 1 `b176881` `788c8d2`.** Round 1 (its own profile
+  `…\profiles\E3-verify`, CDP 9273; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\`) passed the exit, the gates
+  and the screen but FAILED on F1, a code defect: a prompt with a placement clause ran the head clause to the sentence end
+  (`CLAUSE_CUT` had no `when` / `while` / `until` / `once` …), so the head word became the placement word ("changes", "lands",
+  "pressed", "right", "reveal") and every placement word weighed 1 at the highest idf → coverage under the floor → NO match on
+  the real index for eight such prompts and a WRONG sound for "a whoosh once the scene switches" (only `ui-toggle-on` 0.30)
+  (`c-matcher.json`); through the real handler "a deep impact hit when the logo lands" → "No audio provider is configured" —
+  with a key, a paid duplicate (`b-noprov.json`).
+  - **The fix** (`b176881`; `src/main/services/library/sound-match.ts` 224 → 249 lines): `PLACEMENT` :59-61 = when · whenever
+    · while · whilst · until · till · once · if · unless · because · where · wherever · as; `startsPlacement` :117 (`as`
+    counts unless `a` / `an` follows — "as a transition" stays a qualifier through the preposition cut; "as soon as" / "as
+    the logo lands" are placement); `promptClauses` :122 cuts each PROMPT clause where one starts, to that clause's end;
+    `headClause` :130 reads `promptClauses`. **Placement words now weigh 0** — dropped like negated words, never the head
+    word, never a 0.5 qualifier. Why: the catalog describes sounds, not scene events, so such a word hits no clip and,
+    carrying the highest idf, only dilutes the coverage (the F1 misses); when it does hit, the hit is a coincidence choosing
+    the sound ("switches" → `ui-toggle-on`'s `switch` tag — the wrong-sound case). A leading placement clause ("When the logo
+    lands, add a deep impact hit.") is skipped whole. Entry descriptions are untouched — only the prompt is cut. `after` /
+    `before` / `between` / `during` keep the builder-#1 rule (a preposition cut, qualifiers at 0.5 — just as often a plain
+    preposition: "before the cut").
+  - **Red first:** `src/main/services/library/sound-match-placement.test.ts` (NEW, 105 lines, 13 tests; a 21-entry fixture
+    copied from the E3 profile's REAL imported index — description / tags / category / duration verbatim) at HEAD `7a0d6ad` →
+    11 failed / 2 passed (`fix1-red.log`); after the fix `vitest run src/main/services/library/
+    src/main/services/studio/agent-tools/` → 38 files / 301 tests passed (`fix1-green.log`), `sound-match.test.ts` (14)
+    untouched and green.
+  - **The nine prompts on the real index, old → new** (a stopped-app driver; `index.json` read-only — SHA-256 and mtime
+    identical before / after; `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\catalog-order-fix1.txt`): "a quick whoosh
+    when the slide changes" ∅ → whoosh-soft / whoosh-wind / whoosh-data-burst 0.85 · "a whoosh while the card flies in" ∅ →
+    whoosh-soft / -reverse / -wind 1.00 · "a deep impact hit when the logo lands" ∅ → impact-soft / impact-deep-soft 0.65,
+    stamp-hit 0.35 · "an impact when the logo lands" ∅ → impact-soft / impact-deep-soft 1.00, launch-thump 0.90 · "a hit when
+    the logo lands" ∅ → impact-soft / stamp-hit 1.00 · "a click when the button is pressed" ∅ → ui-click-soft / ui-toggle-on
+    1.00, trap-snap 0.60 · "a chime when the answer is right" ∅ → chime-reward / chime-magic 1.00 · "a tension riser until the
+    reveal" ∅ → riser-soft 1.00, scan-hum 0.50, warm-shimmer 0.30 · "a whoosh once the scene switches" `ui-toggle-on 0.30` →
+    whoosh-soft / -reverse / -wind 1.00. **70 prompts in all, 16 changed — every one from no match / weaker to the right
+    sound; none lost a match or its first result** (the other seven: "a deep impact hit as the logo lands", "a pop when the
+    bubble appears", "a chime as soon as the answer is right", "When the logo lands, add a deep impact hit.", "a whoosh if you
+    have one", music "a calm ambient bed while the host talks" and "warm lo-fi bed until the outro"); every no-match control
+    unchanged (cuckoo ×3, dog bark ×2, ding, applause, corporate rock, lo-fi ≥ 120 s, …). **`after` / `before` unchanged and
+    near the 0.3 floor:** "a hit after the logo lands" → impact-soft 0.39, "a whoosh before the slide changes" → the whooshes
+    0.32 — they still match.
+  - **Note 2 — `generate_music` `force` pinned** (`788c8d2`; the verifier's mutation M2b — `generate_music` ignoring `force`
+    — had left the tests green): `agent-tools/audio-tools.test.ts` split (302 → 202 lines, 7 tests; keeps an EMPTY-library
+    `loadIndex` mock) — the E3 reuse describe moved to `agent-tools/audio-tools-reuse.test.ts` (NEW, 173 lines, describe :92,
+    6 tests) with the new test :122 "generate_music force: true generates even though a library bed matches (and skips the
+    lookup)" (its control: the same ask without `force` answers `library:music/lofi-warm.mp3`); green 2 files / 13 tests
+    (`fix1-audio-green.log`); M2b re-applied → 1 failed / 12 passed (`fix1-m2b-red.log`), then restored (`git diff` empty).
+- **The code** (every file:line below re-read at HEAD `55b223a` for fix round 1; `src/` last changed in `788c8d2` — `git log
+  -1 --format=%h -- src/` → `788c8d2` as of `55b223a`; fix round 1 touched only `sound-match.ts` (its pointers below are its
+  lines since `b176881`) and three test files — `sound-match-placement.test.ts` NEW in `b176881`, `audio-tools.test.ts` /
+  `audio-tools-reuse.test.ts` split in `788c8d2`; every other `src/` file is unchanged since `8bde97c`; every later commit is
+  docs):
   - `6224040` — reuse before generate.
-    - `src/main/services/library/sound-match.ts` (224 lines, NEW, pure — entries in, ranked matches out, no I/O). Candidates:
-      audio entries of the asked class (`soundClassOf` :167 — a `sfx` / `music` folder, a `sfx-` / `music-` name, tags
-      `music` / `bed`, else probed length > 30 s = music, `SFX_MAX_SECONDS` :35; unknown length = either). Words:
-      `soundTokens` :100 (lower-case; stop words and placement words such as cut / first / next / last dropped; `lo-fi` also
-      yields `lofi`; every word after a negation — `NEGATIONS` :42 — up to the next punctuation dropped, so a catalog "no
-      music, no metallic ring" never matches "music"; prefix matches such as `air` / `airy`; `SAME_SOUND` :44 swoosh / woosh
-      = whoosh). **The scoring rule** (`matchLibrarySounds` :187-224): each prompt word weighs `idf = ln((N + 1) / (df +
-      0.5))` over the candidates (:192-196 — "soft", on most catalog clips, weighs little), half for words after the head
-      clause (`QUALIFIER_WEIGHT` 0.5, :39), times its best field hit (`FIELD_WEIGHT` :40: tag 1, file name 1, category 0.9,
-      description 0.6); `coverage = covered / total` (:213). **A match: coverage ≥ 0.5 (`MATCH_COVERAGE` :36), or the head
-      word hits and coverage ≥ 0.3 (`HEAD_MATCH_COVERAGE` :37)** (:214; `headWord` :120 = the last word of the first clause,
-      cut at `CLAUSE_CUT` :45-48 — "a soft cuckoo clock chime" → chime). Ranked by coverage, then strong hits (tag / name /
-      category), then `usedIn` count, then relPath (:216-222); top `limit ?? 3` (:223). `generate_music` also drops a bed
+    - `src/main/services/library/sound-match.ts` (224 lines at `6224040`, 249 since `b176881`; NEW, pure — entries in,
+      ranked matches out, no I/O). Candidates: audio entries of the asked class (`soundClassOf` :192 — a `sfx` / `music`
+      folder, a `sfx-` / `music-` name, tags `music` / `bed`, else probed length > 30 s = music, `SFX_MAX_SECONDS` :37;
+      unknown length = either). Words: `soundTokens` :113 (lower-case; stop words and placement words such as cut / first /
+      next / last dropped; `lo-fi` also yields `lofi`; every word after a negation — `NEGATIONS` :44 — up to the next
+      punctuation dropped, so a catalog "no music, no metallic ring" never matches "music"; prefix matches such as `air` /
+      `airy`; `SAME_SOUND` :46 swoosh / woosh = whoosh). **The scoring rule** (`matchLibrarySounds` :212-249): each prompt
+      word weighs `idf = ln((N + 1) / (df + 0.5))` over the candidates (:217-220 — "soft", on most catalog clips, weighs
+      little), half for words after the head clause (`QUALIFIER_WEIGHT` 0.5, :41), times its best field hit (`FIELD_WEIGHT`
+      :42: tag 1, file name 1, category 0.9, description 0.6); `coverage = covered / total` (:238). **A match: coverage ≥ 0.5
+      (`MATCH_COVERAGE` :38), or the head word hits and coverage ≥ 0.3 (`HEAD_MATCH_COVERAGE` :39)** (:239; `headWord` :145
+      = the last word of the first clause, cut at `CLAUSE_CUT` :47-50 and, since `b176881`, at a `PLACEMENT` clause :59-61 —
+      "a soft cuckoo clock chime" → chime). Ranked by coverage, then strong hits (tag / name / category), then `usedIn`
+      count, then relPath (:241-247); top `limit ?? 3` (:248). `generate_music` also drops a bed
       shorter than the asked length (`minDurationSec`).
     - `src/main/services/studio/agent-tools/sound-reuse.ts` (45, NEW): `formatSoundMatches` :14 ("The library already has N
       sound(s) matching … — nothing was generated (no cost, no provider needed):" + E2's `formatLibraryRow` rows — ref ·
@@ -69,9 +118,11 @@
       (E3)", 4 tests (:96 `list_assets`, :102 `generate_sfx` / `generate_music` + `force`, :109 step 6, :116 the mapping).
     - Tests: `src/main/services/library/sound-match.test.ts` (144 lines, 14 tests — tokens, negation, hyphen, class
       filters, the music length drop, the answer text, the order on realistic prompts over a catalog-shaped fixture, no match
-      for the cuckoo); `agent-tools/audio-tools.test.ts` describe :105 (5 tests, the REAL matcher over a mocked index:
-      matches → no provider check, no engine; `force` generates; no match → generates; an index read failure → generates;
-      music); `agent-tools/library-listing.test.ts` +1 (multi-word + tag / category query).
+      for the cuckoo); the reuse describe, written as `agent-tools/audio-tools.test.ts` :105 (5 tests) and moved by
+      `788c8d2` to `agent-tools/audio-tools-reuse.test.ts` describe :92 (6 tests, the REAL matcher over a mocked index:
+      matches → no provider check, no engine; `force` generates — sfx :114, music :122 (fix round 1); no match → generates;
+      an index read failure → generates; music); `agent-tools/library-listing.test.ts` +1 (multi-word + tag / category
+      query); `library/sound-match-placement.test.ts` (fix round 1, 13 tests — F1 above).
     - The order over the REAL catalogs (builder #1, a temporary test, not committed; `D:\repos\VidTSX-STUDIO\.vidtsx-temp\
       end-to-end\E3\catalog-order.txt`, run before the `SAME_SOUND` line): "a soft airy whoosh for a transition" →
       whoosh-soft 1.00 | whoosh-wind 0.75 | whoosh-reverse 0.60; "Add a soft whoosh at the first cut." → whoosh-soft 1.00 |
@@ -116,7 +167,12 @@
     orchestrator session logs `ceb250c` `c3f9276` `3711edb` `e1ba687` `5d602fb`; builder #4's records commits are named in
     the HANDOFF LOG. Kit (gitignored): `.vidtsx-temp/end-to-end/E3/`.
 - **`wt/out`:** built at `8bde97c` by builder #2 (`out/main/index.js` 19:52, `out/renderer/index.html` 19:55; the renderer
-  bundle contains `data-tile-play`) — the build the live step ran; `src/` unchanged since, so no rebuild for the gates.
+  bundle contains `data-tile-play`) — the build the live step ran. **Rebuilt at `788c8d2`** by builder #5 (fix round 1
+  changed main code; 0 `electron.exe`; guard C: 49.3 GB / D: 43.8 GB / headroom 28.4 GB): `unset ELECTRON_RUN_AS_NODE;
+  export NODE_OPTIONS=--max-old-space-size=8192; node D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js
+  build` → exit 0, renderer "✓ built in 3m 21s" (`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\build-fix1.log`);
+  `out/main/index.js` 21:22:29, `out/renderer/index.html` 21:25:49 (re-read by builder #6), `out/main/index.js` contains the
+  `PLACEMENT` set (`whilst` — 1 hit); `src/` unchanged since `788c8d2` as of `55b223a`, so the build is the current code.
 - **The live step** (builder #3, 2026-10-28 ~20:00–20:15; CDP 9263; two launches, both WITHOUT `VIDTSX_AUDIO_STANDIN_FILE`;
   watchdog on; guard before each launch and the import: C: 50.3 GB, D: 43.8 GB, headroom 28.3–28.8 GB; first call
   `studioRootSet` → `studioRootGet` = `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\root`; `libraryRootGet` =
@@ -183,41 +239,70 @@
     pill "Origin: imported ×" (every `sfx/` file is imported — nothing to narrow here; origin matching is unit-tested)
     (`live-assets.json`, `live-assets2.json`, `assets-full.png`).
   - The app was stopped after each launch by profile path + `Name='electron.exe'` (4 and 5 processes, 0 left).
-- **Gates** (builder #4, 2026-10-28, no app running, HEAD `5d602fb` — `src/` as of `8bde97c`, matching the `wt/out` build):
-  guard C: 50.0 GB / D: 43.8 GB, headroom 27.7 GB → default workers. Full worktree vitest from the worktree root, `node
-  D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run`: run 1 (`vitest-full-1.log`, 20:17:55) — 492 files passed, 4
-  failed, 5 skipped (501); 4,214 tests passed, 10 failed, 35 skipped (4,259); 86.05 s — the fourth file was
-  `flow-render.test.ts:255` ("expected 0 to be greater than 0" in its 1 s `vi.waitFor`), DRIVING's known LOAD timeout: alone
-  it passed 5 / 5 (`vitest-flow-render-alone.log`), and **run 2 — the counted run** (`vitest-full-2.log`, 20:20:05, default
-  workers, headroom 27.9 GB): **493 files passed, 3 failed, 5 skipped (501); 4,215 tests passed, 9 failed, 35 skipped
-  (4,259); 75.31 s, 0 timeouts**. The 3 files / 9 tests are E-d2a's suites, each only on package resolution
-  (`builder-libraries` 1: `@remotion/paths (builder-libraries.ts) is not installed`; `shot-bundle` 5: `Could not resolve`
-  `roughjs` / `@remotion/shapes` / `@react-three/fiber` / `chroma-js` / `@remotion/google-fonts/SpaceGrotesk`;
-  `shot-bundle-in-place` 3: the chroma-js tests, `Could not resolve "chroma-js"`). Rule (b): the 99 files of `git diff
-  --name-only 5d77600..5d602fb` (`diff-list.txt`, run at HEAD `5d602fb`) vs the suites' import graphs (`node
-  C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs <wt> diff-list.txt` — an esbuild metafile per suite, packages
-  external, `?raw` imports as leaves, `vi.mock`'d modules not followed: `shot-generator.ts`, `shot-import-land.ts`,
-  `media-import.ts`) → 2 / 15 / 23 local modules (+ `scripts/builder-unpack.mjs` 1), touched by the E diff: **NONE**
-  (`import-graph.txt`). Types: `tsc -p tsconfig.web.check.json --noEmit` **26** `error TS`, `-p tsconfig.node.check.json`
-  **10**; no error line names an E3 file (`tsc-web.log`, `tsc-node.log`). No gate failure → no `src/` change, no rebuild.
-- **Not measured / open:** (1) "plays" for a GENERATED file — on screen only library clips were played (`whoosh-soft`,
-  `piano-a-min`); the stand-in files were made after the last launch, at tool level (the tile / details players take any
-  library file through the same module-server route, but a generated file's play was not driven). (2) The two whoosh cards
-  were left `proposed` (ask-first): Apply → an audio clip on the timeline was not clicked (the pre-E3 `apply-insert-proposal`
-  path; `usedIn` gains the project id at `insert_asset` time). (3) `list_assets(query: 'whoosh')` also lists `flame-snuff`,
-  whose description says "no whoosh" — the listing is a plain word match (the matcher's negation rule is not applied there);
-  harmless here (the model picked `whoosh-soft` both times), a later polish. (4) The Studio assistant's usage rows carry
-  `featureSource "auto-cut"` for an SFX turn — a usage-log label question, not E3's. (5) Not seen live: the details player
-  pausing a tile that is STILL playing (both tile sounds had ended first); the other direction (a tile play pausing the
-  details player) was. The hook's DOM event order has no unit test. (6) Red first: the matcher (`sound-match.test.ts`,
-  module missing) and the Assets services (`asset-search.test.ts` 14 failing incl. the chip filter; `asset-urls` /
-  `exclusive-playback` / `sound-fields` module missing); NOT red first: the `audio-tools`, `library-listing` and prompt
-  tests — written right after their code. (7) No component tests — vitest is node-only; the components were checked live
-  only. (8) `AssetLibraryScreen.tsx` is 464 lines (456 before E3 — already over the ~300 rule; a split is later cleanup);
-  `audio-tools.test.ts` is 302. (9) Stated design choices: `generate_music` follows the same rule (T6 names only
-  `generate_sfx`); the `list_assets` query is broadened (strictly broader for one word). (10) The stand-in returns identical
+- **Gates** (fix round 1, 2026-10-28; no app running — 0 `electron.exe`; `src/` as of `788c8d2`, the code the `wt/out`
+  rebuild holds; logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\`). **The counted run used E-d13** (DRIVING "Track E" —
+  the vitest gate under EXTERNAL CPU load). Why: builder #5's five full runs at HEAD `788c8d2` (guard C: 49.3 GB / D: 43.8 GB
+  / headroom 27.3–28.4 GB; the CPU held at 79–99 % `LoadPercentage` by another process) never met DRIVING's normal load
+  rule — default runs 1 / 2 / 4 (`vitest-full-fix1.log`, `vitest-full-fix1-2.log`, `vitest-full-fix1-4.log`) and the
+  `--maxWorkers=4` run 3 (`vitest-full-fix1-3-mw4.log`) each had a LOAD failure beyond the E-d2a suites
+  (`render-jobs.test.ts:100` and `project-package.test.ts:247` 5000 ms timeouts, `flow-render.test.ts` :188 / :255,
+  `agent-memory.test.ts` (2), `shot-module-resolver.test.ts:151`), the `--maxWorkers=2` run 5 (`vitest-full-fix1-5-mw2.log`)
+  only `shot-module-resolver.test.ts:151`; every one of those files passed ALONE (`vitest-fix1-alone.log` 3 / 3 files, 32 /
+  32 tests; `vitest-fix1-alone-2.log` 10 / 10; `vitest-fix1-alone-3.log` 3 / 3, 30 / 30). **The CPU measurement** (builder
+  #6, 21:28:31, `cpu-fix1-6.txt`): `LoadPercentage` 85 / 84; per process over 5 s, **`vmmemWSL` 74.8 %** of all 16 cores
+  (WSL / Docker — not ours, not touched), the next 5.6 %; guard C: 49.3 GB / D: 43.8 GB / headroom 28.3 GB. **The counted
+  run** (HEAD `55b223a`, tree clean, worktree root, 21:28:47): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs
+  run --maxWorkers=2 --testTimeout=20000 --hookTimeout=20000` (`vitest-full-fix1-ed13.log`) → **494 files passed, 4 failed,
+  5 skipped (503); 4,228 tests passed, 10 failed, 35 skipped (4,273); 212.58 s; 0 "timed out"**. The 4 files: E-d2a's
+  three, each only on package resolution (`builder-libraries` 1: `@remotion/paths (builder-libraries.ts) is not installed`;
+  `shot-bundle` 5: `Could not resolve` `roughjs` / `@remotion/shapes` / `@react-three/fiber` / `chroma-js` /
+  `@remotion/google-fonts/SpaceGrotesk`; `shot-bundle-in-place` 3: `chroma-js`), and `shot-module-resolver.test.ts` 1 — "a
+  changed transpiler fingerprint misses every tier" (the test at :151): `Error: never written: …\shot-module-cache-…\
+  v1.json` from the test's own `waitForFile` loop (:55, called at :158 — an explicit wait, not the 20 s test timeout),
+  DRIVING's named known list; **alone** (21:32:48) `vitest run src/main/services/studio/shot-module-resolver.test.ts` → 1
+  / 1 files, 10 / 10 tests (`vitest-fix1-ed13-alone.log`); the file is not in E's diff. Rule (b) of E-d2a: `git diff
+  --name-only 5d77600..HEAD` at `788c8d2` → 101 files (86 under `src/`; `diff-list-fix1.txt`) vs the suites' import graphs
+  (`node C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs <wt> diff-list-fix1.txt` — an esbuild metafile per
+  suite, packages external, `?raw` imports as leaves, `vi.mock`'d modules not followed: `shot-generator.ts`,
+  `shot-import-land.ts`, `media-import.ts`) → 2 / 15 / 23 local modules (+ `scripts/builder-unpack.mjs` 1), touched by the E
+  diff: **NONE** (`import-graph-fix1.txt`); the same 101 paths at `55b223a`. Types at `788c8d2`: `tsc -p
+  tsconfig.web.check.json --noEmit` **26** `error TS` (`tsc-web-fix1.log`), `-p tsconfig.node.check.json` **10**
+  (`tsc-node-fix1.log`); none names `sound-match`, `sound-reuse` or `audio-tools`. Earlier gates (builder #4, HEAD
+  `5d602fb`, `src/` as of `8bde97c`): run 2 counted at default workers — 493 / 3 / 5 files, 4,215 / 9 / 35 tests, 75.31 s
+  (`vitest-full-2.log`); rule (b) NONE over 99 files.
+- **Measured by verifier round 1** (moved out of "Not measured"; its own profile `…\profiles\E3-verify`, CDP 9273;
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\live-assets.json`): **a GENERATED file plays** — the tile of
+  `generated/sfx-a-steam-train-whistle-blowing-twice.mp3` (`readyState 4`, `duration 2.5`) `paused false`, `currentTime`
+  0.427 → 1.545 s; the details player 0.258 → 1.281 s; its rows "Loudness −20.3 LUFS · Peak −9.8 dBTP · true peak · Source
+  standin". **The details player pauses a STILL-playing tile** — the `lofi-warm` tile playing (2.469), details `play()` on
+  `ambient-pad` → the tile `paused true` at 2.496 while the details player ran 1.167 → 2.376; **and the reverse** — a tile
+  play → the details player `paused true` (2.414), the tile `paused false` (3.572). Origin chips on a library holding
+  generated files too: `origin:generated` 56 → 5, `origin:imported` 56 → 51 (`tag:whoosh` → 4, cleared → 56).
+- **Not measured / open:** (1) The whoosh cards were left `proposed` (ask-first): Apply → an audio clip on the timeline was
+  not clicked (the pre-E3 `apply-insert-proposal` path; `usedIn` gains the project id at `insert_asset` time). (2)
+  `list_assets(query: 'whoosh')` also lists `flame-snuff` (its description says "no whoosh") and `dash-zip` — the listing is
+  a plain word match (the matcher's negation rule is not applied there); harmless (the model picked `whoosh-soft` every
+  time), a later polish. (3) The Studio assistant's usage rows carry `featureSource "auto-cut"` for an SFX turn — a
+  usage-log label question, not E3's. (4) Negation drops words but never demotes: "a whoosh but not soft" / "… without air"
+  still rank `whoosh-soft` first; "soft" alone → three unrelated soft clips (verifier note 1). (5) `after` / `before` + a
+  clause keep the 0.5-qualifier rule (a plain preposition just as often): "a hit after the logo lands" 0.39, "a whoosh
+  before the slide changes" 0.32 — they match, near the 0.3 floor. (6) The native `<audio controls>` renders as a light
+  pill on the dark theme (verifier nit) — UI polish. (7) **For later tracks, not E3's:** the live assistant could not see
+  where the cut is when ONE source asset is split into two V1 clips — the verifier's whoosh turn 1 found `whoosh-soft` and
+  said no generation was needed but ASKED for the cut time (it saw an 8 s asset and a 6 s timeline); turn 2 (cut at 3.0 s
+  named) → `insert_asset(library:sfx/whoosh-soft.mp3, audio, at 2.75)`, `generated/` 5 → 5, `usedIn` 16 → 17; the builders'
+  two-asset projects hid it. (8) Red first: the matcher (`sound-match.test.ts`, module missing), the Assets services
+  (`asset-search.test.ts` 14 failing incl. the chip filter; `asset-urls` / `exclusive-playback` / `sound-fields` module
+  missing), F1 (`sound-match-placement.test.ts` 11 / 13) and the music `force` pin (M2b → 1 / 13); NOT red first: the
+  original `audio-tools`, `library-listing` and prompt tests — written right after their code. No component tests — vitest
+  is node-only; the components were checked live only, the hook's DOM event order live in both directions (above). (9)
+  `AssetLibraryScreen.tsx` is 464 lines (456 before E3 — already over the ~300 rule; a split is later cleanup);
+  `audio-tools.test.ts` 202 + `audio-tools-reuse.test.ts` 173 since `788c8d2`; `sound-match.ts` 249. (10) The importer
+  rewrites the gitignored `wt/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs` on every run — scratch (verifier
+  note 6). (11) Stated design choices: `generate_music` follows the same rule (T6 names only
+  `generate_sfx`); the `list_assets` query is broadened (strictly broader for one word). (12) The stand-in returns identical
   bytes every call, so the `force` whoosh got the same project asset id as the cuckoo (the pool dedups by hash) — a stand-in
-  artefact. (11) Scratch left on the E3 profile / root only: two stand-in files under `<profile>\assets\generated\`, the
+  artefact. (13) Scratch left on the E3 profile / root only: two stand-in files under `<profile>\assets\generated\`, the
   three test projects and an empty `e3-whoosh-1` from a first driver attempt.
 - **For Hasan:** listening to a tile / the details playback in the Assets screen and to a placed library whoosh in the real
   editor (the by-ear half of "plays"); the one live ElevenLabs generation (E2's item, a real key) through the reuse rule
@@ -227,9 +312,16 @@
   `case-w2.log`, `case-cuckoo.log`, `case-1.log`, `tools-noprovider.json`, `tools-standin.json`, `assets-details.png`,
   `assets-full.png`, `import-dry.json|log`, `import.json|log`, `app-1.log`, `app-2.log`, `watchdog.log`, `standin-e3.mp3`,
   `media\`; gates `vitest-full-1.log`, `vitest-full-2.log`, `vitest-flow-render-alone.log`, `diff-list.txt`,
-  `import-graph.txt`, `tsc-web.log`, `tsc-node.log`. Kit (gitignored) `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\`
-  (`launch.sh`, `watchdog.ps1`, `restore.ps1`, `cdp.mjs`, `e3.mjs`, `vitest.e3.config.ts`, `tools-noprovider.e3.test.ts` /
-  `.log`, `tools-standin.e3.test.ts` / `.log`, `catalog-order.txt`, `build-b2.log`); the profile `…\profiles\E3\profile`.
+  `import-graph.txt`, `tsc-web.log`, `tsc-node.log`; fix round 1 `vitest-full-fix1.log`, `vitest-full-fix1-2.log`,
+  `vitest-full-fix1-3-mw4.log`, `vitest-full-fix1-4.log`, `vitest-full-fix1-5-mw2.log`, `vitest-fix1-alone.log` / `-2` /
+  `-3`, `cpu-fix1-6.txt`, `vitest-full-fix1-ed13.log` (the COUNTED run, E-d13), `vitest-fix1-ed13-alone.log`,
+  `diff-list-fix1.txt`, `import-graph-fix1.txt`, `tsc-web-fix1.log`, `tsc-node-fix1.log`; the verifier's
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\` (`live-assets.json`, `c-matcher.json`, `b-noprov.json`, …). Kit
+  (gitignored) `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\` (`launch.sh`, `watchdog.ps1`, `restore.ps1`, `cdp.mjs`,
+  `e3.mjs`, `vitest.e3.config.ts`, `tools-noprovider.e3.test.ts` / `.log`, `tools-standin.e3.test.ts` / `.log`,
+  `catalog-order.txt`, `build-b2.log`; fix round 1 `fix1-red.log`, `fix1-green.log`, `catalog-fix1.e3.test.ts`,
+  `catalog-order-fix1.txt`, `fix1-audio-green.log`, `fix1-m2b-red.log`, `build-fix1.log`); the profile
+  `…\profiles\E3\profile`.
   TESTING.md §18.17; HANDOFF `docs/studio/end-to-end/E3/HANDOFF.md`.
 
 ## 2026-10-28 — END-TO-END E4: the importer over the reference `sfx/` and `music/` catalogs — 45 + 6 clips in the library with fields mapped, `used_in` preserved, licences noted — DONE (fix round 2, records only, after verifier round 2 FAIL on one stale records line; the E4 verifier round 3 PASSED on the records (2026-10-28))
