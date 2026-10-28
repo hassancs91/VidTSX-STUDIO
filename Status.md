@@ -7,6 +7,148 @@
 
 ---
 
+## 2026-10-28 — END-TO-END E4: the importer over the reference `sfx/` and `music/` catalogs — 45 + 6 clips in the library with fields mapped, `used_in` preserved, licences noted — DONE (the E4 verifier is next)
+
+- **What:** part E4 of `docs/studio/END_TO_END_PLAN.md` (track E, session 6; worktree branch `end-to-end-p0-e`, E-d1; E-d8 is
+  this part's decision). Row: "The importer over the reference `sfx/` and `music/` catalogs". Exit: "45 + 6 clips in the
+  library with fields mapped, `used_in` preserved, licences noted". **Result: met** on an isolated profile
+  (`C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E4\profile`, library root `<profile>\assets` — confirmed in the app,
+  `isOverride: false`) from the READ-ONLY catalogs `D:\repos\claude-youtube-editor\media\library\{sfx,music}\catalog.json`:
+  51 / 51 files byte-identical to their source (sha256), 51 / 51 entries with every mapped field, `usedIn` verbatim on 51
+  (41 non-empty), `probe.duration` vs an independent ffprobe n8.1.2 max |Δ| **0 ms**, the licence in `audio.license` on 47
+  and "no licence recorded in the catalog" on the 4 synth chords; the dry run wrote nothing (tree hash equal); a re-run
+  left `index.json` byte-equal; the REAL `list_assets(… query: 'whoosh')` row prints `whoosh-soft` with 0.68 s, `motion`,
+  its tags, −20.0 LUFS and its `used_in`. No model or provider call (E-d9). Hasan's library was never the target.
+- **The code** (pointers read at HEAD; `src/` last changed in `4aed92f` — `git diff --stat 4aed92f..HEAD -- src/` is empty):
+  - `4aed92f` — the service. `src/main/services/library/catalog-import-map.ts` (156 lines, pure, no IO): `CatalogSection`
+    (:13), `NO_LICENCE_NOTE` (:16), `DROPPED_FIELDS` (:19), `fileProblem` (:62 — a `file` with `..`, an absolute path or a
+    non-audio extension), `parseCatalog` (:91, narrows `unknown`, per-clip problems), `mapCatalogClip` (:104),
+    `changedFields` (:147, over `canonical` :134). `src/main/services/library/catalog-import.ts` (198 lines): `CatalogSource`
+    (:31), `CatalogImportAction` (:44: `copy | update | unchanged | conflict | missing-source`), `planClip` (:94; the moved-file
+    lookup by `hashFileHead` :117 + a sha256 match), `planCatalogImport` (:127, READ-ONLY: reads the catalogs, sha256 of every
+    source, stat + sha256 of an existing target, `loadIndex` — which never writes), `copyIn` (:149, `COPYFILE_EXCL` :152 —
+    never overwrites — then a sha256 re-check; a bad copy is removed), `applyItem` (:160 → the app's own `upsertEntry`:
+    probe, `hashFileHead`, the per-root chain, `version 1 / rev 2`, the one-time backup), `applyCatalogImport` (:181, refuses
+    a plan made for another root). `src/shared/types/asset-library.ts:52` `LibraryAudioMeta.license?` (optional, verbatim —
+    E-d5). `src/main/services/library/library-used-in.ts:33` `mergeUsedIn` (pure: existing order kept, new values appended
+    once). `library-store.ts` — `upsertEntry`'s meta gains `usedIn?` (:146), MERGED inside the chain (:173), so a re-import
+    never drops a Studio project id E2 marked. Tests: `catalog-import-map.test.ts` (8), `catalog-import.test.ts` (7, the REAL
+    bundled ffprobe, WAV fixtures written from JS — a unit suite does not depend on the editor repo; the 51 real mp3s went
+    through the live run), `library-used-in.test.ts` (+1), `pre-e1-control.test.ts` (fixture `audio` gains `peakKind:
+    'sample'` + `license`, kept whole by the frozen pre-E1 code — E-d5).
+  - `5247ed9` — `scripts/import-sfx-library.mjs` (212 lines): esbuild-bundles `catalog-import.ts` (`platform node`, `cjs`,
+    :135-136) into `<repo>/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs` (gitignored; inside the repo so
+    `@remotion/renderer` resolves by walking up to `node_modules`) with ONE plugin: `electron` → a stub (`electronStub` :85:
+    `isPackaged false`, `getPath('userData')` THROWS :92 — the importer has no implicit library — other names →
+    `<tmp>/vidtsx-import-sfx-library/<name>`), the repo's `settings-db` → a generated stub whose every export throws
+    (`settingsStub` :106, resolve hook :116 — never a settings store), `@shared/ @main/ @logging/ @audio-engine/` → `src/`,
+    every other bare package external. `checkArgs` (:74-80) holds the refusals; `itemLine` (:145), `summarize` (:164),
+    `main` (:170).
+  - Docs: `dc41822` `ad7b415` (builder #1), `ff95d1c` (builder #2), `8dba927` (builder #3, gates) + this entry's commit;
+    session logs `d2e305e` `cf5328d`. Kit (gitignored): `.vidtsx-temp/end-to-end/E4/`.
+- **The relPath scheme (stable):** `sfx/<basename of file>` and `music/<basename of file>` under the assets root — for all
+  51 that is `sfx/<id>.mp3` / `music/<id>.mp3` (`sfx/whoosh-soft.mp3`, `music/ambient-pad.mp3`). The source is `<catalog
+  folder>/<file>` (`clips/<id>.mp3`); `palette.json` beside each catalog (the generation recipes) is not imported.
+- **The field mapping** (catalog → index entry; `origin: 'imported'` and `kind: 'audio'` come from `upsertEntry`):
+
+  | catalog | index | note |
+  |---|---|---|
+  | `file` | relPath `<section>/<basename>` | `..` / absolute / non-audio → a plan problem, never imported |
+  | `id` | — | = the file's basename; not stored separately |
+  | `prompt` (else `desc`) | `description` | the 4 chords: `desc` + ` (no licence recorded in the catalog)` |
+  | `category` | `audio.category` (trim + lower-case) | absent on the 4 chords → not written |
+  | `tags` | `tags` via `normalizeTags` (E2's one normalizer) | absent → not written; `trap-snap` deduped (below) |
+  | `loudness_lufs` | `audio.loudnessLufs` | recorded, NOT re-measured — the clips import as-is, never through E2's normalizer |
+  | `peak_dbfs` | `audio.peakDbfs` + **`peakKind: 'sample'`** | the catalogs' value is a SAMPLE peak (E2 writes `'true'`, dBTP) |
+  | `source` | `audio.source` **verbatim** | `elevenlabs:sound-generation` / `elevenlabs:music` / `gen_chords.py (deterministic additive synth, equal temperament A4=440)` — not E2's provider-id form |
+  | `model` | `audio.model` | `eleven_text_to_sound_v2` / `music_v2` |
+  | `license` | **`audio.license`** (new, optional, verbatim) | 41 sfx + 6 music; the chords have none → not written, the note goes in the description + the run's `noLicence` list |
+  | `used_in` | `usedIn` **verbatim** (editor video ids such as `short-1-chess`, `video-2`), merged with what is there | E2's Studio project ids join the same array (`mergeUsedIn`) |
+  | `duration_s` | **not stored** | `probe` is MEASURED by `upsertEntry`; the report prints `probe − duration_s` per clip |
+  | `requested_ms`, `force_instrumental` (music), `function` (chords) | **dropped** | generation request parameters / the editor mixer's role — listed per clip as `dropped` in the plan |
+
+  No `gainDb` / `normalizeError` is written (the importer never re-encodes). Live entry, `sfx/piano-c-maj.mp3`:
+  `description "C major triad (I) — warm electric-piano voicing (no licence recorded in the catalog)"`, `audio { source:
+  "gen_chords.py (…)" }`, `usedIn ["short-9-chords"]`, no `tags`, `probe.duration 2.6`.
+- **The dry run and the CLI:** `node scripts/import-sfx-library.mjs --library <assets root> --from <editor repo> [--dry-run]
+  [--sfx-catalog <file>] [--music-catalog <file>] [--report <json>]`. `--dry-run` calls only `planCatalogImport` (no mkdir,
+  no copy, no `upsertEntry`) and prints one line per item (action · relPath · sha256[0..12] · category · [tags] · LUFS ·
+  peak(kind) · used_in · dropped · changes · notes; after a write also `probe` and `probe − catalog` ms) + a `summary` JSON;
+  `--report` writes `{summary, problems, items}`. **Refusals (exit 2):** no `--library` → "--library is required (there is no
+  default library)"; no `--from`; a `--library` that is not an existing folder → "… is not an existing folder — refusing";
+  a `--library` (or `--report`) inside `--from` → "lies inside --from". Exit 1 on any conflict / missing source / problem /
+  failed clip, else 0. **Proof:** live on the E4 library, `live-1-dry.json` → rc 0, `{copy: 51}`, 0 problems, 0.475 s; a
+  sha256 over every file of the target tree incl. `.vidtsx/index.json` `6ca7edd6…` (7 files, 9,446 B) before = after
+  (`tree-before-dry.json` / `tree-after-dry.json`); on the scratch smoke root no folder was created (empty-tree hash
+  `e3b0c442…` before = after). Unit: the tree snapshot is equal and no `.vidtsx/` appears.
+- **Idempotency:** a second run is `{unchanged: 51}` (0.352 s) → NO write: `index.json` BYTE-EQUAL (sha256 `de91fc4c606c…`
+  after the import and after the re-run). A run against a changed COPY of the sfx catalog (`wind-soft` + tag `e4-changed`,
+  `--sfx-catalog …\.vidtsx-temp\end-to-end\E4\sfx-catalog.changed.json`, the original never touched) → `{unchanged: 50,
+  update: 1}`, the one update `sfx/wind-soft.mp3` `changes: ["tags"]` (`live-4-changed.json`; `index-diff` = that entry's
+  `tags` only; index `fea08f505f25…`); the original catalog again → `{update: 1}` on the same entry, the tag gone, index back
+  to `de91fc4c606c…` (`live-5-back.json`). A Studio project id: the REAL `markLibraryUsedIn(root, ['sfx/whoosh-soft.mp3'],
+  'e4-exit')` → the 16 editor ids + `e4-exit`; the importer again → `{unchanged: 51}`, index byte-equal (`17f8783bc66b…`,
+  `live-6-after-mark.json`) — the Studio id is kept.
+- **Two re-run behaviours (stated, by design):** (1) the catalog is the truth for the mapped fields — a re-run RE-APPLIES the
+  catalog's `description` / `tags` / `audio` over an in-app edit of them; only `usedIn` merges (it only grows). (2)
+  `upsertEntry` keeps the existing `tags` when the mapped `tags` is `undefined`, so a catalog that DROPS its whole tag list
+  does not clear the entry's tags (a changed list replaces them).
+- **The tag dedupe:** `trap-snap`'s catalog list holds `snap` twice (`["trap","snap","shut","latch","catch","mechanism",
+  "snap"]`); its entry has six tags (`normalizeTags` dedupe); every other list is verbatim (`exit.json`
+  `summary.tagsNormalizedBy`). The design note's "no tag needs normalizing" was wrong on this one clip.
+- **The live run** (builder #2, 2026-10-28; the worktree's own build `wt/out` at `5247ed9`, CDP 9264, watchdog on): profile
+  copied from `profiles\source\profile` with `robocopy … /XF settings.db*` (2,325 files / 371.8 MB, 0 `settings.db*`); Studio
+  root set FIRST (`…\.vidtsx-temp\end-to-end\E4\root`); `libraryRootGet` → `<profile>\assets`, `isOverride: false`; library
+  before: 7 files (`presets/`), no index. The app was STOPPED before the importer wrote (one writer at a time — the script's
+  `upsertEntry` chain is its own process's). Import: `live-2-import.json` rc 0, `{copy: 51}`, 0 failed, 5.439 s. Exit check
+  (`exit.json`, the REAL handlers in a stopped-app vitest driver, `electron` + `settings-db` mocked): `entries 51`, `version 1`,
+  `rev 2`, `bytesEqual 51`, `fieldsEqual 51`, `usedInVerbatim 51`, `usedInNonEmpty 41`, `maxAbsProbeVsFfprobeMs 0`, `fails []`.
+  **Durations:** `probe − duration_s` = 38 × 0 ms, 12 × +0.2…+0.5 ms (six sfx +0.2, six music +0.4…+0.5 — the catalog's
+  3-decimal rounding), `sfx/camera-shutter.mp3` **−42 ms** (the LAME delay + padding E1 trims); the HANDOFF's expected −27…−51 ms
+  held for that one clip only. **`list_assets`** (REAL, `{ scope: 'library', kind: 'audio', query: 'whoosh' }`) → 6 rows
+  (`dash-zip`, `flame-snuff`, `whoosh-data-burst`, `whoosh-reverse`, `whoosh-soft`, `whoosh-wind`); whoosh-soft: `-
+  library:sfx/whoosh-soft.mp3 (audio, 0.68 s, imported) — "A short, soft air whoosh for a scene transition. …" · category:
+  motion · tags: whoosh, transition, cutaway, air, swipe, motion · −20.0 LUFS · used in: short-1-chess, short-2-math,
+  short-3-algo, ch-3-honeypot, short-6-sheet, ch-4-code-driven-logos, short-4-git, short-5-prob, short-8-phish,
+  short-9-chords, short-10-fees, vox-1-coffee, short-11-map, ch-5-three-skills, blue-man-1-door, video-2, e4-exit` (its entry:
+  probe 0.6802494 s = ffprobe 0.680249, catalog 0.68; `peakDbfs −1.6`, `peakKind sample`, `model eleven_text_to_sound_v2`).
+  **Assets screen** (launch 2, root set first, `Refresh`): root `music` 7.5 MB, `sfx` 1.1 MB, `presets` 9.1 KB, "3 items ·
+  8.6 MB" (`assets-root.png`); `sfx` → "45 items · 1.1 MB", `.mp3` cards with name + description (`assets-sfx.png`); `music` →
+  the 6 names, "6 items · 7.5 MB" (`assets-music.png`). After the app's own scan: 57 entries (+6 `presets/` files), none of the
+  51 imported entries changed (`index.after-app-scan.json`); `app-2.log` 0 errors; the app stopped by profile path + name.
+- **The Assets screen prints NO duration** (E2's finding — pre-E2 UI: tile = name + description); the exit's "files and
+  durations" is met by the files on screen + the durations in the index and the `list_assets` row.
+- **Gates (builder #3, 2026-10-28, app stopped, HEAD `cf5328d` — `src/` as of `4aed92f`; `wt/out` at `5247ed9` is current — no
+  rebuild):** guard C: 53.1 GB / D: 43.8 GB, headroom 29.5 GB → default workers. Full worktree vitest `node
+  D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run` → **489 files passed, 3 failed, 5 skipped (497); 4,165 tests
+  passed, 9 failed, 35 skipped (4,209); 74.43 s**, 0 timeouts (`…\E4\vitest-full-1.log`) — the 3 files / 9 tests are E-d2a's
+  suites, each only on package resolution (`builder-libraries` 1 `@remotion/paths … is not installed`; `shot-bundle` 5
+  `roughjs` / `@remotion/shapes` / `@react-three/fiber` / `chroma-js` / `@remotion/google-fonts/SpaceGrotesk`;
+  `shot-bundle-in-place` 3 — the three tests that import `chroma-js`, `Could not resolve "chroma-js"`). Rule (b): the 76 files
+  of `git diff --name-only 5d77600..HEAD` (`…\E4\diff-list.txt`) vs their import graphs (`…\E1\import-graph.cjs`: esbuild
+  metafile per suite, packages external, `?raw` as leaves, `vi.mock`'d modules not followed) → 2 / 15 / 23 / 1 local
+  modules, touched by the E diff: **NONE** (`…\E4\import-graph.txt`). Types web **26** / node **10**, no line names an E4
+  file (`…\E4\tsc-web.log`, `tsc-node.log`).
+- **Not measured / open:** an import into a library with an in-app edit of a mapped field (behaviour (1) above is by design
+  and unit-shaped, not driven live); a `conflict` (different bytes at the target) and a moved file are unit-tested only
+  (`catalog-import.test.ts`); the importer while the app runs (not supported — one writer at a time; the app was stopped);
+  durations / LUFS / tags in the Assets screen (none exist; tag chips are E3's). The editor repo was never written: its
+  `git status` shows `media/library/sfx/catalog.json`, `media/library/catalog.json` and `faces/README.md` modified —
+  pre-existing (Hasan's older edits; `sfx/catalog.json` mtime 2026-10-10), not ours.
+- **For Hasan:** importing the catalogs into HIS real library is his run, after he has read a dry run — NOT run here. With
+  the app CLOSED, from the repo once track E has landed (the script is on `end-to-end-p0-e`), and `--library` = his library
+  root as the app reports it (the default is shown; use his override if he set one): `node scripts/import-sfx-library.mjs
+  --library "C:\Users\hasan\AppData\Roaming\VidTSX Studio\assets" --from D:\repos\claude-youtube-editor --dry-run --report
+  <somewhere outside the editor repo>\import-dry.json`, read it, then the same line without `--dry-run`.
+- **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\` — `exit.json` (every number), `exit-verify-2.log`,
+  `live-1-dry.json` … `live-6-after-mark.json`, `index.after-{import,rerun,changed,back,mark,app-scan}.json`,
+  `tree-before-dry.json` / `tree-after-dry.json`, `assets-{root,sfx,music}.png`, `app-1.log` / `app-2.log`, `build-1.log`,
+  `watchdog.log`, smoke `smoke-{dry,import,rerun}.json` + `smoke-root\`, gates `vitest-full-1.log`, `diff-list.txt` +
+  `import-graph.txt`, `tsc-web.log` / `tsc-node.log`; kit `.vidtsx-temp/end-to-end/E4/` (`launch.sh`, `cdp.mjs`, `root-set.js`,
+  `tree-hash.mjs`, `index-diff.mjs`, `exit.e4.test.ts` + `vitest.e4.config.ts`, `sfx-catalog.changed.json`, `live-*.log`,
+  `red.log` / `green1.log`); the profile `…\profiles\E4\profile` (its library now holds the 51 clips — E3 may use it).
+  TESTING.md §18.16; HANDOFF `docs/studio/end-to-end/E4/HANDOFF.md`.
+
 ## 2026-10-24 — END-TO-END E2: generation writes loudness-normalized files with category / tags; `usedIn` written on every landing — DONE (fix round 1 after verifier round 1 FAIL; the E2 verifier round 2 is next)
 
 - **What:** part E2 of `docs/studio/END_TO_END_PLAN.md` (track E, session 5, records in session 6; worktree branch
