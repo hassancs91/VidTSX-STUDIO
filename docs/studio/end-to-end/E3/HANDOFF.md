@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF
+status: DONE
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -313,7 +313,7 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   chime" → a chime, "a sparkle when the star appears" (never `zap-electric`), "camera shutter" ×2 (never `trap-snap`).
   **Red** on `0e168cf` code: `Tests 10 failed | 141 passed (151)` (`E3\fix2-corpus-red.log`) — exactly those 10 rows.
 - **The fix (step 2):** the words moved to `src/main/services/library/sound-match-words.ts` (179 lines, NEW; `sound-match.ts`
-  250 → 141, re-exports `headWord` / `soundTokens`). (a) **F2** — `wordsMatch` = equal, or the same `wordStem`: the
+  249 → 141 — builder #8: `git show 788c8d2:…/sound-match.ts | wc -l` → 249, not 250; re-exports `headWord` / `soundTokens`). (a) **F2** — `wordsMatch` = equal, or the same `wordStem`: the
   endings -s, -es (after s x z ch sh), -ies → y, -ing, -ed (not after e: `speed`), -y (not after a vowel: `play`); then a
   doubled b c d g k m n p r t v undoubled (`popping` → pop) and a silent e dropped (close / closes / closing / closed); a stem
   keeps ≥ 3 letters and a vowel (`string`). **No -er / -est / -ly** (riser ≠ rise, timer ≠ time, shutter ≠ shut). `rung` ≠
@@ -329,6 +329,27 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   (14) and `sound-match-placement.test.ts` (13) untouched and green.
 
 ## Verified (exact commands + outputs)
+
+- **Fix round 2 records, builder #8 (2026-10-28, worktree root, HEAD `532559a`, tree clean except the orchestrator's untracked
+  `docs/studio/end-to-end/E-exit/`; no `src/` / `scripts/` change, no gate re-run, no rebuild, no launch, no model turn):**
+  - Evidence re-read before copying: `fix2-corpus-red.log` `Tests 10 failed | 141 passed (151)` (the 10 rows by name) ·
+    `fix2-green.log` `41 passed (41)` / `493 passed (493)` · `catalog-order-fix2.txt` header "rows 150 · changed 24 · first result
+    changed 7 · a match lost 2", index SHA-256 / mtime UNCHANGED, the changed rows' old / new as recorded · `cpu-fix2.txt` (22:07:51,
+    LoadPercentage 4 / 19, sum 5.4 %, `vmmemWSL` 2.1 %) · `vitest-full-fix2.log` 4 / 496 / 5, 10 / 4419 / 35, 60.43 s, the extra =
+    `flow-render.test.ts:255:94` "expected 0 to be greater than 0" · `vitest-fix2-flow-render-alone.log` 1 / 1, 5 / 5 ·
+    `vitest-full-fix2-2.log` 3 / 497 / 5, 9 / 4420 / 35, 70.19 s, 0 "timed out", only the 3 E-d2a files · `tsc-node-fix2.log` 10 /
+    `tsc-web-fix2.log` 26 `error TS`, 0 name `sound-match` · `build-fix2.log` "✓ built in 1m 56s" · `out/main/index.js` 22:11:17.58 /
+    `out/renderer/index.html` 22:13:12.81; `PLACEMENT_BONUS` 3 lines, `placementHits` 3, `whilst` 2 · `wc -l` at HEAD:
+    `sound-match.ts` 141, `sound-match-words.ts` 179, fixture 71, corpus test 208, words test 63, placement test 105,
+    `sound-match.test.ts` 144; `git show 788c8d2:` / `b176881:` `sound-match.ts` → 249 lines.
+  - **Location note:** `diff-list-fix2.txt` and `import-graph-fix2.txt` are in the D: scratch
+    `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\` (NOT `C:\…\vidtsx-e2e\E3\` like the fix-1 lists); the records say so.
+    `diff-list-fix2.txt` = 105 lines, 90 under `src/`.
+  - **Records commit `5e56594`** — Status.md E3 entry **:10-453** (E4's now :455), TESTING **§18.17 :524-539** (new F2 item :532,
+    the Gates item :538 rewritten for fix round 2, fix round 1 kept as "Earlier"). Re-checked AFTER `5e56594`: `git log -1
+    --format=%h -- src/` → `09e81ea`; `git diff --stat 09e81ea..HEAD -- src/ scripts/` → empty; `git diff --name-only
+    5d77600..HEAD | diff - …\E3\diff-list-fix2.txt` → identical (105; `git diff --name-only 09e81ea..HEAD` = Status.md, TESTING.md,
+    E3 HANDOFF / LOG, NEXT-SESSION.md, ORCHESTRATOR.md — all six already in the list).
 
 - **Fix round 2, builder #7 (2026-10-28, worktree root, base `0e168cf`):**
   - Corpus red (above). Green: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library/
@@ -603,7 +624,11 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**Builder #8 (fix round 2, continued): write the records — step 5 of the brief below — then HANDOFF `status: DONE`.** Steps
+**E3 verifier round 3 — the bar is E-d14** (CDP 9273, its own `profiles\E3-verify` copy WITHOUT `settings.db*` may be reused;
+range `0e168cf..HEAD` — the fix `09e81ea`, the records `5e56594`; the records to check: Status.md E3 entry :10-453, TESTING
+§18.17 :524-539). **E3's LAST round** (two FAILs already — a third stops the run). Fix round 2 is DONE (builders #7–#8).
+
+(Done by builder #8, 2026-10-28 — kept for the record:) **Builder #8 (fix round 2, continued): write the records — step 5 of the brief below — then HANDOFF `status: DONE`.** Steps
 1–4 are DONE by builder #7 (Built / Verified "Fix round 2"; code `09e81ea`; gates counted under DRIVING's normal rule, NOT
 E-d13; `wt/out` rebuilt at `09e81ea`). No `src/` change, no gate re-run, no launch, no model turn is needed. Update the
 Status.md E3 entry (title / Result / the code list: + `09e81ea`, `sound-match.ts` 141 + `sound-match-words.ts` 179 lines, the
@@ -731,7 +756,11 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   hits only (descriptions are similes — "like lines of data flying by"), particles excluded; negation still only drops words,
   never demotes.
 - `ORCHESTRATOR.md` shows an uncommitted modification in the worktree that builder #7 did not make (the orchestrator's) — left
-  untouched, never staged.
+  untouched, never staged. (Builder #8: gone — the tree was clean at `532559a` except the orchestrator's untracked
+  `docs/studio/end-to-end/E-exit/`, also left untouched.)
+- Builder #8 (records): the brief named `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\diff-list-fix2.txt`; the file (and
+  `import-graph-fix2.txt`) is in the D: scratch `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\` — the records name the
+  D: path. Builder #7's "`sound-match.ts` 250 → 141" was 249 → 141 (`git show 788c8d2:`); corrected above and in the records.
 
 ### Verifier round 2 — FAIL on F2 (2026-10-28; no launch; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r2\`, kit `.vidtsx-temp\end-to-end\E3-verify\r2\`)
 
@@ -870,3 +899,8 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   fallback) → green (41 files / 493 tests in library + agent-tools), `09e81ea`; the real-index old-vs-new report (24 changed,
   0 correct matches / firsts lost); tsc 10 / 26; CPU idle → DRIVING's normal gate (run 2 counted, only the E-d2a suites); rule
   (b) NONE over 105; `wt/out` rebuilt. No launch, no model turn. Step 5 (records) handed to builder #8.
+- 2026-10-28 · builder #8 (fix round 2, records only) · ~42 calls · every cited evidence file re-read; Status.md E3 entry
+  (title, the F2 → fix round 2 bullet with the corpus / fix / regression / E-d14's bar, the matcher pointers re-pointed to
+  `09e81ea`, tests, `wt/out` at `09e81ea`, the Gates under DRIVING's normal rule, open items 4 / 5 / 8 / 9 + new 14 / 15,
+  evidence) and TESTING §18.17 (material, ranking, F1 pointers "as of", the new F2 item, gates, notes) — `5e56594`; re-checks
+  after it all true; HANDOFF DONE. No `src/` / `scripts/` change, no gate re-run, no rebuild, no launch, no model turn.
