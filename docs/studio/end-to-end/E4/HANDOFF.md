@@ -229,6 +229,49 @@ Builder #2, 2026-10-28 — the smoke on a SCRATCH root `C:\Users\hasan\AppData\L
   tree `075bc26e…` 52 files (51 + `index.json`) 9,069,944 B; dirs `.vidtsx music sfx`.
 - Re-run: rc 0, `{unchanged: 51}`, 0.38 s; tree `075bc26e…` and `index.json` sha256 `271c1d08…` BYTE-EQUAL.
 
+Builder #2, 2026-10-28 — THE LIVE RUN on the E4 profile (exit items 1–5). Kit (gitignored) `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\`:
+`launch.sh`, `watchdog.ps1`, `restore.ps1` (E1 kit, E4 paths, CDP 9264), `cdp.mjs`, `root-set.js`, `tree-hash.mjs`,
+`index-diff.mjs`, `exit.e4.test.ts` + `vitest.e4.config.ts`, `sfx-catalog.changed.json` (the changed COPY), logs `live-*.log`,
+`exit-*.log`; outputs `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\` (reports `live-{1-dry,2-import,3-rerun,4-changed,5-back,
+6-after-mark}.json`, index snapshots `index.after-*.json`, `exit.json`, stills `assets-{root,sfx,music}.png`, `build-1.log`, `app-2.log`).
+- Guard: C 52.4 / D 43.8 GB free, headroom 31 GB; no electron.exe; no `%TEMP%\vidtsx-studio\export`. Profile: `robocopy source
+  E4 /E /XF settings.db*` → rc 1, 2,325 files / 371.8 MB, **0 `settings.db*`** after. `wt/out` rebuilt at `5247ed9` (src =
+  `4aed92f`; builder #2 changed NO `src/`) — rc 0, 2 m 51 s, only "use client" warnings (`build-1.log`).
+- Launch 1 (CDP 9264, watchdog on): `studioRootSet` FIRST → `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\root`;
+  `libraryRootGet` → `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E4\profile\assets`, `isOverride: false`. Library before:
+  7 files (`presets/`), no index. App STOPPED before the importer wrote (one writer at a time).
+- 1 Dry run → rc 0, `{copy: 51}`; tree `6ca7edd6…` (7 files) before = after.
+- 2 Import → rc 0, `{copy: 51}`, 5.4 s; tree `f8a68a50…` 59 files; `index.json` `de91fc4c…`.
+- 3 Re-run → rc 0, `{unchanged: 51}`; tree + `index.json` BYTE-EQUAL (`de91fc4c…`) — **nothing changed**.
+- 4 Changed catalog COPY (`wind-soft` + tag `e4-changed`, `--sfx-catalog …\E4\sfx-catalog.changed.json`) → `{unchanged: 50,
+  update: 1}` (`changes: tags`); `index-diff` = only `sfx/wind-soft.mp3` key `tags`. 5 The original catalog again → `{update: 1}`,
+  the tag gone again (the catalog is the truth for the mapped fields).
+- `usedIn` + a Studio id: the REAL `markLibraryUsedIn(root, ['sfx/whoosh-soft.mp3'], 'e4-exit')` (`exit.e4.test.ts`,
+  `E4_STEP=mark`) → the 16 editor ids + `e4-exit`; importer re-run → `{unchanged: 51}`, `index.json` byte-equal (`17f8783b…`) —
+  the Studio id is kept.
+- Exit check (`E4_STEP=verify`, app stopped, REAL handlers, `electron` + `settings-db` mocked): **51 / 51** byte-identical
+  (sha256 library file = source); 51 / 51 fields (`kind audio`, `origin imported`, description = `prompt` / chords `desc +
+  " (no licence recorded in the catalog)"`, `tags` = `normalizeTags(catalog)`, `audio.category / loudnessLufs / peakDbfs +
+  peakKind 'sample' / source` VERBATIM `/ model / license`); `usedIn` verbatim 51 (41 non-empty); `probe.duration` vs the
+  independent ffprobe n8.1.2: **max |Δ| 0 ms**; `probe − duration_s`: 38 × 0, 12 × +0.2…+0.5 ms (the catalog's 3-decimal
+  rounding), `camera-shutter` **−42 ms** (encoder delay + padding). Index `version 1, rev 2`, 51 entries. Round 1 of the driver
+  failed on ONE row: `trap-snap`'s catalog tags hold `snap` twice, the entry has it once (`normalizeTags` dedupe) — the driver
+  now expects `normalizeTags(catalog)` and lists it (`tagsNormalizedBy`); round 2 `Tests 1 passed` (`exit-verify-2.log`,
+  `exit.json`).
+- The REAL `list_assets({ scope: 'library', kind: 'audio', query: 'whoosh' })` → 6 rows; whoosh-soft: `- library:sfx/whoosh-soft.mp3
+  (audio, 0.68 s, imported) — "A short, soft air whoosh for a scene transition. …" · category: motion · tags: whoosh, transition,
+  cutaway, air, swipe, motion · −20.0 LUFS · used in: short-1-chess, short-2-math, short-3-algo, ch-3-honeypot, short-6-sheet,
+  ch-4-code-driven-logos, short-4-git, short-5-prob, short-8-phish, short-9-chords, short-10-fees, vox-1-coffee, short-11-map,
+  ch-5-three-skills, blue-man-1-door, video-2, e4-exit`.
+- Launch 2 (CDP 9264, watchdog on): root set first again; Assets → `Refresh` → root: `music`, `sfx`, `presets`, "3 items · 8.6 MB"
+  (`assets-root.png`); dblclick `sfx` → 45 `.mp3` names, "45 items · 1.1 MB" (`assets-sfx.png`); breadcrumb `Assets` → dblclick
+  `music` → 6 names, "6 items · 7.5 MB" (`assets-music.png`). The screen prints NO duration (E2's finding — pre-E2 UI; durations
+  are in the index and the `list_assets` row). `app-2.log` 0 "error". After the app's scan: 57 entries (+6 `presets/` files),
+  **none of the 51 imported entries changed** (`index-diff` after-mark vs after-app-scan). App stopped (4 processes, by profile
+  path + Name).
+- Editor repo never written: its `git status` shows `media/library/sfx/catalog.json` modified — PRE-EXISTING (mtime 2026-10-10
+  11:18, sha256 `50555ee1…`), as are `media/library/catalog.json` and `faces/README.md`; not ours.
+
 Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\`):
 - Resource guard before the runs: `Get-PSDrive C,D` → C 53.3 GB, D 43.8 GB free; headroom
   `(Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory/1MB` → 32.8 GB.
@@ -243,7 +286,17 @@ Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-t
 
 ## Next step (ONE concrete instruction)
 
-**Builder #2:** build `scripts/import-sfx-library.mjs` per design §1 + §7 — esbuild-bundle
+**Builder #3:** run the gates, then write the records. Exit items 1–5 are MET (Verified, builder #2 live run) — never redo
+them. No app running; no `src/` change since `4aed92f` (so `wt/out` at `5247ed9` is current — rebuild only if you change
+`src/`). (1) Resource guard; full worktree vitest `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run` (add
+`--maxWorkers=2` if headroom < 10 GB) logged to `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\vitest-full-1.log`; green except the
+three E-d2a suites with resolution errors only; rule (b): `git diff --name-only 5d77600..HEAD` vs their import graphs (esbuild
+metafile per suite, packages external, `?raw` as leaves, `vi.mock`'d modules not followed — E2's method, `…\E2\import-graph-2.txt`);
+tsc web 26 / node 10. (2) Status.md entry at the TOP (2026-10-28, house format, the Verified numbers below + the two re-run
+behaviours under Open problems + the `trap-snap` dedupe + the relPath scheme `sfx/<id>.mp3` / `music/<id>.mp3` + licence in
+`audio.license` / chords' description), TESTING §18.16 (E-d10, model §18.15), HANDOFF `status: DONE`, a LOG line, commit.
+
+**Builder #2 (done):** build `scripts/import-sfx-library.mjs` per design §1 + §7 — esbuild-bundle
 `src/main/services/library/catalog-import.ts` (`platform: 'node'`, `format: 'cjs'`, `bundle: true`) into
 `<repo>/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs` (repo = the script's parent folder; gitignored; inside
 the repo so `@remotion/renderer` resolves by walking up to `D:\repos\VidTSX-STUDIO\node_modules`), with ONE plugin:
@@ -277,13 +330,20 @@ and hand off or continue by the 30 % rule; the script, the live run on the E4 pr
 (none blocking.) Two stated semantics for STATUS: (1) the catalog is the truth for the mapped fields, so a re-run
 re-applies `description` / `tags` / `audio` over an in-app edit of them (only `usedIn` merges); (2) `upsertEntry` keeps
 the existing `tags` when the mapped `tags` is `undefined`, so a catalog that DROPS its whole tag list does not clear the
-entry's tags (a changed list replaces them).
+entry's tags (a changed list replaces them). Builder #2 adds: (3) design note "no tag needs normalizing" was wrong —
+`trap-snap`'s catalog list holds `snap` twice; the entry has 6 tags (`normalizeTags` dedupe; every other list verbatim);
+(4) the HANDOFF's "−27…−51 ms" duration expectation held for ONE clip only (`camera-shutter` −42 ms); the other 50 are within
++0.5 ms of `duration_s`; (5) the Assets screen shows no durations (E2 noted it) — the exit's "files and durations" is met by the
+files on screen + the durations in the index / `list_assets` row.
 
 ## Do-not-redo
 
 - The design note (above) and the catalog inspection (counts confirmed 2026-10-28).
 - The service + its tests, `audio.license`, `mergeUsedIn`, `upsertEntry`'s `usedIn`, the pre-E1 control extension —
   commit `4aed92f` (green: 41 tests in 5 files; tsc 26 / 10).
+- The script `scripts/import-sfx-library.mjs` (`5247ed9`) + its smoke; the E4 profile copy; the `wt/out` build at `5247ed9`;
+  the whole live run (dry run, import, re-run, changed COPY + back, Studio-id mark + re-run, exit check, `list_assets`, the
+  three Assets stills). The E4 library now holds the 51 clips (whoosh-soft `usedIn` ends with `e4-exit`) — E3 may use it.
 
 ## For Hasan (real-video list candidates)
 
@@ -295,3 +355,5 @@ entry's tags (a changed list replaces them).
 - 2026-10-28 · builder #1 · ~36 calls · design note; `catalog-import-map.ts` + `catalog-import.ts` + tests (red → green);
   `audio.license`, `mergeUsedIn`, `upsertEntry` `usedIn`; pre-E1 control extended; tsc 26 / 10; commit `4aed92f`
   (records `dc41822` + this one).
+- 2026-10-28 · builder #2 · ~45 calls · `scripts/import-sfx-library.mjs` + smoke (`5247ed9`); E4 profile; `wt/out` build; the
+  live run — exit items 1–5 MET; gates + records left (Next step).
