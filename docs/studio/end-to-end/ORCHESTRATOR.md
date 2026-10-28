@@ -1259,3 +1259,20 @@
   (the live step's generated cuckoo — found before regenerated); the brief's "cuckoo → nearest" holds on a clean 51-clip library only.
   The E3 index now holds 4 `generated/` entries (the regression driver stamps it as is). `13ef262` HANDOFF + LOG. Tree clean. Builder
   #11 (item 4: regression vs `788c8d2` + `09e81ea`, broad probes, gates, rebuild, records) spawned.
+- 00:59 · E3 builder #11 HANDOFF (~52 calls, 22 min; items 4a–4c DONE, docs + scratch only — code HEAD stays `7967c6f`): **4a** the
+  regression report `E3\catalog-order-fix3.txt` over all **809** corpus rows on the real E3 index read-only (SHA `876f9f61…c16c95`
+  identical before / after; the 4 `generated/` entries excluded from the pool, the fixture = the pool's 51): vs `788c8d2` 358 changed /
+  165 firsts / 19 matches lost / 114 gained, strict correct-first lost 3 / correct-match lost 4; vs `09e81ea` 301 / 116 / 19 / 55,
+  strict 7 / 7 — every strict loss an `x|∅` recall row with a verb-form head after a noun ("a man running", "fingers snapping", "a lid
+  shutting" …) whose right clip is FIRST in HEAD's nearest list (the corpus accepts ∅ with the clip in reach). **4b** the broad probe set:
+  243 base words × plural / -ing / -ed / -y / -er × 4 frames + 7 openers + 3 leading forms = **7,554 probes** (`…\vidtsx-e2e\E3\
+  broad-probes-fix3.txt` 1.66 MB; `E3\broad-probes-fix3-summary.txt` = the 2,786 changed firsts): vs `788c8d2` 4,596 changed / 2,555
+  firsts / 491 new misses / 1,939 new matches; vs `09e81ea` 3,892 / 1,803 / 12 / 1,744 — read and classified: improvements (openers /
+  adverbs / wrappers / comparatives), documented ties, `788c8d2`'s loose-prefix artefacts (-er forms 231, nonsense inflections 238);
+  the 4 "worse?" vs `09e81ea` none an ordinary phrasing → **no worse first, no code change**. One class NOTED (E-d15 note, `E3\
+  probe-fix3.txt`, 22 phrasings): an adjective the clip's text lacks + a verb-form head is now a near miss with the right clip first
+  in the nearest ("a soft knocking" 0.49, was 0.82; "a slow ticking" 0.20) — candidate recall rows. **4c** gates: CPU 00:47 `LoadPercentage`
+  28 / 29, `vmmemWSL` 7.8 % → DRIVING's normal rule; guard C: 46.4 / D: 43.8 GB, headroom 27.6 GB; run 1 had `flow-render.test.ts:255`
+  (named LOAD timeout, 5 / 5 alone) → **run 2 counted: 503 / 3 / 5 files (511), 5,097 / 9 / 35 tests (5,141), 59.75 s**, only the 3
+  E-d2a suites; rule (b) NONE of 99 paths; tsc 26 / 10; `wt/out` rebuilt at `7967c6f` (rc 0; `out/main/index.js` 00:54:49 holds "No
+  library sound matched"). `5fabb15` HANDOFF + LOG. Tree clean. Builder #12 (item 4d — the records) spawned.
