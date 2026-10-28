@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: DONE
+status: FIX
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -528,7 +528,45 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**E3 verifier round 2** (orchestrator: spawn it — CDP 9273, its own `profiles\E3-verify` copy WITHOUT `settings.db*`; range
+**FIX ROUND 2 — builder #7 (orchestrator, 2026-10-28 21:55; verifier round 2 FAILED on F2 — see "Verifier round 2" under Open
+problems; decision E-d14 below). E3 has 2 of 3 FAILs: a third stops the run.** In order, red first, commit at each green checkpoint:
+1. **The corpus, FIRST (it is the acceptance bar, E-d14).** A table-driven test (e.g. `src/main/services/library/sound-match-corpus.test.ts`)
+   on a fixture of ALL 51 catalog entries copied verbatim from a real imported index (read-only: `C:\Users\hasan\AppData\Local\vidtsx-e2e\
+   profiles\E3\profile\assets\.vidtsx\index.json` — only the fields the matcher reads: relPath, kind, tags, description, audio.category,
+   probe.duration). Rows = EVERY prompt used so far with its expected outcome (the expected FIRST result — or a set of acceptable first
+   results where two clips tie on a real reason — or "no match"): the builders' 70 (`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\
+   catalog-order-fix1.txt`), verifier round 1's (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\c-matcher.json`, `b-noprov.json`) and
+   round 2's (`…\E3-verify\r2\a-noprov.json`, `a-noprov-summary.txt`, `c-probe*`) — read them; where a recorded result is WRONG by plain
+   meaning (F2's "a bell rung once" → dash-zip; "a snap when the trap closes" → trap-snap must be FIRST; "a soft tick while the countdown
+   runs" → clock-tick-soft first; "when the logo lands a deep impact hit" → an impact), the row states the RIGHT outcome. Music rows with
+   durations. Run the corpus on the current code → record which rows fail (red).
+2. **The fix (E-d14), until the corpus is green:** (a) **F2 — word matching by known inflections only:** replace the "≤ 3 extra letters"
+   prefix rule (`wordsMatch`, `sound-match.ts:159-163`) with a list of English suffixes (e.g. s, es, ies↔y, ed, d, ing, er, y — your list,
+   stated) so `rung`≠`run` while air/airy, whoosh/whooshes, tick/ticking, pop/popping still match; (b) **placement words become bonus-only:**
+   they never count in the coverage denominator (so they cannot sink a match — F1 stays fixed) but a hit adds a small RANKING bonus (so
+   "a snap when the trap closes" ranks trap-snap first); they never turn a non-match into a match on their own; (c) **a leading placement
+   clause without a comma:** if cutting it leaves no content word, fall back to the uncut words with the placement words as half-weight
+   qualifiers (as at `7a0d6ad`). Keep every existing matcher / placement / tool test green.
+3. **Regression report:** old (`788c8d2`) vs new over the WHOLE corpus on the real index (a stopped-app driver, read-only — the builders'
+   E3 profile index) → `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\catalog-order-fix2.txt`: every changed row, and a statement that
+   no row lost a correct match / first result.
+4. **Gates + rebuild:** CPU measured; DRIVING's normal gate, or **E-d13** under external load; rule (b); tsc 26 / 10; rebuild `wt/out`.
+5. **Records** (Status.md E3 entry + TESTING §18.17; git / build statements "as of `<hash>`", re-checked after the commit): F2 and its fix,
+   the corpus test (its size and what it pins), the regression numbers, the line "verifier round 2 FAIL (F2 matcher: a loose prefix rule —
+   'a bell rung once' → dash-zip) → fix round 2 `<hash>`", the round-2 notes recorded (leading clause without a comma — now handled or
+   stated; after / before near the floor; "a ding" / "a bell ringing once" find nothing though the chimes hold bell notes — fixed by (a) or
+   stated), and E-d14's acceptance bar in one sentence. Commit, HANDOFF `status: DONE`, LOG line, commit.
+
+**E-d14 (orchestrator, 2026-10-28 21:55) — the matcher's acceptance bar.** F2 is E3's (the matcher is E3's own code, `6224040`), so round
+2 is a FAIL. The matcher is a heuristic: some phrasing will always rank imperfectly. From fix round 2 on, the bar is the CORPUS (step 1 —
+every prompt the builders and verifiers have used, with the right outcome by plain meaning) plus the classes already fixed (placement
+clauses F1; loose prefix matches F2). Verifier round 3 FAILS the matcher only for (i) a corpus row failing, (ii) a regression versus
+`788c8d2` on any ordinary phrasing, or (iii) an ordinary phrasing of the SAME class as F1 / F2 where the library clearly has the sound and
+the tool finds nothing or offers a clearly wrong sound first. A different-class imperfection it finds is a NOTE that goes on Hasan's
+real-video list ("watch the reuse offers in real use"), with the prompt added to the corpus later. Recorded limits (negation does not
+demote; after / before near the 0.30 floor) stay notes.
+
+(Superseded 2026-10-28 by the round-2 FAIL:) **E3 verifier round 2** (orchestrator: spawn it — CDP 9273, its own `profiles\E3-verify` copy WITHOUT `settings.db*`; range
 `7a0d6ad..HEAD` for the fix (`b176881` `788c8d2` + the records `f593515`), the earlier findings F1 + notes 1–7 under "Verifier
 round 1"; the records to check: Status.md E3 entry :10-325, TESTING §18.17 :524-538). Fix round 1 is DONE (builders #5–#6).
 
@@ -583,6 +621,28 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 #4 (gates + records) is done: gates green (Verified above), records committed; no code change, no live run.
 
 ## Open problems
+
+### Verifier round 2 — FAIL on F2 (2026-10-28; no launch; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r2\`, kit `.vidtsx-temp\end-to-end\E3-verify\r2\`)
+
+- **F2 (code defect — the cause predates fix round 1, exposed by it).** "a bell rung once" → `sfx/dash-zip.mp3` 0.60 offered first and
+  only (a cartoon character dashing past) — the fix makes adverbial "once" a placement word (`sound-match.ts:60`, cut :122-126), the head
+  word becomes the participle "rung" (`headWord` :145-148), and `wordsMatch`'s prefix rule (:159-163: short word ≥ 3 letters, ≤ 3 extra)
+  matches `rung` to dash-zip's `run` tag at the highest idf → coverage 0.60 ≥ 0.5. "a bell rung" gives the same dash-zip answer at
+  `7a0d6ad` and HEAD. The chimes hold bell notes. Impact: a wrong offer (the model would likely call `force`).
+- Passed: F1 FIXED (the nine prompts match the records exactly on the real index, the index byte-identical); its break-it prompts mostly
+  fine ("as soft as a feather", "as loud as possible", "where the cut is", "a pop as the bubble appears", leading clauses WITH a comma);
+  the no-matches stay; music with "while …" + duration right; stand-in: found before regenerated, `force` generates (both tools; −20.28
+  recorded / −20.3 meter); mutations all caught incl. M2b (`audio-tools-reuse.test.ts:122`) and four of the placement rule; gates —
+  counted under **E-d13** at `316cf94` (CPU `vmmemWSL` 79 → 26 %): 495 / 3 / 5 files, 4,229 / 9 / 35 tests, 136 s, 0 timeouts, only the
+  E-d2a suites; rule (b) 0; tsc 26 / 10. Records true (F1, M2b, the FAIL → fix line, round 1's measured items = `live-assets.json`, open
+  notes, E-d13 + the CPU file, git facts, every moved pointer). **N1 recorded, N2 FIXED, N3 recorded, N4 recorded.**
+- Notes: **1** a leading placement clause WITHOUT a comma drops the sound ("when the logo lands a deep impact hit" — impact-soft 0.31 at
+  `7a0d6ad`; "as the title appears a soft whoosh", "if the answer is right a chime" found nothing before too); **2** a placement clause
+  can hold the distinguishing word: "a snap when the trap closes" — trap-snap first at 0.95 at `7a0d6ad`, now third in a 1.00 tie with
+  ui-click-soft / ui-send; "a soft tick while the countdown runs" puts ui-click-soft ahead of clock-tick-soft — the records' "none lost a
+  match or its first result" holds only for the builders' 70 prompts; **3** after / before near the floor (0.39 / 0.32); "a ding" and "a
+  bell ringing once" find nothing though the chimes hold bell notes (same at `7a0d6ad`); **4** record times 21:28:47 / 21:32:48 vs log
+  "Start at" 21:28:49 / 21:32:50; **5** its profile now holds 10 stand-in files under `generated/` (its scratch).
 
 ### Verifier round 1 — FAIL (2026-10-28; its own profile `profiles\E3-verify`, CDP 9273; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\`, kit `.vidtsx-temp\end-to-end\E3-verify\`)
 
