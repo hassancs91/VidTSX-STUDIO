@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-28 — END-TO-END E4: the importer over the reference `sfx/` and `music/` catalogs — 45 + 6 clips in the library with fields mapped, `used_in` preserved, licences noted — DONE (the E4 verifier is next)
+## 2026-10-28 — END-TO-END E4: the importer over the reference `sfx/` and `music/` catalogs — 45 + 6 clips in the library with fields mapped, `used_in` preserved, licences noted — DONE (fix round 1 after verifier round 1 FAIL on the records; the E4 verifier round 2 is next)
 
 - **What:** part E4 of `docs/studio/END_TO_END_PLAN.md` (track E, session 6; worktree branch `end-to-end-p0-e`, E-d1; E-d8 is
   this part's decision). Row: "The importer over the reference `sfx/` and `music/` catalogs". Exit: "45 + 6 clips in the
@@ -25,7 +25,8 @@
     non-audio extension), `parseCatalog` (:91, narrows `unknown`, per-clip problems), `mapCatalogClip` (:104),
     `changedFields` (:147, over `canonical` :134). `src/main/services/library/catalog-import.ts` (198 lines): `CatalogSource`
     (:31), `CatalogImportAction` (:44: `copy | update | unchanged | conflict | missing-source`), `planClip` (:94; the moved-file
-    lookup by `hashFileHead` :117 + a sha256 match), `planCatalogImport` (:127, READ-ONLY: reads the catalogs, sha256 of every
+    lookup :116-122 — `hashFileHead` :117 + a sha256 match — goes through INDEX ENTRIES only, so a clip moved by hand is
+    found only once a scan has recorded its new place; see "Not measured / open"), `planCatalogImport` (:127, READ-ONLY: reads the catalogs, sha256 of every
     source, stat + sha256 of an existing target, `loadIndex` — which never writes), `copyIn` (:149, `COPYFILE_EXCL` :152 —
     never overwrites — then a sha256 re-check; a bad copy is removed), `applyItem` (:160 → the app's own `upsertEntry`:
     probe, `hashFileHead`, the per-root chain, `version 1 / rev 2`, the one-time backup), `applyCatalogImport` (:181, refuses
@@ -42,7 +43,7 @@
     `isPackaged false`, `getPath('userData')` THROWS :92 — the importer has no implicit library — other names →
     `<tmp>/vidtsx-import-sfx-library/<name>`), the repo's `settings-db` → a generated stub whose every export throws
     (`settingsStub` :106, resolve hook :116 — never a settings store), `@shared/ @main/ @logging/ @audio-engine/` → `src/`,
-    every other bare package external. `checkArgs` (:74-80) holds the refusals; `itemLine` (:145), `summarize` (:164),
+    every other bare package external. `checkArgs` (:74-83) holds the refusals (the two "inside --from" ones at :81-82); `itemLine` (:145), `summarize` (:164),
     `main` (:170).
   - Docs: `dc41822` `ad7b415` (builder #1), `ff95d1c` (builder #2), `8dba927` (builder #3, gates) + this entry's commit;
     session logs `d2e305e` `cf5328d`. Kit (gitignored): `.vidtsx-temp/end-to-end/E4/`.
@@ -80,7 +81,12 @@
   failed clip, else 0. **Proof:** live on the E4 library, `live-1-dry.json` → rc 0, `{copy: 51}`, 0 problems, 0.475 s; a
   sha256 over every file of the target tree incl. `.vidtsx/index.json` `6ca7edd6…` (7 files, 9,446 B) before = after
   (`tree-before-dry.json` / `tree-after-dry.json`); on the scratch smoke root no folder was created (empty-tree hash
-  `e3b0c442…` before = after). Unit: the tree snapshot is equal and no `.vidtsx/` appears.
+  `e3b0c442…` before = after). Unit: the tree snapshot is equal and no `.vidtsx/` appears; since fix round 1
+  (`4fa1551`, verifier round 1 N1) the snapshot lists every FOLDER as well as every file, so a dry run that creates an
+  empty folder fails it (red with the verifier's mutation M1, green reverted). The live dry run above ran before any
+  `index.json` existed, so its "incl. `.vidtsx/index.json`" was vacuous (N2); the dry run with an index PRESENT is verifier
+  round 1's, on its own library: digest `132decf2…` (59 files · 7 dirs) before = after
+  (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\stage2.txt`, `lib-4-before-dry2.json` / `lib-5-after-dry2.json`).
 - **Idempotency:** a second run is `{unchanged: 51}` (0.352 s) → NO write: `index.json` BYTE-EQUAL (sha256 `de91fc4c606c…`
   after the import and after the re-run). A run against a changed COPY of the sfx catalog (`wind-soft` + tag `e4-changed`,
   `--sfx-catalog …\.vidtsx-temp\end-to-end\E4\sfx-catalog.changed.json`, the original never touched) → `{unchanged: 50,
@@ -130,8 +136,17 @@
   modules, touched by the E diff: **NONE** (`…\E4\import-graph.txt`). Types web **26** / node **10**, no line names an E4
   file (`…\E4\tsc-web.log`, `tsc-node.log`).
 - **Not measured / open:** an import into a library with an in-app edit of a mapped field (behaviour (1) above is by design
-  and unit-shaped, not driven live); a `conflict` (different bytes at the target) and a moved file are unit-tested only
-  (`catalog-import.test.ts`); the importer while the app runs (not supported — one writer at a time; the app was stopped);
+  and unit-shaped, not driven live); a `conflict` (different bytes at the target) is unit-tested here
+  (`catalog-import.test.ts`; verifier round 1 ran it live: skipped, the file's sha kept, no entry). **A clip moved by hand**
+  is found (`hashFileHead` + sha256) ONLY through an index entry that already records its new place — after the app
+  (Assets → Refresh) or `scanLibrary` rescanned the library; the unit test rescans first (`catalog-import.test.ts:203`
+  `await scanLibrary(root)`, :200 before fix round 1). A clip moved outside the app and NOT yet rescanned is copied again
+  to its catalog place — a duplicate file, nothing lost, nothing overwritten (E-d12: the importer never scans, because a
+  scan writes the index and a dry run must not). Verifier round 1 N6 on its own scratch library: `sfx/chime-reward.mp3`
+  moved to `favs/` without a rescan → planned `copy`, "chime-reward copies now: 2"; after the app's own scan,
+  `camera-shutter` moved to `my-favs/` → `unchanged · my-favs/camera-shutter.mp3`, `{unchanged: 51}`, no copy
+  (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\negatives.txt`, `dry-3-moved.log`, `import-6-moved.log`). The importer
+  while the app runs (not supported — one writer at a time; the app was stopped);
   durations / LUFS / tags in the Assets screen (none exist; tag chips are E3's). The editor repo was never written: its
   `git status` shows `media/library/sfx/catalog.json`, `media/library/catalog.json` and `faces/README.md` modified —
   pre-existing (Hasan's older edits; `sfx/catalog.json` mtime 2026-10-10), not ours.
@@ -139,7 +154,17 @@
   the app CLOSED, from the repo once track E has landed (the script is on `end-to-end-p0-e`), and `--library` = his library
   root as the app reports it (the default is shown; use his override if he set one): `node scripts/import-sfx-library.mjs
   --library "C:\Users\hasan\AppData\Roaming\VidTSX Studio\assets" --from D:\repos\claude-youtube-editor --dry-run --report
-  <somewhere outside the editor repo>\import-dry.json`, read it, then the same line without `--dry-run`.
+  <somewhere outside the editor repo>\import-dry.json`, read it, then the same line without `--dry-run`. **Before that
+  run, if clips were moved by hand in his library, open the app once (Assets → Refresh)** so the moves are indexed — else
+  each moved clip is copied again to its `sfx/` / `music/` place (a duplicate, nothing lost; E-d12).
+- **Verifier round 1 FAIL (records: R1, R2) → fix round 1 `4fa1551`** (test) + the records commit (2026-10-28; the exit and
+  the code passed). R1: the moved-clip claim now carries its rescan condition (above, "Not measured / open", and TESTING
+  §18.16); R2: the `checkArgs` pointer is :74-83. N1 (test only): the dry-run snapshot records folders — red with mutation
+  M1 (`fs.mkdir(<root>/sfx)` in `planCatalogImport`: "expected [ 'sfx/' ] to deeply equal []", 1 failed | 6 passed (7)),
+  the mutation reverted (`catalog-import.ts` byte-identical to HEAD) → 7 / 7; N2 recorded under the dry run. No product-code
+  change (`git diff 3a39dc7..HEAD -- src/ scripts/` = `catalog-import.test.ts` only), so no rebuild — `wt/out` at `5247ed9`
+  stays current (tests are not in the app bundle). Targeted runs: `src/main/services/library` + `library-listing.test.ts` 25
+  files / 219 tests passed; types web 26 / node 10 (`…\.vidtsx-temp\end-to-end\E4\fix1-*.log`).
 - **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\` — `exit.json` (every number), `exit-verify-2.log`,
   `live-1-dry.json` … `live-6-after-mark.json`, `index.after-{import,rerun,changed,back,mark,app-scan}.json`,
   `tree-before-dry.json` / `tree-after-dry.json`, `assets-{root,sfx,music}.png`, `app-1.log` / `app-2.log`, `build-1.log`,
