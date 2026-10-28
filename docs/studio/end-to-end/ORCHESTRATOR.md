@@ -1134,3 +1134,11 @@
 ### Session 7 log
 
 - 22:27 · E3 builder #8 (records only — fix round 2 step 5) spawned.
+- 22:36 · E3 builder #8 DONE (~58 calls, docs only): `5e56594` (Status.md E3 entry :10-453 — title "the E3 verifier round 3 is next", the
+  F2 / corpus / fix / regression / E-d14 bullet, code list + `09e81ea` with line counts, `wt/out` at `09e81ea`, Gates under DRIVING's
+  normal rule, open items 14–15, evidence; TESTING §18.17 :524-539 — F2 item :532, Gates :538, Not measured :539), `8ee0642` (HANDOFF
+  DONE + LOG). Stale lines fixed with their "as of" commits (matcher pointers, the fix-1 "weigh 0" wording, `src/` last change, line
+  counts); corrected builder #7's "250 → 141" to 249 → 141 and the D: location of `diff-list-fix2.txt` / `import-graph-fix2.txt`.
+  Orchestrator re-check at `8ee0642`: `git log -1 -- src/` `09e81ea`, `09e81ea..HEAD -- src/ scripts/` empty, the 5d77600 diff list =
+  `E3\diff-list-fix2.txt` (105). The track-E exit HANDOFF + LOG prepared (`E-exit/`, status NEW). E3 → VERIFY; verifier round 3
+  (E3's LAST, bar E-d14) spawned, range `0e168cf..HEAD`.
