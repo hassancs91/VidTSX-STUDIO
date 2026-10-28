@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: DONE
+status: STOPPED — three verifier FAILs (round 3 FAIL on F3, 2026-10-28 23:15); a fix round 3 waits for Hasan's go
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -624,7 +624,31 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**E3 verifier round 3 — the bar is E-d14** (CDP 9273, its own `profiles\E3-verify` copy WITHOUT `settings.db*` may be reused;
+**WAITING FOR HASAN (orchestrator, 2026-10-28 23:15).** Verifier round 3 FAILED on F3 (Open problems → "Verifier round 3"), E3's
+third FAIL → the run stopped (session-7 rule). Nothing starts on E3 until Hasan says go. **Proposed fix round 3** (one builder,
+red first, the corpus stays the bar), if he says go:
+1. **Corpus first:** add verifier round 3's probes (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r3\b-probes.txt`,
+   `c-probes2.txt`, `c-probes3.txt`) with the right outcome by plain meaning — at least "running water" / "the sound of running
+   water" / "a running brook" / "a running stream" → `stream-soft` first; "a tap running" / "water running over rocks" → never
+   `dash-zip`; "shutting down" / "shutting off" / "a shutting down sound" → `power-down` first; "moving air" → `wind-soft` first;
+   "a whoosh shortly after the cut", "Add a soft whoosh right at the first cut.", "a whoosh every time / each time / the moment the
+   slide changes", "every time the slide changes, a whoosh", "a whoosh exactly when the slide changes" → a whoosh first;
+   "swooshing" / "swooshed" / "wooshing" → a whoosh. Run red, record.
+2. **F3a (the F2 class):** a word that matches only by stem must not tie or beat an equal-word hit — e.g. a stem-only hit weighs
+   less than an equal hit (your factor, stated), and a clip whose only strong hit is a stem hit ranks after one with an equal hit.
+   **F3b (the F1 class):** multi-word placement openers (`every time`, `each time`, `any time`, `the moment`, `the instant`, `the
+   second`) and the adverbs that lead into a placement or a preposition (`right`, `exactly`, `only`, `even`, `just`, `shortly`,
+   `immediately`; trailing `here` / `now` / `again` / `too`) never become the head word. **F3c:** stem before the `SAME_SOUND` map
+   (swooshing = whooshing). Pin MI (the bonus cap) and MJ (the bonus applied only after the match threshold) with tests.
+3. **Hasan's design call (recommended with 1–2):** make a matcher MISS cheap — when nothing reaches the threshold but the library
+   holds candidates (coverage > 0), `generate_sfx` / `generate_music` answer the three nearest as "closest library sounds — none
+   matched well; call again with `force: true` to generate", so every generation follows the model having seen the library. Then
+   the matcher's bar is recall (the right clip in the top 3) and the model picks; one extra tool call on a true miss (the cuckoo).
+4. Regression report old `788c8d2` and `09e81ea` vs new over the whole extended corpus; gates; rebuild `wt/out`; records (Status.md
+   E3 entry — also its title, which still says "the E3 verifier round 3 is next" — and TESTING §18.17).
+5. **Verifier round 4** — only with Hasan's explicit go (the three-FAIL limit is reached).
+
+(Superseded 2026-10-28 23:15 by the round-3 FAIL:) **E3 verifier round 3 — the bar is E-d14** (CDP 9273, its own `profiles\E3-verify` copy WITHOUT `settings.db*` may be reused;
 range `0e168cf..HEAD` — the fix `09e81ea`, the records `5e56594`; the records to check: Status.md E3 entry :10-453, TESTING
 §18.17 :524-539). **E3's LAST round** (two FAILs already — a third stops the run). Fix round 2 is DONE (builders #7–#8).
 
@@ -740,6 +764,53 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 #4 (gates + records) is done: gates green (Verified above), records committed; no code change, no live run.
 
 ## Open problems
+
+### Verifier round 3 — FAIL on F3 (2026-10-28 22:37–23:14; no launch, no model call; kit `.vidtsx-temp\end-to-end\E3-verify\r3\`, evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r3\`)
+
+- **F3 (code defect in the matcher — E-d14 (ii) a regression vs `788c8d2` on ordinary phrasing, and (iii) the F2 class).** On the
+  builders' REAL index (51 catalog clips, read-only, hash `e5352386…12c5` unchanged): "running water" (also "the sound of running
+  water", "a running brook", "a running stream") — `788c8d2` `stream-soft` only 0.43, HEAD **`dash-zip` 0.50 first**, `stream-soft`
+  0.50 second (the tool's answer tells the model `insert_asset(assetId: "library:sfx/dash-zip.mp3" …)`); "shutting down" / "shutting
+  off" / "a shutting down sound" — `power-down` 0.36 → **`trap-snap` 0.57 first**; "moving air" — `wind-soft` first → **`chess-piece-
+  thock` 0.63 first**; "a whoosh shortly after the cut" — whoosh-soft 0.91 → nothing (the handler answers "No audio provider is
+  configured" — with a key, a paid duplicate; the old hit came from the loose prefix rule, "shortly" is now the head word). Cause:
+  `sound-match-words.ts:96-100` strips -ing and undoubles (`running` → `run`, `shutting` → `shut`), :101 drops the silent e (`moving`
+  = `move`); `wordsMatch` :107-110 then hits dash-zip's `run` TAG (the tag behind F2), trap-snap's `shut`, chess-piece-thock's `move`,
+  at tag weight 1 (`sound-match.ts:72-78`); ties go to usedIn then relPath (`sound-match.ts:133-139`) and `sfx/dash-zip` sorts before
+  `sfx/stream-soft`. `run` / `running` is pinned as a REQUIRED match in `sound-match-words.test.ts:11`. Orchestrator confirmed the
+  stem path in the code and the evidence lines (`b-probes.txt:311-313`, `:458-460`, `:645-647`; `c-probes2.txt:4-5`, `:12`, `:23`,
+  `:31-32`).
+- **Also (iii), the same classes, unchanged since `788c8d2`:** F2 class — "swooshing", "a swooshing sound", "swooshed", "wooshing" → ∅
+  (`SAME_SOUND` `sound-match-words.ts:29` maps swoosh / woosh / swooshes only; stem `swoosh` ≠ `whoosh`). F1 class — "a whoosh every
+  time / each time / any time / the moment / the instant / the second the slide changes", "every time the slide changes, a whoosh",
+  "a click every time the button is pressed", "a chime every time the answer is right", "a hit the moment the logo lands" → ∅ (head word
+  'changes' — the F1 symptom); an adverb before the clause or preposition → ∅: "a whoosh right when the slide changes", **"Add a soft
+  whoosh right at the first cut."**, "a pop right when it appears", "a click right when the button is pressed", "a whoosh only when /
+  even when / immediately after …"; "a whoosh exactly when the slide changes" → party-popper / crunch-bite ("exactly" hits their
+  "Exactly ONE …" descriptions). Cause: `PLACEMENT` (`sound-match-words.ts:39-41`) is single conjunctions only; `STOP_WORDS` (:42-50)
+  lacks right / exactly / only / even / shortly / immediately (`cutHead` :116-124, `promptTerms` :146-153, :172).
+- **Passed (its own numbers):** gates first try at default workers (CPU 47 %, `vmmemWSL` 16 %, headroom 32.6 GB — `cpu-1.txt`): 497 / 3
+  / 5 files, 4,420 / 9 / 35 tests, 52.44 s, 0 timeouts, only the 3 E-d2a suites (resolution only); rule (b) its own strict walk 2 / 12 /
+  23 local modules, none of the 107 paths; tsc 26 / 10. The fixture = the builders' 51 entries exactly; no prompt special-casing; the
+  corpus 150 / 150 (also on the whole index — the cuckoo rows find the generated cuckoo, correctly); every corpus expectation fair by
+  plain meaning. Mutations 16 / 18 caught (**MI** the bonus cap dropped, **MJ** the bonus applied before the threshold — NOT caught; the
+  code does both right, no test pins them). Real handlers on a clean scratch library (the 51 verbatim): no provider → the library answer
+  before the provider check, 0 files written, index byte-identical; its own stand-in (−15.0 LUFS) → generated once, the identical ask
+  FOUND it (also with a placement clause), `force` generates, music likewise; meter −20.2 LUFS / −10.5 dBTP vs index −20.26 / −10.46.
+  Build: renderer unchanged `788c8d2..09e81ea`; `wt/out` after the commit with the fix-2 markers. **Records true** (the 150 rows = the
+  150 distinct prompts used; red = the 10 listed; the regression numbers; every pointer, count, git / tree / build statement).
+- **Notes (different class — Hasan's list):** noun + participle ("wind blowing" → `flame-snuff` only, as at `788c8d2`); "X of Y" ("a
+  bit of static" → `crunch-bite`; "a type of whoosh" → `keys-typing-soft`, new); polysemy ("a shocking reveal" → zap-electric, "a
+  building collapse" → riser-soft, as before; "a door slamming" → stamp-hit, "a door closing" → knock-solid via "close-mic" — new); -er /
+  -ly (recorded limit: "a deeper impact" → impact-soft first, was impact-deep-soft; "a wind blowing softly" → ∅); trailing words as the
+  head word ("a whoosh here / now / again / too", "could you add a whoosh" → ∅); a music bed a hair under `durationSeconds` is not
+  offered (strict ≥).
+- **Earlier findings:** F1's nine prompts FIXED, the class still open (above); F2 FIXED for "a bell rung (once)", the same `run` collision
+  back through "running"; round-1 notes 1 / 3 / 4 / 5 / 6 recorded (5 still open: `list_assets` "whoosh" lists dash-zip), 2 FIXED, 7 the
+  light-pill nit recorded (the 20:17:55/56 time and the role=button-span nits not in the records); round-2 N1 / N2 FIXED, N3 recorded and
+  open, N4 / N5 recorded.
+- Its scratch: `…\E3-verify\r3\lib-profile` (51 clip copies + 10 stand-in files), projects `e3v3-noprov` / `e3v3-standin` under
+  `.vidtsx-temp\end-to-end\E3-verify\r3\root\projects`. Nothing running; the worktree clean.
 
 ### Fix round 2 (builder #7) — open notes for the records, none blocking
 
@@ -870,6 +941,8 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 - Listening to the Assets-screen playback and to a placed library whoosh in the real editor (the by-ear half of
   "plays"); the one live ElevenLabs generation (E2's item) through the reuse rule with `force`.
+- Verifier round 3's different-class notes (Open problems → "Verifier round 3"): watch the reuse offers in real use; each odd offer
+  is a new corpus row.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -904,3 +977,5 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   `09e81ea`, tests, `wt/out` at `09e81ea`, the Gates under DRIVING's normal rule, open items 4 / 5 / 8 / 9 + new 14 / 15,
   evidence) and TESTING §18.17 (material, ranking, F1 pointers "as of", the new F2 item, gates, notes) — `5e56594`; re-checks
   after it all true; HANDOFF DONE. No `src/` / `scripts/` change, no gate re-run, no rebuild, no launch, no model turn.
+- 2026-10-28 22:37–23:14 · verifier round 3 (orchestrator-spawned; E3's last) · ~113 calls · FAIL on F3 (Open problems → "Verifier
+  round 3"); gates, corpus (150 / 150, expectations fair), the tool level, the build and the records all true. No launch, no model call.

@@ -1,8 +1,119 @@
-# Next session — END_TO_END_PLAN.md, session 7 (track E: E3's records + its LAST verifier, then the track-E exit)
+# Next session — END_TO_END_PLAN.md, session 8 (track E: Hasan's call on E3 after its third FAIL, then the track-E exit)
 
 > **This file's current copy lives on branch `end-to-end-p0-e`** (worktree
 > `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`); the main checkout's copy (branch `end-to-end-p0`) is the
-> session-3 one. Session 6 (2026-10-28 16:05–22:15, track E only) stopped at Hasan's word ("please stop after the current
+> session-3 one. Session 7 (2026-10-28 22:25–23:20, track E only) STOPPED on E3's third verifier FAIL (the session-7 rule).
+> Written by the session-7 orchestrator.
+
+## State at the end of session 7 (2026-10-28 23:20)
+
+- **Branch / tree:** worktree `end-to-end-p0-e` @ the commit after `922f974` (this file's commit), clean; **not merged** into
+  `end-to-end-p0` (main checkout @ `5d77600`, still carrying the other session's 16 uncommitted files incl. `src/main/index.ts`;
+  Hasan's dev app did not run all session). Nothing of this run is running (0 `electron.exe`, no vitest). **No `src/` / `scripts/`
+  change this session** — `git log -1 -- src/` is still `09e81ea` and `wt/out` is its build (22:11–22:13). Resources at the stop:
+  C: 47.3 GB, D: 43.8 GB free; memory headroom 27.7 / 97.7 GB; `vmmemWSL` 16–65 % of the cores at times.
+- **E1, E2, E4 — DONE** (unchanged).
+- **E3 — STOPPED after THREE verifier FAILs.** Records for fix round 2 written (`5e56594`, builder #8; Status.md E3 entry :10-453,
+  TESTING §18.17 :524-539 — verifier round 3 found them TRUE; the Status title still says "the E3 verifier round 3 is next" — the next
+  E3 builder updates it). **Verifier round 3 FAIL on F3** (E3 HANDOFF → Open problems → "Verifier round 3"): fix round 2's stem rule
+  (`sound-match-words.ts:96-101`) matches inflections against TAGS at full weight, so "running water" / "a running brook" offer
+  **`dash-zip` first** (its `run` tag — the F2 tag; `788c8d2` offered `stream-soft` only), "shutting down" → `trap-snap`, "moving air" →
+  `chess-piece-thock`, and "a whoosh shortly after the cut" now finds nothing; plus the F1 / F2 classes unchanged since `788c8d2` ("a
+  whoosh every time / the moment the slide changes", "Add a soft whoosh right at the first cut.", "swooshing" → nothing). Everything
+  else passed (gates first try, corpus 150 / 150 with fair expectations, the tool level with its own stand-in, the build, the records).
+  **The proposed fix round 3 + Hasan's design call are in E3 HANDOFF "Next step"** (corpus first with verifier round 3's probes; stem
+  hits weigh less than equal hits; multi-word placement openers + leading adverbs; stem before `SAME_SOUND`; pin MI / MJ; recommended:
+  a matcher miss answers the three nearest library sounds and generation needs `force`, so the bar becomes recall and the model picks).
+- **The track-E exit — not run**; its HANDOFF + LOG are prepared (`docs/studio/end-to-end/E-exit/`, status NEW — profile `E-exit`,
+  CDP 9280, two two-clip projects, one stand-in, three turns). No `E-exit` profile exists yet.
+- **Files E changed that C / D / F also touch:** unchanged since session 6 (the list below). A fix round 3 would touch only E3's
+  matcher files (`src/main/services/library/sound-match*.ts`) — and, with the design call, `agent-tools/audio-tools.ts` /
+  `sound-reuse.ts` (C4 / D3 meet `audio-tools.ts`). Before ANY later session works on `end-to-end-p0` (B7 verifier, track-B exit, C,
+  D, F): land `end-to-end-p0-e` first (`git merge end-to-end-p0-e` in the main checkout once its own work is committed) or keep
+  working on `end-to-end-p0-e`.
+- **TESTING §18 numbering (E-d10):** unchanged (E3 18.17; C / D / F from 18.18).
+
+## Session 8 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO` (edit the SCOPE paragraph to your call)
+
+```
+You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),
+session 8. Track E lives on the local branch end-to-end-p0-e in the git worktree
+D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt — read every doc below FROM THAT WORKTREE (the main
+checkout's copies are older). Follow docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the
+builder and verifier briefs, the stop report, the "things you never do") with the overrides below. Read
+first: CLAUDE.md; docs/studio/END_TO_END_PLAN.md (esp. §0 E5, §1.6, T6, §3 Track E, §5); the top of
+Status.md (the E3 entry); docs/studio/end-to-end/NEXT-SESSION.md (state, lessons); docs/studio/end-to-end/
+ORCHESTRATOR.md ("Answers in force", "Session 4 — track E" with E-d1…E-d10 + E-d2a, "Session 6" with
+E-d11…E-d14, "Session 7" with its log and stop, "For Hasan's real-video test"); docs/studio/end-to-end/
+DRIVING.md (esp. "Track E" incl. E-d13); docs/studio/end-to-end/E3/HANDOFF.md (all of it — "Next step" =
+the proposed fix round 3, "Open problems" → "Verifier round 3" / 2 / 1); docs/studio/end-to-end/E-exit/
+HANDOFF.md; docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
+
+FIRST check the main checkout: if its uncommitted work is gone/committed and Hasan's dev app is not running,
+say so in one line; either way keep working in the worktree (decision E-d1) unless I say to land it.
+
+SCOPE, in order, no stop between parts: (1) E3 — fix round 3 as proposed in the E3 HANDOFF "Next step"
+items 1, 2 and 4 [AND item 3, the design call: a matcher miss answers the three nearest library sounds and
+generation needs force — DELETE this bracket if you do not want it], then E3 VERIFIER ROUND 4 — E3's LAST
+(my extension past the three-FAIL limit; a FAIL stops the run): the bar is E-d14 plus verifier round 3's
+probes as corpus rows; its own profile (E3-verify may be reused), the gates, its own negative / mutation
+cases, the records. (2) The track-E exit (docs/studio/end-to-end/E-exit/HANDOFF.md). Stop after the
+track-E exit, on BLOCKED, or on E3's FAIL. Do NOT touch B7's verifier, the track-B exit, or tracks C, D, F.
+Anything that needs my hands, ears or keys: build + verify up to it, mark it DEFERRED-HASAN, add it to
+ORCHESTRATOR's "For Hasan's real-video test" list, continue.
+
+OVERRIDES for the whole run
+- Answers in force: ORCHESTRATOR.md Q1–Q6 and decisions E-d1…E-d14, E-d2a (rule (a) withdrawn).
+- Paid providers: no call on a paid key. Generation only through E2's dev-only stand-in
+  (VIDTSX_AUDIO_STANDIN_FILE, non-packaged builds only); the one live ElevenLabs call stays on my list.
+- Model calls only through the app's own keyless Claude subscription provider, only as much as a part needs
+  (the track-E exit: at most 3 turns + 1 retry on an API error); never a paid API key provider; never read,
+  copy or open a credential store (settings.db, ~/.claude, any profile's) — profile copies exclude settings.db*;
+  the app creates its own settings.db in an isolated profile at first launch — leave it unopened.
+- The library: every import and generation runs on an ISOLATED profile; never my %APPDATA%\VidTSX Studio
+  library or my projects. The reference catalogs and the editor repo D:\repos\claude-youtube-editor are
+  read-only (Python there only with -I -B).
+- Resource guard: before any launch, copy or full test run check C: free AND memory commit headroom; live
+  steps need C: ≥ 3 GB and (C: free + headroom) ≥ 6 GB, with a watchdog that stops only our app if C: < 1.5
+  GB; full vitest with --maxWorkers=2 while headroom < 10 GB; E-d13 under measured external CPU load.
+- Every builder brief adds: "Work only in the worktree (E-d1, E-d2; never npx/npm there, never git stash,
+  never touch the main checkout, its out/ or node_modules). Also read docs/studio/end-to-end/DRIVING.md and
+  the 'Track B decisions' section of ORCHESTRATOR.md. Edit HANDOFF.md, Status.md and TESTING.md with the
+  Edit/Write tools only — no Python, node or sed for doc edits. Never hand back while a job you started is
+  still running. Select your own processes by --remote-debugging-port or profile path plus Name='electron.exe',
+  never a bare number. Set the isolated profile's Studio root in the first CDP call. Never touch Hasan's
+  stations (B1-verify-root + profiles\B1-verify, B5-station-root + profiles\B5-station) or any B6/B7 run
+  scratch. Write HANDOFF.md as you go and commit early (agents can die on API errors). Every git / tree /
+  build statement in the records is written 'as of <hash>' and re-checked after your commit lands. Before
+  claiming 'no regression' for a matcher change, run old vs new over a BROAD probe set of your own (every
+  inflection of every catalog tag word, placement openers, leading adverbs), not only the corpus."
+- Verifiers get the exit, DRIVING.md's safety rules, the commit range and earlier findings verbatim — never
+  the builder's conclusions — and build their own negative and control cases; a FAIL must name a false
+  statement or a real defect (taste is a note).
+- The orchestrator writes only under docs/studio/end-to-end/ (in the worktree), commits after each update,
+  and logs times from the real clock (`date`). At the stop, update NEXT-SESSION.md's state so the later
+  B7-verifier → B exit → C → D → F resume stays correct. Never push; landing end-to-end-p0-e on
+  end-to-end-p0, and merging end-to-end-p0 into main, are my calls.
+```
+
+## Lessons from session 7 (apply them)
+
+- **Replacing one loose rule with another can bring the same collision back through a different door** (F2 `rung`→`run` became F3
+  `running`→`run`, the same `dash-zip` tag). A corpus of past prompts cannot catch the next phrasing; the builder's own regression
+  report must run over a broad generated probe set (inflections of every tag word, openers, adverbs) — verifier round 3 used ~700 of its
+  own and found the regressions in minutes.
+- **An open-ended clause ("a regression on ANY ordinary phrasing") keeps a heuristic failing forever.** Either make misses cheap (the
+  design call in E3 "Next step" item 3 — recall in the top 3, the model picks) or accept a bounded probe set as the bar; decide before
+  the next verifier, not after it.
+- A records-only builder with "re-open every cited evidence file" found two real slips (a line count 250 vs 249, a wrong evidence
+  folder) — keep that instruction.
+- Preparing the next part's HANDOFF while a builder runs (the track-E exit) cost nothing and is ready for session 8.
+
+---
+
+## Earlier: session 7's header (2026-10-28)
+
+> Session 6 (2026-10-28 16:05–22:15, track E only) stopped at Hasan's word ("please stop after the current
 > task finishes") after E3 builder #7 (fix round 2's code + corpus). Written by the session-6 orchestrator.
 
 ## State at the end of session 6 (2026-10-28 22:15)
@@ -65,7 +176,7 @@ through the stand-in (normalized −20 ± 0.5 LUFS by an independent `ebur128`, 
 generated chime with duration / tags / loudness and it PLAYS (`!paused`, `currentTime` advancing); the same chime asked again (a new
 project or the next cut) → FOUND in the library, `generated/` count unchanged; (4) report in five lines; record in ORCHESTRATOR.
 
-## Session 7 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`
+## Earlier: session 7's paste-in (2026-10-28, superseded by the session-8 one above)
 
 ```
 You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),
