@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: FIX
+status: HANDOFF
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -345,6 +345,34 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
     shutter" ×2 (shut/shutter), zap-electric for "a sparkle when the star appears" (spark/sparkle; chime-magic 0.60 —
     "sparkles" — now third). The rest: coverage moves ≤ 0.05 with the same order. **No row lost a correct match or its first
     result.**
+  - Types at `09e81ea` (`src/` = the commit): `tsc -p tsconfig.node.check.json --noEmit` → **10** `error TS`
+    (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\tsc-node-fix2.log`), `-p tsconfig.web.check.json` → **26** (`tsc-web-fix2.log`);
+    0 lines name `sound-match`.
+  - **CPU measured** 22:07:51 (`…\vidtsx-e2e\E3\cpu-fix2.txt`): C: 48.7 GB, D: 43.8 GB, headroom 34.6 GB, 0 `electron.exe`, 16
+    cores, `LoadPercentage` 4 / 19, per-process sum over 5 s 5.4 % of all cores (`vmmemWSL` 2.1 %) — **no external load →
+    DRIVING's normal gate (default workers), not E-d13.**
+  - **Full worktree vitest at `09e81ea`, tree clean** (logs `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\`): run 1 (`Start at`
+    22:08:12, `vitest-full-fix2.log`) → `Test Files 4 failed | 496 passed | 5 skipped (505)` · `Tests 10 failed | 4419 passed |
+    35 skipped (4464)` · 60.43 s — the 3 E-d2a suites + `flow-render.test.ts:255` ("expected 0 to be greater than 0", DRIVING's
+    named LOAD timeout) → alone `vitest run src/main/services/flows/flow-render.test.ts` → `1 passed (1)` · `5 passed (5)`
+    (`vitest-fix2-flow-render-alone.log`) → **run 2, the COUNTED run** (`Start at` 22:09:36, `vitest-full-fix2-2.log`) → `Test
+    Files 3 failed | 497 passed | 5 skipped (505)` · `Tests 9 failed | 4420 passed | 35 skipped (4464)` · 70.19 s, 0 "timed out";
+    the 3 files / 9 tests = `builder-libraries` 1 (`@remotion/paths (builder-libraries.ts) is not installed`), `shot-bundle` 5
+    (`Could not resolve` roughjs / @remotion/shapes / @react-three/fiber / chroma-js / @remotion/google-fonts/SpaceGrotesk),
+    `shot-bundle-in-place` 3 (`Could not resolve "chroma-js"`) — resolution only. **Gate MET (DRIVING's load rule: the file
+    green alone + a default run green on the 2nd try).**
+  - Rule (b) at `09e81ea`: `git diff --name-only 5d77600..HEAD > …\E3\diff-list-fix2.txt` → **105 paths (90 under `src/`)**;
+    `node C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs <wt> …\E3\diff-list-fix2.txt > …\E3\import-graph-fix2.txt`
+    → rc 0: `builder-libraries.test.ts` 2 local modules · `shot-bundle.test.ts` 15 · `shot-bundle-in-place.test.ts` 23
+    (vi.mock'd, not loaded: shot-generator.ts, shot-import-land.ts, media-import.ts) · `scripts/builder-unpack.mjs` 1 —
+    touched by the E diff: **NONE** each (method: esbuild metafile per suite, packages external, `?raw` as leaves, `vi.mock`'d
+    modules not followed).
+  - **`wt/out` rebuilt at `09e81ea`** (22:11; guard C: 48.4 GB, D: 43.8 GB, headroom 34.7 GB, 0 `electron.exe`; tree = `09e81ea`
+    + docs only): `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+    D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build >
+    D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\build-fix2.log` → rc 0, only "use client" warnings, renderer "✓ built in
+    1m 56s"; `out/main/index.js` 22:11:17, `out/renderer/index.html` 22:13:12; `out/main/index.js` holds `PLACEMENT_BONUS` /
+    `PLACEMENT_BONUS_MAX` and `placementHits` (3 hits), `whilst` 2 hits (the placement set + the stop words).
 
 - **Fix round 1, builder #6 (2026-10-28, worktree root, HEAD `55b223a`, tree clean; no `src/` change, no launch, no model
   turn):**
@@ -575,7 +603,26 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 2 — builder #7 (orchestrator, 2026-10-28 21:55; verifier round 2 FAILED on F2 — see "Verifier round 2" under Open
+**Builder #8 (fix round 2, continued): write the records — step 5 of the brief below — then HANDOFF `status: DONE`.** Steps
+1–4 are DONE by builder #7 (Built / Verified "Fix round 2"; code `09e81ea`; gates counted under DRIVING's normal rule, NOT
+E-d13; `wt/out` rebuilt at `09e81ea`). No `src/` change, no gate re-run, no launch, no model turn is needed. Update the
+Status.md E3 entry (title / Result / the code list: + `09e81ea`, `sound-match.ts` 141 + `sound-match-words.ts` 179 lines, the
+corpus fixture + test + `sound-match-words.test.ts`; the `wt/out` line → rebuilt at `09e81ea`; the Gates paragraph → this
+round's (Verified "Fix round 2"); "Not measured / open" → the Open-problems "Fix round 2" notes; the evidence list:
+`catalog-order-fix2.txt`, `fix2-corpus-red.log`, `fix2-green.log`, `cpu-fix2.txt`, the two full-run logs, `build-fix2.log`)
+and TESTING §18.17 likewise, with: F2 and its fix; the corpus (150 rows over the 51 clips; red 10 / 150; what it pins); the
+regression numbers (24 changed, 7 firsts = the 7 fixes, 2 lost matches = the wrong dash-zip offers, the removed lower
+offers + reasons — Verified); the line "verifier round 2 FAIL (F2 matcher: a loose prefix rule — 'a bell rung once' →
+dash-zip) → fix round 2 `09e81ea`"; the round-2 notes as listed under Open problems "Fix round 2"; E-d14's bar in one
+sentence ("verifier round 3 fails the matcher only for a corpus row failing, a regression vs `788c8d2` on ordinary phrasing,
+or an F1 / F2-class phrasing where the library clearly has the sound and the tool finds nothing or a clearly wrong sound
+first; other imperfections are notes for Hasan's real-video list"). Every git / build statement "as of `<hash>`", re-checked
+AFTER the records commit (`git log -1 --format=%h -- src/` → `09e81ea`; `git diff --stat 09e81ea..HEAD -- src/ scripts/`
+empty; the 105-path diff list unchanged except the docs). Commit, HANDOFF `status: DONE` with Next step "E3 verifier round 3
+— the bar is E-d14 (CDP 9273, its own `profiles\E3-verify` copy WITHOUT `settings.db*`; range `0e168cf..HEAD`)", LOG line,
+commit.
+
+(Steps 1–4 DONE by builder #7, 2026-10-28 — kept for the record:) **FIX ROUND 2 — builder #7 (orchestrator, 2026-10-28 21:55; verifier round 2 FAILED on F2 — see "Verifier round 2" under Open
 problems; decision E-d14 below). E3 has 2 of 3 FAILs: a third stops the run.** In order, red first, commit at each green checkpoint:
 1. **The corpus, FIRST (it is the acceptance bar, E-d14).** A table-driven test (e.g. `src/main/services/library/sound-match-corpus.test.ts`)
    on a fixture of ALL 51 catalog entries copied verbatim from a real imported index (read-only: `C:\Users\hasan\AppData\Local\vidtsx-e2e\
@@ -668,6 +715,23 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 #4 (gates + records) is done: gates green (Verified above), records committed; no code change, no live run.
 
 ## Open problems
+
+### Fix round 2 (builder #7) — open notes for the records, none blocking
+
+- **Round-2 notes, where they stand now:** N1 (a leading placement clause WITHOUT a comma drops the sound) — **handled** by
+  (c): "when the logo lands a deep impact hit" → impact-soft 0.42, "as the title appears a soft whoosh" → whoosh-soft 0.42, "if
+  the answer is right a chime" → chimes 0.39 (near the 0.30 floor; only `impact-soft` is offered for the first — `impact-deep-soft`
+  reaches 0.42 without the head word `hit`). N2 (a placement clause holds the distinguishing word) — **fixed** by (b): trap-snap
+  and clock-tick-soft first. N3 — `after` / `before` + a clause still near the floor (unchanged, a recorded limit); "a ding" /
+  "a bell ringing once" / "a bell ring once" still find nothing — a synonym (`ding`) and a verb (`ring`) no clip carries (the
+  chimes say "bell notes" in the description only); the corpus accepts ∅ or a bell-holding clip there — **stated, not fixed**.
+  "a bell, rung once" matches the chimes at 0.30, on the floor. N4 / N5 — record-time nits and the verifier's own scratch.
+- Design limits to state in the records: no -er / -est / -ly in the inflection list (riser ≠ rise, timer ≠ time, shutter ≠
+  shut) — so "riser" no longer offers `warm-shimmer` (its description's "rise"); the placement bonus counts tag / name / category
+  hits only (descriptions are similes — "like lines of data flying by"), particles excluded; negation still only drops words,
+  never demotes.
+- `ORCHESTRATOR.md` shows an uncommitted modification in the worktree that builder #7 did not make (the orchestrator's) — left
+  untouched, never staged.
 
 ### Verifier round 2 — FAIL on F2 (2026-10-28; no launch; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r2\`, kit `.vidtsx-temp\end-to-end\E3-verify\r2\`)
 
@@ -765,6 +829,9 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 - The live step (builder #3): the import into the E3 library (51 clips — the library now ALSO holds two generated
   stand-in files under `generated/`), the Assets-screen CDP check, the tool-level checks (both drivers), the three live
   turns. Do NOT re-run the model turns (E-d9 budget spent: 3 turns + the probe).
+- Fix round 2 steps 1–4 (builder #7): the corpus (fixture + 150 rows, red 10 / 150 recorded), the F2 / bonus / no-comma fix
+  (`09e81ea`), the real-index old-vs-new report (`E3\catalog-order-fix2.txt` — re-run only if the matcher changes again:
+  `catalog-fix2.e3.test.ts`), the gates and the `wt/out` rebuild (Verified). Do NOT re-derive the corpus rows; add to them.
 - Fix round 1 steps 1–3 (builder #5): the F1 fix + `sound-match-placement.test.ts` (`b176881`), the real-index old-vs-new
   table (`E3\catalog-order-fix1.txt` — re-run only if `sound-match.ts` changes again), the `audio-tools` split + the
   music `force` test + the M2b red (`788c8d2`), the gates and the `wt/out` rebuild (Verified). No app launch is needed for
@@ -798,3 +865,8 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   unchanged (101); the records (Status.md E3 entry :10-325, TESTING §18.17 :524-538 — F1 + numbers, the test split, the
   verifier's two measured items, the new open notes, the gates) `f593515`; HANDOFF DONE. No `src/` change, no launch, no
   model turn.
+- 2026-10-28 · builder #7 (fix round 2) · ~45 calls · steps 1–4: the corpus (51-clip verbatim fixture + 150 rows from every
+  builder / verifier prompt; red 10 / 150), the fix (`sound-match-words.ts` — inflection stems, placement bonus, the no-comma
+  fallback) → green (41 files / 493 tests in library + agent-tools), `09e81ea`; the real-index old-vs-new report (24 changed,
+  0 correct matches / firsts lost); tsc 10 / 26; CPU idle → DRIVING's normal gate (run 2 counted, only the E-d2a suites); rule
+  (b) NONE over 105; `wt/out` rebuilt. No launch, no model turn. Step 5 (records) handed to builder #8.
