@@ -1,5 +1,5 @@
 # E4 — The importer over the reference `sfx/` and `music/` catalogs
-status: NEW
+status: HANDOFF
 
 > Track E, session 5 — **runs BEFORE E3** (E3's exit, the whoosh case, needs the imported library). **Work only in
 > the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are
@@ -203,11 +203,38 @@ all fields + requested_ms / force_instrumental; every `file` is `clips/<id>.mp3`
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\`):
+- Resource guard before the runs: `Get-PSDrive C,D` → C 53.3 GB, D 43.8 GB free; headroom
+  `(Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory/1MB` → 32.8 GB.
+- RED first: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library/catalog-import-map.test.ts
+  src/main/services/library/catalog-import.test.ts src/main/services/library/library-used-in.test.ts` → `Test Files 3 failed (3)
+  · Tests 1 failed | 8 passed (9)` (the two new modules missing; `mergeUsedIn is not a function`) — `red.log`.
+- GREEN: the same + `pre-e1-control.test.ts` + `library-store.test.ts` → `Test Files 5 passed (5) · Tests 41 passed (41)`
+  — `green1.log`.
+- Types: `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS`;
+  `-p tsconfig.node.check.json` → 10 (= baseline; none in the touched files) — `tsc-web.log`, `tsc-node.log`.
+- NOT run yet: the full worktree vitest, the script, anything live.
 
 ## Next step (ONE concrete instruction)
 
-**Builder #1:** read this file, E2's HANDOFF "Done" (the field semantics E2 settled), then
+**Builder #2:** build `scripts/import-sfx-library.mjs` per design §1 + §7 — esbuild-bundle
+`src/main/services/library/catalog-import.ts` (`platform: 'node'`, `format: 'cjs'`, `bundle: true`) into
+`<repo>/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs` (repo = the script's parent folder; gitignored; inside
+the repo so `@remotion/renderer` resolves by walking up to `D:\repos\VidTSX-STUDIO\node_modules`), with ONE plugin:
+`electron` → a stub module (`app.isPackaged = false`, `app.getPath(name)` → `<os.tmpdir()>/vidtsx-import-sfx-library/<name>`
+except `userData`, which THROWS; `app.getAppPath()` → repo), any import resolving to `src/main/services/settings-db` → a
+stub whose functions throw (never a settings store), every other bare specifier external (keep `@shared/` / `@main/` /
+`@logging/` / `@audio-engine/` aliases resolving to `src/` if the graph uses them); then `require()` the bundle, parse
+`--library <dir> --from <editor repo> [--dry-run] [--sfx-catalog <file>] [--music-catalog <file>] [--report <json>]`
+(refusals per §7; sources = `{section, catalogPath: override ?? <from>/media/library/<section>/catalog.json, clipsDir:
+<from>/media/library/<section>}`), print one line per item (action · relPath · sha256[0..12] · category · tags · LUFS ·
+peak · usedIn · dropped · notes; after an import also `probe` and `probe − duration_s` in ms) + a summary, write the plan
+/ results JSON to `--report`, exit 0 only when no conflict / missing-source / problem. Smoke it on a SCRATCH root
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\smoke-root` (not the E4 profile yet): dry run (tree hash before = after) →
+import (51 copy) → re-run (51 unchanged, index.json byte-equal); commit; then the live run on the E4 profile (exit steps
+1–5 above) and the gates.
+
+**Builder #1 (done):** read this file, E2's HANDOFF "Done" (the field semantics E2 settled), then
 `src/main/services/library/library-store.ts` (`upsertEntry`), `library-filing.ts`, `library-paths.ts`, `scripts/
 migrate-editor-project.mjs` (first 60 lines: the esbuild pattern) and `.vidtsx-temp/end-to-end/E1/list-assets.e1.test.ts`;
 inspect the two catalogs read-only (`python -I -B` or node reading the JSON — never write in the editor repo). Write a
@@ -221,11 +248,16 @@ and hand off or continue by the 30 % rule; the script, the live run on the E4 pr
 
 ## Open problems
 
-(none yet)
+(none blocking.) Two stated semantics for STATUS: (1) the catalog is the truth for the mapped fields, so a re-run
+re-applies `description` / `tags` / `audio` over an in-app edit of them (only `usedIn` merges); (2) `upsertEntry` keeps
+the existing `tags` when the mapped `tags` is `undefined`, so a catalog that DROPS its whole tag list does not clear the
+entry's tags (a changed list replaces them).
 
 ## Do-not-redo
 
-(nothing yet)
+- The design note (above) and the catalog inspection (counts confirmed 2026-10-28).
+- The service + its tests, `audio.license`, `mergeUsedIn`, `upsertEntry`'s `usedIn`, the pre-E1 control extension —
+  commit `4aed92f` (green: 41 tests in 5 files; tsc 26 / 10).
 
 ## For Hasan (real-video list candidates)
 
@@ -234,4 +266,6 @@ and hand off or continue by the 30 % rule; the script, the live run on the E4 pr
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-28 · builder #1 · ~36 calls · design note; `catalog-import-map.ts` + `catalog-import.ts` + tests (red → green);
+  `audio.license`, `mergeUsedIn`, `upsertEntry` `usedIn`; pre-E1 control extended; tsc 26 / 10; commit `4aed92f`
+  (records `dc41822` + this one).
