@@ -1230,3 +1230,17 @@
 
 - 23:39 · start checks (above); `wt/out` = the `09e81ea` build (`out/main/index.js` 22:11:17, `PLACEMENT_BONUS` ×3), `git log -1 -- src/`
   = `09e81ea`. E3 builder #9 (fix round 3: items 1–4 of E3 HANDOFF "Next step" + E-d15's miss rule; no launch, no model turn) spawned.
+- 2026-10-29 00:14 · E3 builder #9 HANDOFF (~54 calls, 34 min; items 1–2 DONE, no launch / model turn / gate run / rebuild): `574edbc` the
+  corpus extended with verifier round 3's **659 probes** (four `sound-match-corpus-r3-*.test.ts` files over the same 51-clip fixture +
+  `sound-match-corpus-rows.ts`; 38 open rows `*`, recall rows `x|∅`; coverage 659 / 659 — **red 88 / 659 on `09e81ea`**, the commit
+  message says 87); `02e2a10` the matcher fix — F3a `matchStrength()` 1 (equal / plural / -y) vs **0.6 for a verb form** (running / run,
+  shutting / shut, moving / move) and the head rule needs an EQUAL hit (dash-zip / trap-snap / chess-piece-thock no longer offered on
+  the F3 prompts); F3b multi-word openers (`every / each / any time`, `the moment / instant / second / minute`) start a placement
+  clause, the adverbs / trailing words / wrappers / determiners became stop words, quantifier-of restarts the head, explicit
+  comparatives; F3c `SAME_SOUND` on the stem; new `sound-match-vocab.ts` (90), `sound-match.ts` 181, `sound-match-words.ts` 211; MI /
+  MJ pinned in `sound-match-bonus.test.ts` and PROVED (each mutation 1 failed / 2 passed, restored); the pure half of item 3
+  (`rankLibrarySounds()` → `{ matches, nearest }`, `nearestLibrarySounds()`) in place; 47 files / 1,181 tests green in library +
+  agent-tools + the prompt test. Intentional first changes recorded ("a running whoosh" → `W|dash-zip` accepted, "winding down" →
+  power-down, "a long whoosh" → whoosh-wind, "a deeper impact" → impact-deep-soft). `65e67fc` HANDOFF + LOG. Tree clean. Builder #10
+  (items 3–4: the miss rule's tool / answer / prompt side + drivers; regression vs both old versions, broad probes, gates, rebuild,
+  records) spawned.
