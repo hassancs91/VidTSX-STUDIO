@@ -247,6 +247,37 @@ describe('LibrarySearchRuntime — settings and events', () => {
     expect(unloadCalls).toBe(1);
   });
 
+  it('LS-r5: while the search model is being removed, Smart runs Basic ("model being removed") and asks the engine nothing; cleared on delete-failed / deleted', async () => {
+    downloaded.add('multilingual-e5-small');
+    const rt = make();
+    const req = { query: 'a soft whoosh', kinds: ['audio' as const], soundClass: 'sfx' as const };
+    await rt.beforeModelDelete('bge-small');
+    expect((await rt.search(req)).ran).toBe('smart');
+    rankCalls = [];
+
+    await rt.beforeModelDelete('multilingual-e5-small');
+    const during = await rt.search(req);
+    expect(during).toMatchObject({ ran: 'basic', requested: 'smart', degraded: 'model being removed' });
+    expect(during.candidates.length).toBeGreaterThan(0);
+    rt.status();
+    rt.indexWritten(ROOT);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(rankCalls).toHaveLength(0);
+    expect(syncCalls).toHaveLength(0);
+
+    rt.modelChanged({ modelId: 'multilingual-e5-small', change: 'delete-failed' });
+    expect((await rt.search(req)).ran).toBe('smart');
+    expect(rankCalls).toHaveLength(1);
+    await releaseSyncs();
+
+    await rt.beforeModelDelete('multilingual-e5-small');
+    downloaded.delete('multilingual-e5-small');
+    rt.modelChanged({ modelId: 'multilingual-e5-small', change: 'deleted' });
+    const after = await rt.search(req);
+    expect(after.ran).toBe('basic');
+    expect(after.degraded).toBeUndefined();
+  });
+
   it('engine progress is pushed as vectors events', () => {
     make();
     onVectors?.({ ready: 12, total: 51, building: true });

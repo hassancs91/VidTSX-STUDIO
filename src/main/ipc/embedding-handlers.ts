@@ -184,6 +184,8 @@ export async function handleEmbeddingModelDelete(
     notifyEmbeddingModelChanged({ modelId: data.modelId, change: 'deleted' });
     return { success: true };
   } catch (err) {
+    // The hooks ran (they never throw): tell their owners the files are still there (LS-r5).
+    notifyEmbeddingModelChanged({ modelId: data.modelId, change: 'delete-failed' });
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Delete failed',

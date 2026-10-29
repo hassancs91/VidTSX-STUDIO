@@ -55,11 +55,20 @@ export interface LibrarySearchRuntimeDeps {
   onError?: (err: unknown) => void;
 }
 
+/** LS-r5: while the search model's files are being deleted, Smart answers Basic — and the engine child is never asked. */
+const MODEL_BEING_REMOVED: SemanticRanker = {
+  rank: async () => {
+    throw new Error('model being removed');
+  },
+};
+
 export class LibrarySearchRuntime {
   private readonly engine: RuntimeEngine;
   private readonly sync: VectorSync;
   /** The last counts the engine reported, for the (root, model) they belong to. */
   private vectors: { key: string; ready: number; total: number } | null = null;
+  /** The model whose before-delete hook ran and whose delete outcome (deleted / delete-failed) has not arrived (LS-r5). */
+  private removing: string | null = null;
 
   constructor(private readonly deps: LibrarySearchRuntimeDeps) {
     this.engine = deps.createEngine((state) => this.vectorsChanged(state));
@@ -77,7 +86,7 @@ export class LibrarySearchRuntime {
     const modelDownloaded = this.deps.isModelDownloaded(s.modelId);
     const mode = resolveSearchMode(s.choice, modelDownloaded).run;
     const known = this.vectors && this.vectors.key === this.keyOf(s.modelId) ? this.vectors : null;
-    if (!known && mode !== 'basic' && !this.isBuilding()) this.buildInBackground();
+    if (!known && mode !== 'basic' && !this.isBuilding() && !this.isRemoving()) this.buildInBackground();
     return {
       mode,
       choice: s.choice,
@@ -89,15 +98,16 @@ export class LibrarySearchRuntime {
   }
 
   async search(request: LibrarySearchRequest): Promise<LibrarySearchResult> {
+    const removing = this.isRemoving();
     const result = await searchLibrary(request, {
       loadEntries: this.deps.loadEntries,
       settings: () => {
         const s = this.deps.readSettings();
         return { choice: s.choice, modelId: s.modelId, modelDownloaded: this.deps.isModelDownloaded(s.modelId) };
       },
-      semantic: this.engine,
+      semantic: removing ? MODEL_BEING_REMOVED : this.engine,
     });
-    if (result.vectors && result.vectors.ready < result.vectors.total && !this.isBuilding()) this.buildInBackground();
+    if (!removing && result.vectors && result.vectors.ready < result.vectors.total && !this.isBuilding()) this.buildInBackground();
     return result;
   }
 
@@ -112,6 +122,7 @@ export class LibrarySearchRuntime {
 
   /** The embedding download / delete handlers' news (`embedding-model-events.ts`). */
   modelChanged(change: EmbeddingModelChange): void {
+    if (change.change !== 'downloaded' && change.modelId === this.removing) this.removing = null;
     if (change.modelId !== this.deps.readSettings().modelId) return;
     if (change.change === 'downloaded' && this.smartOn()) this.buildInBackground();
     this.pushStatus();
@@ -120,6 +131,7 @@ export class LibrarySearchRuntime {
   /** The before-delete hook (`embedding-model-events.ts`, LS-r3): the search model's files are about to go — stop the child first. */
   async beforeModelDelete(modelId: string): Promise<void> {
     if (modelId !== this.deps.readSettings().modelId) return;
+    this.removing = modelId;
     await this.engine.unload();
   }
 
@@ -136,7 +148,11 @@ export class LibrarySearchRuntime {
 
   private smartOn(): boolean {
     const s = this.deps.readSettings();
-    return resolveSearchMode(s.choice, this.deps.isModelDownloaded(s.modelId)).run !== 'basic';
+    return !this.isRemoving() && resolveSearchMode(s.choice, this.deps.isModelDownloaded(s.modelId)).run !== 'basic';
+  }
+
+  private isRemoving(): boolean {
+    return this.removing !== null && this.removing === this.deps.readSettings().modelId;
   }
 
   private isBuilding(): boolean {

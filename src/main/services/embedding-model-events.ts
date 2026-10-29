@@ -5,7 +5,8 @@
 
 export interface EmbeddingModelChange {
   modelId: string;
-  change: 'downloaded' | 'deleted';
+  /** 'delete-failed': the before-delete hooks ran but the files could not be deleted (LS-r5 ends its removal state). */
+  change: 'downloaded' | 'deleted' | 'delete-failed';
 }
 
 type EmbeddingModelListener = (change: EmbeddingModelChange) => void;

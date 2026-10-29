@@ -22,6 +22,17 @@ describe('searchPool', () => {
     expect(paths(searchPool(lib, { query: 'x' }))).toEqual(paths(lib));
   });
 
+  it('LS-r4: the default kinds are the playable media kinds — data, fonts and other files never enter the pool', () => {
+    const others = [
+      e('presets/talking-head/preset.json', { kind: 'data' }),
+      e('presets/talking-head/PRESET.md'),
+      e('fonts/brand.ttf'),
+      e('models/robot.glb'),
+    ];
+    expect(paths(searchPool([...lib, ...others], { query: 'preset' }))).toEqual(paths(lib));
+    expect(paths(searchPool([...lib, ...others], { query: 'preset', kinds: [] }))).toEqual(paths(lib));
+  });
+
   it('filters by kind (the entry kind, else the extension)', () => {
     expect(paths(searchPool(lib, { query: 'x', kinds: ['video'] }))).toEqual(['b-roll/city.mp4']);
     expect(paths(searchPool(lib, { query: 'x', kinds: ['image', 'video'] }))).toEqual(['images/logo.png', 'b-roll/city.mp4']);

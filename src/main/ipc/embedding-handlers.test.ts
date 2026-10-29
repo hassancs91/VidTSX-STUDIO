@@ -52,10 +52,10 @@ describe('embedding:model:delete — the before-delete hooks (LS-r3)', () => {
     expect(deleteEmbeddingModel).toHaveBeenCalledTimes(1);
   });
 
-  it('a failed delete answers the typed error and sends no deleted event', async () => {
+  it('a failed delete answers the typed error and sends no deleted event — only delete-failed (LS-r5: the removal state ends)', async () => {
     deleteEmbeddingModel.mockImplementationOnce(async () => { throw new Error('EBUSY: resource busy or locked'); });
     const res = await handleEmbeddingModelDelete(EVENT, { modelId: 'multilingual-e5-small' });
     expect(res).toEqual({ success: false, error: 'EBUSY: resource busy or locked' });
-    expect(order).toEqual([]);
+    expect(order).toEqual(['delete-failed multilingual-e5-small']);
   });
 });

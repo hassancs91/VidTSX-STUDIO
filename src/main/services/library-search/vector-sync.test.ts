@@ -53,6 +53,15 @@ describe('syncItemsOf', () => {
     expect(items).toHaveLength(ENTRIES.length);
     expect(items).toEqual(ENTRIES.map(semanticItemOf));
   });
+
+  it('LS-r4: leaves out what is not playable media (presets data, fonts, other files) — only audio / video / image get vectors', () => {
+    const extra: LibraryIndexEntry[] = [
+      { relPath: 'presets/talking-head/preset.json', kind: 'data', origin: 'imported', addedAt: 'a' },
+      { relPath: 'presets/talking-head/PRESET.md', origin: 'imported', addedAt: 'a' },
+      { relPath: 'fonts/brand.ttf', origin: 'imported', addedAt: 'a' },
+    ];
+    expect(syncItemsOf([...ENTRIES, ...extra])).toEqual(ENTRIES.map(semanticItemOf));
+  });
 });
 
 describe('VectorSync', () => {

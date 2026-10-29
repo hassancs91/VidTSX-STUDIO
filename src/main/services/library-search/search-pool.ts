@@ -5,7 +5,7 @@
 
 import type { LibraryIndexEntry } from '../../../shared/types/asset-library';
 import type { LibrarySearchRequest } from '../../../shared/types/library-search';
-import { mediaKindOf } from '../../../shared/media-kinds';
+import { isPlayableMediaKind, mediaKindOf } from '../../../shared/media-kinds';
 import { soundClassOf } from '../library/sound-match';
 
 function inScope(relPath: string, scope: string | undefined): boolean {
@@ -22,12 +22,13 @@ function fitsSound(entry: LibraryIndexEntry, request: LibrarySearchRequest): boo
   return request.minDurationSec === undefined || typeof duration !== 'number' || duration >= request.minDurationSec;
 }
 
+/** LS-r4: search covers the playable media kinds only — `data`, fonts, 3D models and other files are neither embedded nor returned. */
 export function searchPool(entries: LibraryIndexEntry[], request: LibrarySearchRequest): LibraryIndexEntry[] {
   const kinds = request.kinds && request.kinds.length > 0 ? new Set<string>(request.kinds) : undefined;
   return entries.filter((entry) => {
     if (!inScope(entry.relPath, request.scope)) return false;
     const kind = entry.kind ?? mediaKindOf(entry.relPath);
-    if (kinds && !kinds.has(kind)) return false;
+    if (!isPlayableMediaKind(kind) || (kinds && !kinds.has(kind))) return false;
     return kind !== 'audio' || fitsSound(entry, request);
   });
 }
