@@ -92,8 +92,9 @@ beforeAll(async () => {
   outcomes.smart = await runAll('smart');
 }, 300_000);
 
-const header = (prompt: string): string =>
-  `Library sounds that may fit "${prompt}" — found by search (words + meaning), NOT checked; nothing was generated (no cost). Read each description and pick by plain meaning: a clip fits only if it IS the sound asked for — a loosely related or merely similar clip is not a fit.`;
+/** LS-r6: the header names what ran — "(words + meaning)" for Smart, "(words only)" for Basic. */
+const header = (prompt: string, mode: 'basic' | 'smart'): string =>
+  `Library sounds that may fit "${prompt}" — found by search (${mode === 'smart' ? 'words + meaning' : 'words only'}), NOT checked; nothing was generated (no cost). Read each description and pick by plain meaning: a clip fits only if it IS the sound asked for — a loosely related or merely similar clip is not a fit.`;
 const forceLine = (row: BenchRow): string =>
   `If one fits, place it with insert_asset(assetId: "library:<path>", lane: "audio", at: …). If none fits, call ${row.cls === 'sfx' ? 'generate_sfx' : 'generate_music'} again with force: true.`;
 
@@ -110,7 +111,7 @@ describe.each(['basic', 'smart'] as const)('§9.1 no claim + nothing fits — %s
       const lines = o.text.split('\n');
       const rowsShown = lines.filter((l) => l.startsWith('- library:'));
       const order = o.result.candidates.map((c) => `- library:${c.relPath} `);
-      const ok = claimsIn(o.text).length === 0 && lines[0] === header(o.row.prompt) && lines[lines.length - 1] === forceLine(o.row)
+      const ok = claimsIn(o.text).length === 0 && lines[0] === header(o.row.prompt, mode) && lines[lines.length - 1] === forceLine(o.row)
         && rowsShown.length === o.result.candidates.length && rowsShown.every((l, i) => l.startsWith(order[i]));
       if (!ok) bad.push(`#${o.row.id} ${o.row.prompt}: ${claimsIn(o.text).join(', ')}`);
     }

@@ -99,7 +99,7 @@ describe('Studio audio tools — the search answer over the 51-clip catalog (§8
       const e3 = selectSoundAnswer(rankLibrarySounds(CORPUS_LIBRARY, prompt, { soundClass: 'sfx', limit: CORPUS_LIBRARY.length }), prompt);
       expect(rowIds(text).slice(0, 3)).toEqual((e3?.rows ?? []).map((r) => idOf(r.match.entry.relPath)));
       expect(text).not.toMatch(/\[(matched|weak match|closest)\]/);
-      expect(text.startsWith(`Library sounds that may fit "${prompt}" — found by search (words + meaning), NOT checked;`)).toBe(true);
+      expect(text.startsWith(`Library sounds that may fit "${prompt}" — found by search (words only), NOT checked;`)).toBe(true);
       expectNothingGenerated();
     },
   );

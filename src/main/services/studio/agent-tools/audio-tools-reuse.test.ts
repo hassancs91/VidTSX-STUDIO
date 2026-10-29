@@ -86,8 +86,9 @@ const basicDeps = (): LibrarySearchDeps => ({
   settings: () => ({ choice: 'basic', modelId: 'multilingual-e5-small', modelDownloaded: true }),
 });
 
-const HEADER = (prompt: string): string =>
-  `Library sounds that may fit "${prompt}" — found by search (words + meaning), NOT checked; nothing was generated (no cost). Read each description and pick by plain meaning: a clip fits only if it IS the sound asked for — a loosely related or merely similar clip is not a fit.`;
+/** LS-r6: the header names what ran — "(words only)" for Basic (every search here but the Smart test's). */
+const HEADER = (prompt: string, how: 'words only' | 'words + meaning' = 'words only'): string =>
+  `Library sounds that may fit "${prompt}" — found by search (${how}), NOT checked; nothing was generated (no cost). Read each description and pick by plain meaning: a clip fits only if it IS the sound asked for — a loosely related or merely similar clip is not a fit.`;
 const PLACE = (tool: string): string =>
   `If one fits, place it with insert_asset(assetId: "library:<path>", lane: "audio", at: …). If none fits, call ${tool} again with force: true.`;
 
@@ -123,6 +124,18 @@ describe('Studio audio tools — reuse before generate, on the library search (�
     expect(hasAudioProvider).not.toHaveBeenCalled();
     expect(generateAudioAsset).not.toHaveBeenCalled();
     expect(importLibraryFile).not.toHaveBeenCalled();
+  });
+
+  it('LS-r6: the header says "(words + meaning)" only when Smart ran', async () => {
+    search.mockImplementation((req: LibrarySearchRequest) => searchLibrary(req, {
+      ...basicDeps(),
+      settings: () => ({ choice: 'smart', modelId: 'multilingual-e5-small', modelDownloaded: true }),
+      semantic: { rank: async (_q, items) => ({ ranked: items.map((it, i) => ({ relPath: it.relPath, cosine: 0.9 - i / 100 })), vectors: { ready: items.length, total: items.length } }) },
+    }));
+    const lines = (await toolsByName().generate_sfx.handler({ prompt: 'soft whoosh' }, {})).content[0].text.split('\n');
+    expect(await search.mock.results[0].value).toMatchObject({ ran: 'smart' });
+    expect(lines[0]).toBe(HEADER('soft whoosh', 'words + meaning'));
+    expect(lines[1]).toMatch(/^- library:/);
   });
 
   it('a degraded search adds one line under the header: "Searched by words only: <reason>"', async () => {
