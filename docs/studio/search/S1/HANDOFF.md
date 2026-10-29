@@ -1,5 +1,5 @@
 # S1 — the spike: keywords vs local embeddings vs hybrid vs the LLM pick, on E3's labelled set (no product code)
-status: NEW
+status: IN PROGRESS — builder #1 handed off after step 1 (the labelled set + candidate (a)); next: (b) the embeddings
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/search/ORCHESTRATOR.md` ("Answers in force" binds this part).
@@ -126,28 +126,99 @@ STOP condition fired, with the numbers.
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+Builder #1, 2026-10-29 13:42–13:55. Everything below is kit work in scratch (`K` = `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S1\`);
+no `src/` change. The tree was clean at `3c0d213` before this hand-off's commit, which adds only this file and `LOG.md`.
+
+1. **The kit's matcher bundle:** `K\build-kit.cjs` esbuild-bundles (main checkout's `node_modules\esbuild` 0.25.0, read-only)
+   the WORKTREE's `sound-match.ts` + `sound-answer.ts` + fixture + the seven corpus row files into `K\out\corpus.cjs`, with
+   `vitest` stubbed so each file's `it.each(ROWS)` hands over its rows WITH the real shared constants (W, IMPACT, CRASH…).
+   Exports `rankLibrarySounds`, `soundClassOf`, `selectSoundAnswer`, `CONFIDENT_COVERAGE`, `CORPUS_LIBRARY`, `corpusFiles()`.
+   **Recount: 1,073 rows** = 150 + 194 + 132 + 129 + 204 + 67 + 197, which matches the E3 records (`K\build-kit.log`).
+2. **Probe survey:** `K\survey-probes.cjs` → `K\probe-parse.json`. **Every prompt of r3 (`b-probes` 513, `c-probes2` 141,
+   `c-probes3` 41) and r4 (`g-probe` 32, `c-ordinary` 247, `f-probe` 44 + 2 non-prompts) is already a corpus row.** Only
+   r5 adds rows. Verdicts exist only in r5 `c-ordinary` ("right X", used verbatim) and r5 `b-broad-flagged` ("right X" =
+   the frame generator's target clip).
+3. **S1's labels:** `K\s1-labels.json` holds my plain-meaning labels for `j-falling` (12), `i-nine` (6 kept of 17),
+   `e-realindex` (2), `d-stopword` (per verb, 35 verbs; frame rule inside), the broad named-set rule
+   (sparkl / swoosh / quiet), the exclusions with reasons, and **35 own rows (25 en incl. 1 `∅` + 1 music; 10 ar incl. 1 music)**.
+4. **THE labelled set:** `K\build-labelled-set.cjs` → `K\labelled-set.json` (each row: prompt, expected, named[], hasNull,
+   kind named / null / any, cls, min, source, labelledBy) and `K\reports\labelled-set-summary.txt` (the per-source
+   composition and exclusions table, verbatim for the report). **1,565 rows: 1,375 named, 140 `∅`, 50 `*` (never scored);
+   2,899 excluded**. The exclusions: broad cross-products outside the named sets 2,674; broad named-set nonsense 115;
+   d-stopword particle cross-products 95 + 1 ungrammatical; i-nine nonsense inflections 11; 3 non-prompts.
+5. **Scoring library:** `K\eval-lib.cjs`. It has `loadSet()` (drops `*`), `poolOf(row)` (the matcher's `isCandidate`
+   class + min-length filter, for EVERY candidate), `metricsOf` / `bySource` (R@1/3/10/20, MRR over named rows,
+   wrong-confident over pick rows split named / `∅`), and `writeReport(base, name, results)` → `K\reports\<base>.json|.md`.
+   The definitions are in its header comment.
+6. **Candidate (a):** `K\run-a-keywords.cjs` → `K\reports\a-keywords.md|json`. The ordered list is the answer's ≤ 3 rows
+   in `selectSoundAnswer` order, then the other confident matches in rank order, then the rest by coverage. Clips that
+   score 0 are not ranked. The pick is the answer's first, confident when its label is `[matched]`. A second view (a′,
+   the matcher's own order) is in `K\reports\a2-keywords-matcher-order.md`. **(a) ALL (1,515 scored rows): R@1 83.9 ·
+   R@3 90.8 · R@10 91.8 · R@20 91.9 · MRR 0.874 · wrong-confident 100 / 1,515 = 6.6 % (88 named, 12 `∅`)**, from
+   `a-keywords.md`. The seven corpus files score 81.5–100 R@1 and 100 R@10. The weak spots: r5 `d-stopword` R@10 46.0,
+   `j-falling` 33.3, broad named sets R@1 3.8 (wrong-confident 25 / 26), `S1-own-ar` 0.0 at every k. `S1-own-en` scored
+   100 (my English synonyms share a tag word too often; see Open problems).
+
+Resources at 13:44: C: 51.3 GB free, D: 41.8 GB, memory commit headroom 42.4 / 99.7 GB. No download, copy or launch
+was made yet.
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- `cd K; node build-kit.cjs` → seven lines + `TOTAL 1073 rows in 7 files; library 51 clips` (`K\build-kit.log`).
+- `node survey-probes.cjs noverdict` → per file `{"parsed","dupCorpus",…}`. r3 / r4: `kept 0` except `r4/f-probe`
+  `kept 2` (both non-prompts). r5: `j-falling` 12, `c-ordinary` 176, `d-stopword` 332, `i-nine` 17, `e-realindex` 2,
+  `b-broad-flagged` 2,815.
+- `node build-labelled-set.cjs` → `labelled-set.json — 1565 rows (1375 named, 140 '∅', 50 '*'), 2899 excluded`.
+- `node run-a-keywords.cjs` → the two tables above (`ALL | 1515 | 1375 | 140 | 83.9 | 90.8 | 91.8 | 91.9 | 0.874 | 100/1515 (6.6 %) | 88 | 12`).
+- **`node_modules` baseline (BEFORE any transformers.js use):** `D:\repos\VidTSX-STUDIO\node_modules` LastWrite
+  2026-10-16 12:57:48. `@huggingface\transformers` 2026-07-07 10:32:45 (children dist / src / types / LICENSE /
+  package.json / README.md, all 2026-07-07, no `.cache`). `node_modules\.cache` EXISTS, is EMPTY, LastWrite
+  2026-10-13 11:10:47 (it predates S1). `esbuild` 2026-07-07. Re-check these after (b) and compare.
+- Worktree `git status --short` empty at `3c0d213` before this commit.
 
 ## Next step (ONE concrete instruction)
 
-Build the labelled set: a kit script that extracts every row from the seven corpus files (recount them) and the
-labelled phrasings from the r3 / r4 / r5 probe files, adds your ~30 plain-meaning rows (10 Arabic), and writes ONE
-labelled-set file (prompt, allowed clips, `∅` / `x|∅`, source file, who labelled it) under
-`.vidtsx-temp\search\S1\`; then run candidate (a) over it and write its report file — then the embeddings (b), the
-hybrid (c), the timing table, the LLM pick (d), optional (e), and the report.
+Run candidate (b), the embeddings. Do the resource guard first and write the numbers here. Then HEAD-request the four
+catalog files (`model-registry.ts` `getHfFileUrl`) of **all-MiniLM-L6-v2, bge-small-en-v1.5, multilingual-e5-small and
+one more** (suggested: multilingual-e5-base, so a bigger multilingual model is in the race; bge-m3 568 MB only if p95
+allows). Write each model's real bytes here BEFORE downloading. Download into
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\<id>\` (catalog URLs only). Load them with
+`@huggingface/transformers` from the main checkout's node_modules using `env.allowRemoteModels = false`,
+`env.localModelPath` and `env.cacheDir` set to that scratch folder, and the same `pipeline('feature-extraction', …,
+{ local_files_only: true })` options as `src/embedding-engine/worker.ts:45-80` (read it first). Write
+`K\run-b-embeddings.cjs` on `eval-lib.cjs`:
+- item text = id with hyphens as spaces + category + tags + description;
+- the query = the prompt, with each model's prefixes;
+- the pool = `poolOf(row)`, ranked by cosine;
+- mean pooling, plus CLS for the bge models;
+- no pick for (b);
+- one report per model and pooling: `K\reports\b-<id>-<pooling>.md|json`.
+
+**Add a HELD-OUT subtotal** (r5/* + S1-own-*) to `bySource` and re-run (a) so every table has it. Then re-check the
+`node_modules` baseline above. Then the hybrid (c) (RRF over (a)'s list and the best (b)), the timing table, (d), the
+optional (e), and the report.
 
 ## Open problems
 
-(none yet)
+1. **The corpus favours (a) by construction** (heads-up for the STOP test, not a stop yet). The seven corpus files are
+   the keyword matcher's own acceptance bar: E3 tuned the matcher until they passed, so (a) scores 100 R@10 there and
+   91.8 overall. An embedding model may beat (a) clearly on the HELD-OUT rows (r5 + S1-own: (a) R@10 is 46.0 on
+   `d-stopword`, 33.3 on `j-falling`, 0 on Arabic) but not overall. Report overall AND held-out for every candidate. If
+   the two readings of "beats the keyword baseline on recall@10 by a clear margin" disagree, that is Hasan's call:
+   write both numbers and return `status: BLOCKED`.
+2. `S1-own-en` turned out keyword-easy (100 at every k). If the next builder wants harder synonym rows, add them to
+   `s1-labels.json` `own` and rebuild before ANY candidate runs (the same rows for all candidates). Otherwise leave it.
+3. The labels widened from the broad file's single "right" (sparkle → `sparkle-soft|pop-reveal`, swoosh → the W group)
+   and the per-verb `d-stopword` labels are mine (labelledBy `S1 …` in every row). The report must say so.
 
 ## Do-not-redo
 
-(nothing yet)
+- The corpus recount (1,073) and the fact that r3 / r4 add no row: settled (`K\build-kit.log`, `survey-probes.cjs`).
+- `K\out\corpus.cjs` is the matcher at the worktree's code. Rebuild it only if the worktree's `src/main/services/library/`
+  changes (it should not in S1).
+- Do not hand-label the 2,674 broad cross-products. They are excluded by rule, with the reason.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-29 13:42–13:55 · builder #1 · ~33 calls · the kit bundle, the probe survey, the labelled set (1,565 rows /
+  2,899 excluded), candidate (a) and its reports; the `node_modules` baseline; no download, launch or model call (0 / 40 used).
