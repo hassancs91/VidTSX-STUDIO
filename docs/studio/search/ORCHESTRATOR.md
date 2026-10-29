@@ -173,14 +173,14 @@
   (writeIndex notifies, `library-index-io.ts:113`) + `embedding-model-events.ts`; `tsconfig.node.json` includes `src/library-search-engine/**/*`
   (15 / 15 files listed). tsc 26 / 10; 23 new tests (red first); largest new file 242; `wt/out` rebuilt; the `search-S3` profile + the 51
   clips + E3's index seeded, kit `S3\launch-s3.sh` + `c-ping.mjs`; docs `2639b2a`. Three questions (below).
-- 16:47–16:55 · **Orchestrator check of question 1:** `studio-cut-plan-run-handler.test.ts` in THIS worktree → "Cannot find module
+- 16:47–16:49 · **Orchestrator check of question 1:** `studio-cut-plan-run-handler.test.ts` in THIS worktree → "Cannot find module
   '…\search\wt\stream\promises' imported from …\vitest\dist\module-evaluator.js" (16:48, reproduced); the same file in the track-E worktree
   @ `906273c` → 5 / 5 passed (16:50); the main `node_modules` vite / vitest unchanged since July; `vitest.config.ts` unchanged; the
   worktree's only ignored paths are `out/` and `node_modules/.vite/vitest` (one 6.8 KB results file, from our first run 15:12 — the track-E
   worktree has the same folder); no stray `package.json` / `node_modules` in `.vidtsx-temp\search\`. Builder #4: it fails here with step c's
   tracked edits reverted, `out/` moved and the vitest cache moved, and PASSES in a fresh detached worktree of `0b50a75` with and without
   step c's 21 paths. Cause not found (time-boxed).
-- **Rulings (orchestrator, 16:55):**
+- **Rulings (orchestrator, 16:49; committed `59479d5` — its first text said "16:55", an estimate; corrected from the clock):**
   - **LS-r1 (question 1) — the worktree-only `studio-cut-plan-run-handler.test.ts` failure:** counted like the E-d2a suites — the full gate
     may show it red in THIS worktree ONLY with the `stream\promises` resolution error, and only if the same file passes in a fresh detached
     worktree at the gate's HEAD (`git worktree add --detach <scratch> HEAD`, run the file there, remove the worktree; never `npx`; record
