@@ -24,6 +24,7 @@ import {
   isEmbeddingModelDownloaded,
   deleteEmbeddingModel,
 } from '../services/embedding-models';
+import { notifyEmbeddingModelChanged } from '../services/embedding-model-events';
 import { enqueueDownload } from '../services/download-manager';
 import { embeddingEngine } from '../../embedding-engine';
 import { logEngine } from '../../logging/log-engine';
@@ -161,6 +162,7 @@ export async function handleEmbeddingModelDownload(
     }
 
     log.info('Embedding model download complete', { modelId: data.modelId });
+    notifyEmbeddingModelChanged({ modelId: data.modelId, change: 'downloaded' });
     return { success: true };
   } catch (err) {
     log.error('Embedding model download failed', err, { modelId: data.modelId });
@@ -177,6 +179,7 @@ export async function handleEmbeddingModelDelete(
 ): Promise<EmbeddingModelDeleteResponse> {
   try {
     await deleteEmbeddingModel(data.modelId);
+    notifyEmbeddingModelChanged({ modelId: data.modelId, change: 'deleted' });
     return { success: true };
   } catch (err) {
     return {

@@ -600,6 +600,13 @@ export const IPC = {
   // the trigger (capture or cancel).
   LIBRARY_CAPTURE_TRIGGER: 'library:capture:trigger',
   LIBRARY_CAPTURE_EVENT: 'library:capture:event',
+
+  // Library search (LIBRARY_SEARCH_DESIGN.md §10) — one shared search (Basic / Smart / Smart + AI rerank);
+  // LIBRARY_SEARCH_EVENT is push-only (vector build progress, status changes).
+  LIBRARY_SEARCH: 'library:search',
+  LIBRARY_SEARCH_STATUS: 'library:search:status',
+  LIBRARY_SEARCH_SETTINGS_SET: 'library:search:settings:set',
+  LIBRARY_SEARCH_EVENT: 'library:search:event',
   // Agents (docs/agents-plan.md) — installed declarative agents, their saved
   // sessions, and one run stream. AGENT_RUN_EVENT is push-only (deltas, tool
   // chips, artifacts, interaction requests, render job requests).

@@ -5,6 +5,7 @@ import { LIBRARY_INDEX_REV, type LibraryIndexFile } from '../../../shared/types/
 import { mediaKindOf } from '../../../shared/media-kinds';
 import { getLibraryIndexPath } from './library-paths';
 import { invalidateLibrarySizes } from './library-sizes';
+import { notifyLibraryIndexWritten } from './library-index-events';
 
 const log = logEngine.createLogger('LibraryIndexIO');
 
@@ -109,6 +110,7 @@ export async function writeIndex(root: string, index: LibraryIndexFile): Promise
   await fs.writeFile(tmpPath, JSON.stringify(out, null, 2), 'utf-8');
   await fs.rename(tmpPath, finalPath);
   invalidateLibrarySizes(root);
+  notifyLibraryIndexWritten(root);
 }
 
 /**
