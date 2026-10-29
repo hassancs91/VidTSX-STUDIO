@@ -238,3 +238,13 @@
     plus the `degraded` reason line — `generate_*` answers and the `list_assets` header (design §8.1 / §8.2 clarified in the design note,
     this commit; §9 unchanged — the no-claim strings and "the neutral header" still hold). Test-pinned.
   Builder #7 (LS-r6, step d part 2 `list_assets`, rebuild `wt/out`, then step e) to spawn.
+- 17:26 · S3 builder #7 spawned (HEAD `f20a793`).
+- 17:35 · S3 builder #7 HANDOFF (48 calls, ~10 min; **step d DONE**): `332ef1b` — LS-r6 (`sound-reuse.ts:35-37,56`; NEW
+  `agent-tools/library-search-listing.ts` 42: `searchMethodOf`, `degradedLineOf`, `rankedHeaderOf`, `noSearchResultLineOf`,
+  `formatLibrarySearchListing`; the per-mode header pinned over all 1,515 rows); `list_assets(scope "library", query)` on `toolLibrarySearch`
+  (`project-tools.ts:25,59-67`; raw trimmed query, `kind` → `kinds`, ≤ 20 E2 rows in the search's order, Basic lists only keyword hits, a
+  plain no-result line; no query → today's listing; NEW `list-assets-library.test.ts` 10 tests); red 17 failed → green 18 files / 115 tests
+  (`…\search\S3\step-d2\`); tsc 26 / 10; docs `921de81`. Left as is (its Do-not-redo): `REUSE_NOTE` / `FORCE_HINT` / the prompt describe the
+  tool as "(words + meaning; …)" in general — accepted (they describe the capability; the per-call header says what ran). **Orchestrator
+  re-check:** tree clean at `921de81`, matcher diff empty, `list-assets-library` + `audio-tools-no-claim` → 2 files / 16 tests passed
+  (17:35). Builder #8 (step e — the UI + the §9.3 2 / 3 click-through) to spawn.
