@@ -343,7 +343,10 @@ app launch.
   2026-10-29 14:39: **0** · scratch `tf-cache` does not exist · 0 `electron.exe`, 0 rerank node left · C: 51.3 GB, commit headroom 32.3 / 99.7 GB ·
   models folder on C: 489.6 MiB (5 models).
 - **Tree as of `c642c2a` (before this hand-off's commit):** `git status --short` empty, `git log -1 --format=%h -- src/` = `c5a6124`, `git diff
-  --stat 906273c..HEAD -- src/ scripts/` empty. The post-commit re-check is the last bullet below.
+  --stat 906273c..HEAD -- src/ scripts/` empty. The post-commit re-check is the next bullet.
+- **Post-commit re-check, as of `edf531c`** (the report commit): `git status --short` empty; `git log -1 --format=%h -- src/` = `c5a6124`;
+  `git diff --stat 906273c..HEAD -- src/ scripts/` empty; `git show --stat HEAD` = only `docs/studio/search/S1-spike-report.md` (new),
+  `S1/HANDOFF.md`, `S1/LOG.md`. This bullet is added by the follow-up docs commit (its hash in `git log`).
 
 ## Next step (ONE concrete instruction)
 
