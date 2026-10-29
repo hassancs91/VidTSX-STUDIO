@@ -1428,3 +1428,8 @@
   before → the 809 old rows unchanged → green 28 files / 1,261 tests. One note (not a right-clip loss): "a moving transition" — `whoosh-wind`
   (weak 0.30) drops from the three by E-d16a's own tie rule (closest chess-piece-thock / wind-soft 0.30 ahead); `whoosh-soft` stays first.
   Orchestrator re-check: `git log -1 -- src/` `9a13e3b`, matcher diff 0 bytes, tree clean. Builder #15 (steps 3–7) spawned.
+- 11:03 · E3 builder #15 HANDOFF (47 calls, ~4 min; step 3 DONE, docs + one test comment): `d30830a` the (iv) record fixes — Status.md
+  :189 0.41 → 0.38, :213 trap-snap 0.32 → 0.34 (`fix4-rank.txt` 0.3424), :215 power-down 0.46 → 0.43, :305 "build / building"; verifier
+  note 1 at :405-408 / :412-413 / :783-785 ("in the nearest — SECOND in four of the seven"); TESTING §18.17 :533 / :540; the r3-ordinary
+  test comment :16. Left for step 7: Status.md :789 open item (16) "trap-snap 0.32" (check against step 4's rankings). Matcher diff 0
+  bytes, tree clean at `cda9c79`. Builder #16 (steps 4–7) spawned.
