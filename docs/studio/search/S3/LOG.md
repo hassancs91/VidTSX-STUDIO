@@ -10,3 +10,7 @@
   lock), `vector-sync.ts`, the `library-search-worker` entry, the `dtype: 'q8'` fix; 39 new tests green; the gated live test green against S1's
   model (R@10 / R@20 = S1's (c) on every row set; one-at-a-time query min cosine 0.991872 — an Open-problems note); `node_modules` unchanged;
   tsc 26 / 10; matcher diff empty; `wt/out` built; next: step c (IPC + settings + the ping loop).
+- 2026-10-29 16:52 · builder #4 · step c code DONE (`62685e9`): the four `library:search*` channels, handlers (typed errors, `lazily`), preload,
+  `search-runtime.ts` / `search-app.ts`, index-write + embedding-model events, `tsconfig.node` includes the engine folder; 23 new tests green
+  (red first); tsc 26 / 10; matcher diff empty; `wt/out` rebuilt; profile search-S3 seeded (51 clips); `studio-cut-plan-run-handler.test.ts`
+  fails in this worktree only, independent of the diff (Open problems); the ping loop (§9.3 1) NOT run — next.

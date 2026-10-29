@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (steps a, b DONE as of `3c50783`; step c — IPC + settings — next)
+status: IN PROGRESS (steps a, b DONE as of `3c50783`; step c CODE DONE as of `62685e9` — its live ping-loop check (design §9.3 1) is next)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -182,6 +182,43 @@ assertion — pipeline called without `dtype`). **Step b is DONE.** All under `s
 - Tests added: `vector-store.test.ts` 12, `embedder.test.ts` 5, `engine-core.test.ts` 8, `search-engine.test.ts` 8, `vector-sync.test.ts` 5,
   `embedding-engine/worker.test.ts` 1 (= the 39 of the first green run), + the 2 gated.
 
+**Step c, part 1 — IPC + settings, the code: `62685e9`** (as of `62685e9`; red first: the 4 new test files failed "Cannot find module" before
+the code existed — run at 16:28). **The ping-loop check (design §9.3 1) is NOT run yet** — that is step c's last item (Next step).
+
+- `src/shared/ipc/channels.ts:604-609` — `LIBRARY_SEARCH` `library:search`, `LIBRARY_SEARCH_STATUS` `library:search:status`,
+  `LIBRARY_SEARCH_SETTINGS_SET` `library:search:settings:set`, `LIBRARY_SEARCH_EVENT` `library:search:event` (push).
+- `src/shared/ipc/types/library-search.ts` (33) — `LibrarySearchQueryRequest` (= `LibrarySearchRequest`), `LibrarySearchResponse` `{ok:true,
+  result} | {ok:false, error}`, `LibrarySearchStatusRequest` `{}`, `LibrarySearchStatusResponse` = `LibrarySearchStatus & {error?}`,
+  `LibrarySearchSettingsSetRequest {mode?, modelId?}` → the status (a refused patch: the unchanged status + `error`), `LibrarySearchEvent`
+  `{type:'vectors', ready, total, building} | {type:'status', status}` (design §10). Barrel `types/index.ts:16`.
+- `src/main/services/library-search/search-runtime.ts` (156) — `LibrarySearchRuntime` (all deps injected; constructing it calls nothing):
+  `status()` (effective mode via `resolveSearchMode`, `modelBytes` from the catalog, the last known vector counts for (library root, model id);
+  **the first status call of a session with Smart on starts the background sync** — it opens the vector file and embeds only what is missing);
+  `search(req)` (`searchLibrary` with the engine as `semantic`; a Smart result with `vectors.ready < total` starts the build unless one runs);
+  `setSettings(patch)` (an unknown model id → throws, nothing stored; pushes + returns the new status; switching Smart on starts the build);
+  `modelChanged({modelId, change})` (the search model downloaded → the full build + a status push; deleted → a status push); `indexWritten(root)`
+  (this library → `VectorSync.schedule()`, skipped while Smart is off); engine progress → `vectors` events.
+- `src/main/services/library-search/search-app.ts` (84) — `getLibrarySearchRuntime()` (the singleton; real deps: `LibrarySearchEngine` with
+  `fork: forkLibrarySearchWorker`, `model()` = downloaded ? `{modelId, getEmbeddingModelDir(id), cacheDir: <getTempDir()>/library-search/tf-cache}`
+  : null, `vectorFile` = `vectorFilePath(getLibraryRoot(), id)`; `loadIndex(getLibraryRoot()).entries`; `search-settings.ts`; the catalog's
+  `sizeBytes`); it subscribes to index writes / model changes only when first created; `onLibrarySearchEvent` (subscribe without creating);
+  `ensureLibrarySearch` (the `lazily` initializer). **Main now imports the engine host** (`electron-fork`, `search-engine`, `vector-store`).
+- `src/main/ipc/library-search-handlers.ts` (64) — `handleLibrarySearch` (no string query → `{ok:false}` without a search), `handleLibrarySearchStatus`
+  (a throw → a Basic status carrying `error`), `handleLibrarySearchSettingsSet` (a throw → the unchanged status + `error`); every body in try/catch.
+- `src/main/ipc/registrations/library-search.ts` (23) — the three handles via `lazily(ensureLibrarySearch, …)`; events broadcast to every
+  webContents on `library:search:event`. Wired in `register.ts:96` (+ import :44) and the `registrations/index.ts` barrel.
+- `src/preload/api/library-search.ts` (25) — `librarySearch`, `librarySearchStatus`, `librarySearchSettingsSet`, `onLibrarySearchEvent`
+  (unsubscribe returned); spread in `preload.ts:95` (+ import :44), barrel `api/index.ts:41`.
+- `src/main/services/library/library-index-events.ts` (27) — `onLibraryIndexWritten` / `notifyLibraryIndexWritten` (listeners contained);
+  `library-index-io.ts:113` `writeIndex` calls it after the rename (the one choke point: upsert, reconcile, description / tags, back-fill).
+- `src/main/services/embedding-model-events.ts` (30) — `onEmbeddingModelChanged` / `notifyEmbeddingModelChanged`; `embedding-handlers.ts`
+  notifies `downloaded` after the download completes (`enqueueDownload` resolves on completion — `download-engine.ts:111-125`) and `deleted`
+  after a delete.
+- `tsconfig.node.json:11` — include `src/library-search-engine/**/*` (orchestrator ruling: the node check must cover the engine; main's imports
+  alone reach only 5 of its files — the child-only `worker.ts`, `engine-core.ts`, `embedder.ts`, `model-lock.ts`, `ort-dll-path.ts` are reached
+  through the electron-vite entry, not tsc). With the include `tsc --listFiles` lists all 15 files of the folder; node errors stay 10.
+- Tests added: `search-runtime.test.ts` 13, `library-search-handlers.test.ts` 7, `library-index-events.test.ts` 2, `embedding-model-events.test.ts` 1.
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -249,19 +286,49 @@ As of `3c50783` (builder #3, 16:00–16:25; logs in `C:\Users\hasan\AppData\Loca
   The worker has NOT run in a utilityProcess yet (main does not import the engine until step c) — step c's ping loop is its first live run.
 - Post-commit: `git status --short` clean after `3c50783` (21 paths).
 
+As of `62685e9` (builder #4, 16:27–16:50; logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-c\`):
+
+- Resources: 16:28:54 C: 50.9 GB free, memory commit headroom 22.4 GB; 16:35:00 C: 50.7 GB, D: 41.5 GB, headroom 24.7 GB.
+- Red first (16:28): `node …/vitest.mjs run src/main/services/library-search/search-runtime.test.ts src/main/ipc/library-search-handlers.test.ts
+  src/main/services/library/library-index-events.test.ts src/main/services/embedding-model-events.test.ts` → `Test Files 4 failed (4)`, each
+  "Cannot find module". Then green: `Test Files 4 passed (4) · Tests 23 passed (23)`.
+- `… vitest.mjs run src/main/services/library src/main/services/library-search src/library-search-engine src/embedding-engine src/main/ipc
+  src/main/ipc/library-search-handlers.test.ts src/main/services/embedding-model-events.test.ts --maxWorkers=2` → `Test Files 1 failed | 67
+  passed | 1 skipped (69) · Tests 1611 passed | 2 skipped (1613)` (51 s, `vitest-step-c.log`). The 1 failure is
+  `src/main/ipc/studio-cut-plan-run-handler.test.ts` ("Cannot find module '…\wt\stream\promises'"), **independent of step c's diff** — see Open
+  problems (it fails in this worktree with every tracked step-c edit reverted, and passes in a fresh `git worktree add --detach` of HEAD
+  `0b50a75` with all 21 step-c paths copied in).
+- tsc web → 26 `error TS` (`tsc-web.log`), node → 10 (`tsc-node.log`, with `--listFiles`: all 15 `src/library-search-engine/` files listed);
+  none in a library-search / engine / events file. Matcher diff vs `7967c6f` empty. No `any` in the 12 new files; largest new file
+  `search-runtime.test.ts` 242 lines, largest source `search-runtime.ts` 156. No new npm package.
+- **Build** (our app not running; DRIVING Track E step 1): `unset ELECTRON_RUN_AS_NODE; NODE_OPTIONS=--max-old-space-size=8192 node
+  D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build` → rc 0, started 16:35 (`build.start`), "built in 4m 7s"
+  (`build.log`) — **`wt/out` = the `62685e9` sources** (no `src/` edit after the build started; the temporary reverts during the
+  studio-cut-plan bisect were restored byte-for-byte from tar copies and `git diff --stat` showed the same 9 files / +20 −1 before the commit).
+  `out/main/library-search-worker.js` 8,684 B (main now shares `vector-store` / `prefixes` chunks).
+- **Live check prepared, NOT run:** Hasan not rendering at 16:35 (6 `electron.exe`, 0 with `--remote-debugging-port=9292`, 0 ffmpeg /
+  chrome-headless-shell / remotion / compositor processes descended from them, 0 entries in `%TEMP%\vidtsx-studio` modified in the last 2 min).
+  Profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\search-S3\profile` created by `robocopy profiles\source\profile … /E /XF
+  settings.db*` (0 `settings.db*` in the copy); seeded `<profile>\assets\sfx|music` = E3's 51 clips (robocopy from `profiles\E3\profile\assets`,
+  read-only source) + E3's `assets\.vidtsx\index.json` (70,096 B: 61 entries — the 51 clips, all with descriptions, 47 with tags, + 4 `generated/`
+  whose files are NOT copied + 6 `presets/`; a reconcile drops the 4 — the driver's `pre` calls `libraryIndexGet`). The model is NOT copied yet.
+  Kit: `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S3\launch-s3.sh`, `c-ping.mjs` (`pre` / `run`). No app launched, no model loaded this session.
+
 ## Next step (ONE concrete instruction)
 
-Step c, red first (design §10 / §4 / §5 / §7): `library:search` / `library:search:status` / `library:search:settings:set` / `library:search:event`
-in `src/shared/ipc/channels.ts` + `src/shared/ipc/types/library-search.ts`; `src/main/ipc/library-search-handlers.ts` (every body in try/catch,
-typed errors) registered with `lazily` (`src/main/ipc/registrations/lazy.ts`); one main-side wiring module that builds the singletons — a
-`LibrarySearchEngine` (`fork: forkLibrarySearchWorker`, `model()` = `isEmbeddingModelDownloaded(id) ? {modelId, modelDir:
-getEmbeddingModelDir(id), cacheDir: path.join(getTempDir(), 'library-search', 'tf-cache')} : null`, `vectorFile = vectorFilePath(getLibraryRoot(),
-id)`, `onVectors` → `library:search:event`), the `searchLibrary` deps (`settings()` from `search-settings.ts` + `isEmbeddingModelDownloaded`,
-`semantic` = the engine) and a `VectorSync` (`buildNow()` after `embedding:model:download` completes for the search model; `schedule()` after
-index writes; and when a Smart result reports `vectors.ready < total`); status (`LibrarySearchStatus`, `modelBytes` from the catalog);
-preload `src/preload/api/library-search.ts`; nothing spawns at startup. Then build `wt/out`, launch our own instance (profile `search-S3`, CDP
-9292 — after DRIVING's not-rendering check) and run the ping loop (design §9.3 1: an IPC ping every 50 ms over CDP during spawn + cold load + the
-51-clip build + the first Smart query; max gap ≤ 250 ms); numbers into Verified. Commit; then step c is DONE.
+Finish step c with its live ping-loop check (design §9.3 1) on the prepared profile, `wt/out` as built at `62685e9` (no rebuild needed unless
+`src/` changed): (1) resource guard + DRIVING's not-rendering check (see the 16:35 line under Verified for the method) and write a marker file
+under `…\search\S3\step-c\` for the `node_modules` proof; (2) launch `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/search/S3/launch-s3.sh` with
+Bash `run_in_background`; (3) `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/search/S3/c-ping.mjs pre` (Studio root FIRST → the scratch
+`…\search\S3\studio-root`, mkdir it first; prints the library root — must be `<profile>\assets` — the AI models folder from `settingsGet`, the
+status before the model — must be Basic / not downloaded / vectors 0 — and reconciles the library); (4) copy S1's model folder
+(`C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\multilingual-e5-small\`, 4 files, 135,392,016 B, read-only) into
+`<that AI models folder>\embeddings\multilingual-e5-small\`; (5) `node …/c-ping.mjs run` (a ping every 50 ms over `libraryRootGet` from the
+renderer through status → spawn + cold load + the 51-clip build → the first Smart query "things falling over"; writes
+`…\search\S3\step-c\ping-report.json`); (6) stop our instance (Name='electron.exe' + the search-S3 profile path), check `<profile>\assets\.vidtsx\
+search\vectors-multilingual-e5-small.json` exists, `%TEMP%\vidtsx-studio\library-search\tf-cache` was not created, and `find
+D:/repos/VidTSX-STUDIO/node_modules -newer <marker>` prints nothing; (7) the max gap (bar ≤ 250 ms) + the first query's `ran` / `poolSize` /
+`vectors` / top candidates into Verified, commit; step c is then DONE — step d (the agent tools) next.
 
 ## Open problems
 
@@ -286,6 +353,20 @@ preload `src/preload/api/library-search.ts`; nothing spawns at startup. Then bui
 - (note) the electron-vite node check config (`tsconfig.node.json` include) does not cover `src/library-search-engine/` (nor the other
   `*-engine/` folders) — they are checked only through main's imports, and main imports the engine from step c on. Until then this builder
   checked them with a scratch config that extends `tsconfig.node.check.json` (`.vidtsx-temp\search\S3\tsconfig.engine-check.json`): 0 errors.
+- (note — for the orchestrator / step f's full run) **`src/main/ipc/studio-cut-plan-run-handler.test.ts` fails in THIS worktree** ("Cannot find
+  module 'D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt\stream\promises' imported from …\vitest\dist\module-evaluator.js"; `stream/promises` is
+  imported by `src/main/services/packages/zip-reader.ts`), deterministic alone. Not step c's diff: it still fails here with all 9 tracked step-c
+  edits reverted (checked by restoring HEAD's copies and back); with `out/` moved aside; with `wt/node_modules` (vitest's results cache only)
+  moved aside and `--cache=false` — and it PASSES (5 tests) in a fresh `git worktree add --detach .vidtsx-temp\search\S3\head-wt HEAD` (`0b50a75`),
+  both without and with all 21 step-c paths copied in (the scratch worktree was removed after). So it is an environment effect of this worktree
+  checkout (cause not found — possibly the LF / CRLF difference DRIVING's B5 note describes), like E-d2a's three package-resolution suites; it
+  needs the orchestrator's rule for step f's gate (show it independent of `906273c..HEAD`, as E-d2a does).
+- (note — for step e / the orchestrator) **`modelBytes` = the catalog's `sizeBytes` = 118,000,000** for multilingual-e5-small
+  (`src/embedding-engine/model-registry.ts:87`, label "118 MB" — the ONNX file); the design §4 says the Settings row shows "the model's size
+  (135 MB)" — the four files on disk are 135,392,016 B. Step c returns the catalog's number (the HANDOFF instruction); step e must either show
+  118 MB or the catalog entry be corrected (a one-line data change that also changes the AI Models screen's label) — the orchestrator's call.
+- (note) a deleted search model while the engine child has it loaded: the delete handler runs first, then the runtime pushes a Basic status; the
+  child is not told to unload before the delete (on Windows an open handle could make `fs.rm` fail — not seen, not tested). Not in §9.
 - (note) **Hasan's dev app is running** since 15:27 (main checkout, `--remote-debugging-port=9222`, his `%APPDATA%\VidTSX Studio` profile,
   6 `electron.exe` at 15:57) — not ours: never stop it, never run `electron-vite dev`; select our instance only by port 9292 / the search-S3
   profile path + `Name='electron.exe'` (DRIVING).
@@ -299,9 +380,14 @@ preload `src/preload/api/library-search.ts`; nothing spawns at startup. Then bui
 - The engine (`3c50783`): the 39 unit tests + the gated test are green — extend them. The gated test needs only the command under "Verified"
   (≈ 1 min, ~1 GB RAM; it never downloads); re-run it only after an engine / embedder / item-text change. `wt/out` was built at `3c50783` —
   rebuild after any `src/` change before a live check.
+- Step c's code (`62685e9`): the 23 new tests are green — extend them. `wt/out` was rebuilt at `62685e9` (16:35–16:39). The search-S3 profile
+  is created and seeded (51 clips + E3's index) — do not re-copy it; only the model copy (Next step (4)) is missing. Do not re-bisect the
+  studio-cut-plan failure (Open problems).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-29 15:05–15:20 · builder #1 · ~45 · read the docs; step a part 1 (service + unit tests + benchmark harness), `3cb73df`.
 - 2026-10-29 15:21–15:45 · builder #2 · ~35 · the fixture script + fixture (int16), benchmark test fixes, step a DONE, `2ffcc27`.
 - 2026-10-29 16:00–16:25 · builder #3 · ~45 · step b (the engine, vector-sync, the gated live test green, the dtype fix, the build), `3c50783`.
+- 2026-10-29 16:26–16:52 · builder #4 · ~60 · step c's code (IPC + settings + runtime + events, 23 tests), `62685e9`; the build; the profile +
+  51-clip seed + ping kit prepared; the studio-cut-plan worktree failure bisected (not ours); the ping loop NOT run (hand-off on the call budget).
