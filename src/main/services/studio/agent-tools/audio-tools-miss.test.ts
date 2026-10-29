@@ -107,10 +107,14 @@ describe('Studio audio tools — the miss rule (E3 fix round 3, E-d15)', () => {
     expect(lines[0]).toBe(
       `No library sound matched "${prompt}" well — nothing was generated (no cost, no provider needed). The closest library sounds:`,
     );
+    // Fix round 4 (E-d16): the same wording, each row labelled `closest`.
     expect(lines[1]).toBe(
-      '- library:sfx/clock-tick-soft.mp3 (audio, 3.00 s, imported) — "A soft mechanical chess clock ticking gently, no bell, no music." · category: texture · tags: clock, tick, tock, timer',
+      '- [closest] library:sfx/clock-tick-soft.mp3 (audio, 3.00 s, imported) — "A soft mechanical chess clock ticking gently, no bell, no music." · category: texture · tags: clock, tick, tock, timer',
     );
-    expect([lines[2], lines[3]].map((l) => l.slice(0, 30)).sort()).toEqual(['- library:sfx/whoosh-soft.mp3 ', '- library:sfx/whoosh-wind.mp3 ']);
+    expect([lines[2], lines[3]].map((l) => l.slice(0, 40)).sort()).toEqual([
+      '- [closest] library:sfx/whoosh-soft.mp3 ',
+      '- [closest] library:sfx/whoosh-wind.mp3 ',
+    ]);
     expect(lines[4]).toBe(
       'If one of them fits, place it with insert_asset(assetId: "library:sfx/clock-tick-soft.mp3", lane: "audio", at: …) — a library ref works as the asset id. If none fits, call generate_sfx again with force: true to generate a new one.',
     );
@@ -162,7 +166,7 @@ describe('Studio audio tools — the miss rule (E3 fix round 3, E-d15)', () => {
     expect(text).toContain(
       'No library sound matched "a warm bed for a cooking show" well — nothing was generated (no cost, no provider needed). The closest library sounds:',
     );
-    expect(text).toContain('- library:music/lofi-warm.mp3 (audio, 57.05 s, imported)');
+    expect(text).toContain('- [closest] library:music/lofi-warm.mp3 (audio, 57.05 s, imported)');
     expect(text).toContain('call generate_music again with force: true');
     expect(text).not.toContain('whoosh');
     expect(text).not.toContain(MATCH_OPENING);

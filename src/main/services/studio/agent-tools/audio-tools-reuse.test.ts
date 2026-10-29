@@ -96,15 +96,19 @@ describe('Studio audio tools — reuse before generate (E3)', () => {
     const res = await toolsByName(ctx).generate_sfx.handler({ prompt: 'a soft airy whoosh for a transition' }, {});
     expect(res.isError).toBeUndefined();
     const lines = res.content[0].text.split('\n');
+    // Fix round 4 (E-d16): whoosh-wind is a head-rule (weak) match under 0.5 — the old answer counted it as a
+    // match — then the closest other candidate fills the three ("soft" in its description).
     expect(lines[0]).toBe(
-      'The library already has 2 sounds matching "a soft airy whoosh for a transition" — nothing was generated (no cost, no provider needed):',
+      'The library already has 1 sound matching "a soft airy whoosh for a transition" — nothing was generated (no cost, no provider needed). 3 shown: 1 matched, 1 weak match, 1 closest:',
     );
     expect(lines[1]).toBe(
-      '- library:sfx/whoosh-soft.mp3 (audio, 0.68 s, imported) — "A short, soft air whoosh for a scene transition. Quick and clean, no metallic ring, no music." · category: motion · tags: whoosh, transition, cutaway, air, swipe, motion · −20.0 LUFS · used in: video-1, proj-e3',
+      '- [matched] library:sfx/whoosh-soft.mp3 (audio, 0.68 s, imported) — "A short, soft air whoosh for a scene transition. Quick and clean, no metallic ring, no music." · category: motion · tags: whoosh, transition, cutaway, air, swipe, motion · −20.0 LUFS · used in: video-1, proj-e3',
     );
-    expect(lines[2]).toMatch(/^- library:sfx\/whoosh-wind\.mp3 \(audio, 2\.20 s, imported\)/);
-    expect(lines[3]).toContain('insert_asset(assetId: "library:sfx/whoosh-soft.mp3", lane: "audio"');
-    expect(lines[3]).toContain('call generate_sfx again with force: true');
+    expect(lines[2]).toMatch(/^- \[weak match\] library:sfx\/whoosh-wind\.mp3 \(audio, 2\.20 s, imported\)/);
+    expect(lines[3]).toMatch(/^- \[closest\] library:sfx\/clock-tick-soft\.mp3 \(audio, 3\.00 s, imported\)/);
+    expect(lines[4]).toContain('insert_asset(assetId: "library:sfx/whoosh-soft.mp3", lane: "audio"');
+    expect(lines[4]).toContain('call generate_sfx again with force: true');
+    expect(lines).toHaveLength(5);
     expect(loadIndex).toHaveBeenCalledWith('C:/lib');
     expect(hasAudioProvider).not.toHaveBeenCalled();
     expect(generateAudioAsset).not.toHaveBeenCalled();
@@ -157,7 +161,7 @@ describe('Studio audio tools — reuse before generate (E3)', () => {
     const { ctx } = makeCtx();
     const tools = toolsByName(ctx);
     const reuse = await tools.generate_music.handler({ prompt: 'warm lo-fi bed' }, {});
-    expect(reuse.content[0].text).toContain('- library:music/lofi-warm.mp3 (audio, 57.05 s, imported)');
+    expect(reuse.content[0].text).toContain('- [matched] library:music/lofi-warm.mp3 (audio, 57.05 s, imported)');
     expect(reuse.content[0].text).toContain('call generate_music again with force: true');
     expect(reuse.content[0].text).not.toContain('whoosh');
     expect(generateAudioAsset).not.toHaveBeenCalled();

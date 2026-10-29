@@ -58,10 +58,10 @@ const CATEGORY_HINT_SFX =
 const CATEGORY_HINT_MUSIC = 'Music category, one word: bed / sting / intro / outro / loop / transition';
 const TAGS_HINT = 'Search tags for the library (lower-cased, deduplicated, at most 20): "whoosh", "air", "fast"';
 const FORCE_HINT =
-  'Generate even though the library has matching sounds — only after this tool returned library matches and none of them fits. The same on a miss: the tool answers the closest library sounds instead of generating, and force: true is the only way to generate while anything in the library scores.';
+  'Generate even though the library has matching sounds — only after this tool returned library sounds (matched, weak match or closest) and none of them fits. The same on a miss: the tool answers the closest library sounds instead of generating, and force: true is the only way to generate while anything in the library scores.';
 /** E3: what both descriptions say about the library check that runs first. */
 const REUSE_NOTE =
-  'It FIRST searches the asset library: when sounds there match the prompt it returns the top three as library:<path> refs (duration, category, tags, loudness, where used) INSTEAD of generating — no cost, no provider needed; place one with insert_asset, or call again with force: true if none fits. On a miss it answers the three closest library sounds instead of generating; only when nothing in the library scores does it generate without force.';
+  'It FIRST searches the asset library: when sounds there match the prompt it returns up to three library:<path> refs (duration, category, tags, loudness, where used) INSTEAD of generating — the matches first, then the closest other library sounds, each row labelled [matched], [weak match] or [closest] (only weak matches: the library "may have" the sound); no cost, no provider needed; place one with insert_asset, or call again with force: true if none fits. On a miss it answers the three closest library sounds instead of generating; only when nothing in the library scores does it generate without force.';
 
 /** What the clip measures (E2): the loudness line, or the honest "kept raw" line. */
 function describeLevel(filed: GeneratedAudioAsset): string {
