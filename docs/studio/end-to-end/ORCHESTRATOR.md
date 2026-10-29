@@ -1433,3 +1433,15 @@
   note 1 at :405-408 / :412-413 / :783-785 ("in the nearest — SECOND in four of the seven"); TESTING §18.17 :533 / :540; the r3-ordinary
   test comment :16. Left for step 7: Status.md :789 open item (16) "trap-snap 0.32" (check against step 4's rankings). Matcher diff 0
   bytes, tree clean at `cda9c79`. Builder #16 (steps 4–7) spawned.
+- 11:16 · E3 builder #16 **BLOCKED** (40 calls, ~13 min; step 4 DONE, docs-only `2d04e9a`; no gate / rebuild / records yet): the regression
+  `E3\catalog-order-fix4.txt` (1,073 rows × 4 versions' ANSWERS): vs `7967c6f` 326 changed / 7 firsts (the tie rule) / 1 right clip lost
+  ("a moving transition", noted) / 0 none-left / 15 gained / 0 confident firsts moved; the broad set `…\vidtsx-e2e\E3\broad-probes-fix4.txt`
+  (15,998 probes; builder #11's six frames + participle + noun, noun + participle, adjective + verb-form over 12 nouns): vs `7967c6f`
+  0 right clips lost, 6,482 gained, 0 confident firsts moved; E3 index SHA / mtime unchanged; open item (16) → trap-snap 0.34. **The
+  question:** 5,709 participle + noun probes have a confident first that carries only the NOUN — 3,624 at the 0.5 line (E-d16a notes),
+  2,085 above it (2,061 the same wrong first at `09e81ea`; 24 "longed / longing" nonsense); **51 "… screen" probes show NO right clip**
+  (three screen clips — power-down confident + pop-reveal / scan-hum weak — fill the three: "a whooshing / clicking / ticking /
+  sparkling / snapping screen" among mostly nonsense inflections; same at `7967c6f`, never right-first at `09e81ea`). E-d16 / E-d16a do
+  not say whether long-standing behaviour counts for (ii) / (iii). Builder's options: (A) notes (+ a bar sentence), (B) a tool-layer
+  word-diversity rule, (C) DONE-PARTIAL. Orchestrator re-check: tree clean, `git log -1 -- src/` `d30830a` (a test comment), the
+  summary lists exactly 51 "right in the three: false" rows, all "… screen". → question to Hasan.
