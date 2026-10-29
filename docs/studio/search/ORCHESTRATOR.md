@@ -118,4 +118,17 @@
   keywords' own (no regression); Basic = today exactly; no-claim strings on all 1,515 rows; nothing-fits; the gates; five live checks —
   the ping loop ≤ 250 ms, the download path, the Assets box ("things falling over" → `crash-tumble` in the first 8: S1 ranks it 4th;
   "صوت زجاج يتكسر" → `break-glass-crack`, S1 2nd), the real handlers app-stopped, ≤ 4 keyless turns; and the notes), IPC, the S3 steps.
-  `S3/HANDOFF.md` + `LOG.md` created. S3 builder #1 (step a) to spawn.
+  `S3/HANDOFF.md` + `LOG.md` created. S3 builder #1 (step a) to spawn. (Clock: the S2 commit `e83e813` landed at 15:03; "15:05" above
+  was the orchestrator's estimate.)
+- 15:04 · S3 builder #1 spawned (HEAD `e83e813`).
+- 15:19 · S3 builder #1 HANDOFF (60 calls, ~15 min; step a part 1): `3cb73df` the pure service — `src/shared/types/library-search.ts`,
+  `src/library-search-engine/prefixes.ts`, `src/main/services/library-search/{types,item-text,search-pool,keyword-retriever,fuse,
+  library-search,search-settings}.ts` + 6 test files (42 tests), red first; the benchmark harness `library-search/benchmark/` (codec,
+  measures, fixture loader, S1's (a) / (c) tables as hit counts, the §9.1 test asserting EQUALITY with S1's tables) — red until the
+  fixture exists; docs `af130ca`. `search-pool.ts` re-states the matcher's `isCandidate` (not exported) via `soundClassOf`, pinned equal on
+  the corpus. tsc 26 / 10. Slip: the HANDOFF status line by `sed` (second time in this run). **Orchestrator re-check:** tree clean at
+  `af130ca`, matcher diff vs `7967c6f` empty, 20 files / 1,242 lines added (largest 131), no `any`, `vitest run src/main/services/
+  library-search --exclude '**/benchmark/**'` → 6 files / 42 tests passed (15:19), 0 `electron.exe`. **Ruling on its open note:** an
+  audio search with no sound class (`list_assets(kind: audio)`, the Assets box) uses the coverage ranking — accepted (design §3 names E3's
+  matcher for the sound-class path, which keeps Basic = today for `generate_sfx` / `generate_music`). Builder #2 (the fixture script →
+  step a green) to spawn.
