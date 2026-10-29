@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF — **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) is next, then 4–7 — builder #15** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
+status: HANDOFF — **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) DONE by builder #15 `d30830a`; step 4 (regression + broad probes) is next, then 5–7 — builder #16** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -658,7 +658,33 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   allowed clip); logs `fix4-corpus.log`, `fix4-corpus-red.log`, `fix4-corpus-try1.log`, `fix4-corpus-green.log`,
   `fix4-corpus-green-2.log`, `fix4-tsc-node-step2.log`.
 
+### Built (builder #15, fix round 4, 2026-10-29) — step 3: the (iv) record fixes, commit `d30830a`
+
+- **`Status.md` E3 entry (line numbers as of `d30830a`):** :189 "the whooshes at 0.41" → **0.38**; :213 "trap-snap 0.32 on
+  'shutting down'" → **0.34** (`E3\fix4-rank.txt:46-48`: `M: power-down 0.4294 | N: trap-snap 0.3424 …` at `7967c6f`); :215
+  "power-down 0.46" → **0.43**; :305 "(riser-soft says build / build-up)" → **"build / building"**; verifier note 1 — :405-408,
+  :412-413 and :783-785 "the right clip FIRST in the nearest" → "in the nearest — SECOND in four of the seven adjective + verb-form
+  phrasings ('a soft / gentle / loud knocking' list chess-piece-capture first on an exact tie, 'a slow ticking' ui-click-soft first)"
+  — checked against `E3\probe-fix3.txt` HEAD rows: knocking ×3 `chess-piece-capture 0.49 / 0.44 / 0.22 | knock-solid` (same
+  coverage), "a slow ticking" `ui-click-soft 0.20 | clock-tick-soft 0.20`, while "a soft knocking when the door opens" (knock-solid
+  first), "a soft breaking" (break clips 1–2) and "a loud crashing" (break-crash-digital | crash-tumble) have a right clip first.
+- **`docs/studio/TESTING.md` §18.17:** :533 the same note-1 correction + "trap-snap 0.32 on 'shutting down'" → 0.34; :540 the
+  note-1 correction (fix round 3 notes).
+- **`src/main/services/library/sound-match-corpus-r3-ordinary.test.ts:16`** — the false comment "(riser-soft says build-up)" →
+  "(riser-soft says build / building)" (comment only; no row changed).
+- NOT changed (left for step 7, see Open problems "builder #15"): Status.md :789 "(dash-zip 0.26–0.32 / trap-snap 0.32 /
+  chess-piece-thock 0.38)" in open item (16) — not one of the verifier's four nits; whether any F3 shutting row scores 0.32 is
+  unchecked.
+
 ## Verified (exact commands + outputs)
+
+- **Fix round 4, builder #15 (2026-10-29 10:59–11:03, step 3; worktree root; HEAD `023b7b3` → `d30830a`):** Edit tool only;
+  `git diff --stat` before the commit → `Status.md | 19 ++++++++++++-------`, `docs/studio/TESTING.md | 4 ++--`,
+  `.../library/sound-match-corpus-r3-ordinary.test.ts | 2 +-` (3 files, 15 insertions, 10 deletions); after:
+  `grep -n -o 'trap-snap 0.3[0-9][^,;]*\|build / build-up\|says build-up\|power-down 0.4[0-9]\|whooshes at 0.[0-9]*' Status.md
+  docs/studio/TESTING.md` → only true values plus :789 (above); `git diff 7967c6f -- src/main/services/library/sound-match.ts
+  src/main/services/library/sound-match-words.ts src/main/services/library/sound-match-vocab.ts | wc -c` → **`0`** (as of
+  `d30830a`). No test run (a comment-only `src/` change); no gate, no build, no launch, no model call.
 
 - **Fix round 4, builder #14 (2026-10-29 10:48–10:56, step 2; worktree root; HEAD `8fb6416` → `9a13e3b`):**
   - Kit: `FIX4_WRITE=1 node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config
@@ -1163,7 +1189,21 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 4, continued — builder #15: step 3 (the record fixes), then steps 4–7 (steps 1–2 are DONE — builder #13 `34feafe`
+**FIX ROUND 4, continued — builder #16: step 4 (regression + broad probes), then steps 5–7 (steps 1–3 are DONE — builder #13
+`34feafe` the fill, builder #14 `9a13e3b` the corpus, builder #15 `d30830a` the (iv) record fixes: Built / Verified "builder #13" /
+"#14" / "#15"; do not redo them; NO matcher change — `git diff 7967c6f --` the three matcher files must stay empty).** Do step 4
+exactly as builder #15's brief below words it (from "**Step 4 — regression + broad probes**" to its end: the E3 index READ-ONLY with
+SHA-256 + mtime before / after and its 4 `generated/` entries excluded; the ANSWER at HEAD vs `788c8d2` / `09e81ea` / `7967c6f` over
+the 1,073 rows → `E3\catalog-order-fix4.txt`; builder #11's frames PLUS participle + noun and adjective + verb-form →
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\broad-probes-fix4.txt` + a kit summary; count probes / answer changed / a right clip LOST
+/ a confident first changed; READ the changed rows; a LESS case with no right clip shown = fix in `sound-answer.ts` + re-run, or
+BLOCKED), then steps 5–7 as written there. Two additions: (a) while the 7967c6f rankings are out, print "shutting down" / "shutting
+off" / the other F3 shutting rows and settle Status.md :789 "(dash-zip 0.26–0.32 / trap-snap 0.32 / chess-piece-thock 0.38)" (open
+item (16)) — if no F3 shutting row scores 0.32, correct it to 0.34 in step 7 (Edit tool; trap-snap is 0.3424 on "shutting down",
+`E3\fix4-rank.txt:46-48`); (b) step 7's Status.md bullet also names step 3 (`d30830a`, the five nits + note 1) — the record's line
+pointers moved by step 3 (re-grep before quoting).
+
+(Step 3 DONE by builder #15, `d30830a` — kept for the record:) **FIX ROUND 4, continued — builder #15: step 3 (the record fixes), then steps 4–7 (steps 1–2 are DONE — builder #13 `34feafe`
 the fill, builder #14 `9a13e3b` the corpus: Built / Verified "builder #13" / "builder #14"; do not redo them; NO matcher change —
 `git diff 7967c6f --` the three matcher files must stay empty).** **Step 3 — the record fixes** (Edit tool; line numbers as of
 `9a13e3b`): Status.md :189 "the whooshes at 0.41" → 0.38; :213 "trap-snap 0.32 on" (… "shutting down") → 0.34; :215 "power-down
@@ -1518,6 +1558,15 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Open problems
 
+### Fix round 4 (builder #15, step 3) — notes for the records, none blocking
+
+- Status.md :789 (open item (16), as of `d30830a`) says "the F3 rows would stay unmatched (dash-zip 0.26–0.32 / trap-snap 0.32 /
+  chess-piece-thock 0.38 …)"; the verifier flagged only :213's "trap-snap 0.32 on 'shutting down'" (true value 0.34 at `7967c6f`).
+  :789 may describe another shutting row ("shutting off", "a lid shutting" …) — unchecked; builder #16 settles it from step 4's
+  rankings (Next step (a)).
+- The note-1 correction keeps the historical state (at `7967c6f`, the nearest list); at the fill (`34feafe`) those phrasings show
+  the same clips labelled `[closest]` (e.g. "a soft knocking" → three closest, fix round 3's wording — `audio-tools-fill.test.ts`).
+
 ### Fix round 4 (builder #14, step 2) — notes for the records, none blocking
 
 - **The one LESS row (the fill shows a clip fewer than `7967c6f` did) — "a moving transition"** (`whoosh-soft|whoosh-wind`, not
@@ -1855,6 +1904,8 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Do-not-redo
 
+- Fix round 4 step 3 (builder #15, `d30830a`): the (iv) record fixes — Status.md :189 / :213 / :215 / :305, verifier note 1 at
+  :405 / :412 / :783, TESTING §18.17 :533 / :540, the r3-ordinary comment :16 (only Status.md :789 is left, Next step (a)).
 - Fix round 4 step 2 (builder #14, `9a13e3b`): the corpus — the recall over the answer's three, the E-d16 convention
   (`describeAnswerCorpus` / `expectAnswerRow`, `edge` notes), the two r4 row files (264 rows) — DONE; the kit
   `E3\fix4-corpus.e3.test.ts` regenerates the row files ONLY with `FIX4_WRITE=1` (never set it again: it would overwrite the
@@ -1972,3 +2023,7 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   `sound-match-corpus-r4-frames.test.ts` (67 rows) + `-r4-ordinary.test.ts` (197 rows); red 36 / 266 on the current helper → green 7
   files / 1,080 tests (the 809 old rows unchanged), the E3 set 28 files / 1,261; tsc node 10; one LESS row (noted) — `9a13e3b`.
   Handed off at the step boundary (30 % rule); steps 3–7 to builder #15. No launch, no model call, no gate run, no rebuild.
+- 2026-10-29 10:59–11:04 · builder #15 (fix round 4, step 3) · ~30 calls · the (iv) record fixes: Status.md :189 0.38, :213 0.34,
+  :215 0.43, :305 build / building, note 1 at :405 / :412 / :783 (checked against `probe-fix3.txt`), TESTING §18.17 :533 / :540,
+  the r3-ordinary comment :16; matcher diff vs `7967c6f` 0 bytes — `d30830a`. Handed off at the step boundary (30 % rule); steps 4–7
+  to builder #16. No test run (comment-only `src/` change), no launch, no model call, no gate run, no rebuild.
