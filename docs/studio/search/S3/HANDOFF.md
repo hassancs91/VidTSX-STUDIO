@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (steps a, b, c, d DONE; step e part 1 — the UI code + unit tests — `4337910`; **LS-r7 (the rerank rung) DONE — `d3b1108`** (builder #10, red 20:25 → green 20:29); next: the rebuild + §9.3 2 / 3 click-through, then step f)
+status: IN PROGRESS (steps a, b, c, d, **e DONE** — e part 1 `4337910`, LS-r7 `d3b1108`, **the §9.3 2 / 3 click-through PASSED at `3f08759`** (builder #11, 20:43–20:46; the Settings row's layout fixed in `3f08759`); **next: step f — the exit check**)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -381,6 +381,15 @@ generator; DEFERRED-HASAN, design §9.4).
   `disabled` flag removed) + one description sentence ("… lets your default AI provider reorder the Assets search's top 20 once you stop typing
   (one logged call per search); the assistant never reranks."). `searchMarkerTitle` NOT changed (optional item skipped).
 
+**Step e, part 2 — the §9.3 2 / 3 click-through + the Settings row layout fix: `3f08759`** (builder #11; as of `3f08759`). **Step e is
+DONE.**
+
+- `src/renderer/components/SettingsModal/rows/LibrarySearchRow.tsx:23-26,52,59` — the row now stacks (`flex flex-col gap-2`): title,
+  description and the state line full width, then the Download button + the select (`min-w-0 flex-1`) below. Found live: beside the text
+  the select (its widest option, "Smart + AI rerank — your AI provider orders the top 20", sets its width; `shrink-0`) crushed the text
+  column to one word per line (`step-e2\e2-02-settings-row-before-1-crushed.png`). Not shown red: a display component with no unit test
+  (CLAUDE.md: simple display components are skipped) — proven by the before / after stills. 76 lines.
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -583,6 +592,72 @@ model load, no download, no full run, no provider call — no resource guard nee
 - Post-commit: `git status --short` → only ` M docs/studio/search/ORCHESTRATOR.md` (the orchestrator's own uncommitted log line — not ours,
   not staged); `git show --stat d3b1108` = 14 files, +611 −36. `wt/out` is still the `373125a` build.
 
+As of `a8133a0` (builder #11, 20:34–; logs / stills / reports in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-e2\`; kit
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S3\` + new `build-e2.sh`, `launch-e2.sh` (= `launch-s3.sh`, app log in `step-e2\`),
+`restore-s3.ps1`, `e2-drive.mjs`):
+
+- (1) `S3\guard.ps1` 20:34:42 → C: free 44.5 GB, D: free 41.4 GB, memory commit headroom 51.5 GB; electron.exe total 0 (ours 0, others 0);
+  0 render-like descendants; 0 `%TEMP%\vidtsx-studio` entries modified in the last 2 min → **GUARD: OK**. `git status --short` → only
+  ` M docs/studio/search/ORCHESTRATOR.md` (the orchestrator's line, not ours). Ports 9222 / 5173 / 9292 not listening.
+- Build: `bash S3/build-e2.sh` (= DRIVING Track E step 1: `unset ELECTRON_RUN_AS_NODE; NODE_OPTIONS=--max-old-space-size=8192 node
+  D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build`) started 20:35:02 at HEAD `a8133a0` (`build.start`, `build.log`).
+- (2) Profile prepared for the no-model start (20:35): removed `<profile>\ai-models\embeddings\multilingual-e5-small\` (our 17:00 copy of
+  S1's model) and `<profile>\assets\.vidtsx\search\` (the 57-item vector file of 17:00); `ai-models\embeddings\` is now empty; the index
+  (`assets\.vidtsx\index.json`, 70,068 B) and the 51 clips (`sfx` 45 + `music` 6 files) stay. **The download will fetch 135,392,016 B
+  (~129 MiB) from Hugging Face into `<profile>\ai-models\embeddings\multilingual-e5-small\`** — C: 44.5 GB free + headroom 51.5 GB at 20:34.
+- Build 1 (`a8133a0`): rc 0, 20:35:02–20:38:33 ("built in 3m 7s", `build-1-a8133a0.log`); a first launch (20:39) ran `pre` + `watch` (same
+  results as below, `pre-1.log` / `watch-1.log`) and `settings`, whose still showed the crushed row → our instance stopped 20:40 (4 PIDs,
+  0 left), the row fixed (Done), **build 2** (`bash S3/build-e2.sh`, HEAD `a8133a0` + the uncommitted row fix = the `3f08759` sources):
+  rc 0, 20:41:14–20:42:57 (`build.log`, `build.start`). **`wt/out` = the `3f08759` sources** (no `src/` edit after build 2 started).
+- Guard 20:43:03 (`guard.ps1`): C: 44.6 GB, D: 41.4 GB, headroom 53.2 GB; electron.exe 0; 0 render-like; 0 recent TEMP entries → GUARD OK.
+  `node_modules` marker `step-e2\nm-marker` written 20:38:45.352 (before both launches; no model load before it this session).
+- Launch `bash S3/launch-e2.sh` (background; wt/out, no Vite, profile search-S3, CDP 9292; `step-e2\app.log`). The drivers' clocks print UTC
+  (18:43 = 20:43 local).
+- `node S3/c-ping.mjs pre` (`pre.log`): **studioRootSet FIRST** → `{success:true}`; `studioRootGet` → `…\search\S3\studio-root`; library root
+  `<profile>\assets` (default, `isOverride:false`); AI models folder `<profile>\ai-models`; **status `{mode:'basic', choice:'auto',
+  modelDownloaded:false, modelBytes:135392016, vectors:{0,0,building:false}}`**; reconcile → 57 entries; downloaded embedding models `[]`.
+- **§9.3 2 — the download path: PASS.** `node S3/e2-drive.mjs watch` (`watch.log`, `e2-watch.json`): Assets at the root, no query → tiles
+  `music`, `sfx`, `presets`; **marker absent** (`e2-01-assets-basic-no-model.png`); **the models folder held 0 files at every 2 s sample over
+  30 s** (16 samples); `downloadGetAll` → `{downloads: []}`; status after the watch still Basic / not downloaded. `e2-drive.mjs settings`
+  (`settings.log`): the row reads "Now: Basic (auto — model not downloaded) · vectors no vectors yet", button "Download (135 MB)", choice
+  `auto`; the 4 options listed (`smart-rerank` READ, never chosen) (`e2-02-settings-row-before.png`). `e2-drive.mjs download`
+  (`download.log`, `e2-download.json`): click 18:44:08.070 → "Downloading… 0%" + the progress bar at +0.5 s, 15 % at +7.7 s (still
+  `e2-03-settings-downloading.png` painted 24 %), 39 %, 66 %; 56 `embedding:download:progress` events (the first at +5,068 ms with
+  `percent:-1`, then the onnx file 0 → 100 % of 118,308,185 B by +21,777 ms); **`library:search:event` pushes: status `smart` / `auto` /
+  `modelDownloaded:true` at +21,780 ms, then vectors 0 / 51 → 32 / 51 → 51 / 51 building → 51 / 51 `building:false` at +25,794 ms**;
+  status after: **`{mode:'smart', choice:'auto', modelDownloaded:true, vectors:{51,51,building:false}}`** (download + build 25,967 ms);
+  the row: "Now: Smart (auto) · vectors 51 / 51 ready", no Download button (`e2-04-settings-after.png`). Models folder after:
+  `multilingual-e5-small/` config.json 658 + onnx/model_quantized.onnx 118,308,185 + tokenizer.json 17,082,730 + tokenizer_config.json 443
+  = **135,392,016 B**. `app.log`: "Downloading embedding model" / "Embedding model download complete", 0 lines containing "error".
+  Vector file `<profile>\assets\.vidtsx\search\vectors-multilingual-e5-small.json` 108,948 B, header `{1, multilingual-e5-small, 384,
+  mean, prefixVersion 1}`, **51 items, 0 `presets/`** (LS-r4).
+- **§9.3 3 — the Assets box: PASS.** `e2-drive.mjs assets` (`assets.log`, `e2-assets.json`; root, category All; the query typed with the
+  input's prototype value setter + a bubbling `input`): status smart / 51 / 51. **"things falling over"**: `window.api.librarySearch({query,
+  limit: 20})` → `ran:'smart'`, `poolSize:51`, `vectors:{51,51}`, no `degraded`; **the grid's tiles == those 20 relPaths in order**
+  (matched 259 ms after typing; 20 tiles, 0 more — `filterAssets` finds none); **`crash-tumble` = tile 4** (first 5: party-popper,
+  break-crash-digital, crunch-bite, crash-tumble, break-glass-crack); marker `smart` "Smart", title "Library search: Smart (auto) — words +
+  meaning · vectors 51 / 51 ready" (`e2-05-assets-smart-falling.png`). **"صوت زجاج يتكسر"**: IPC `ran:'smart'`, pool 51; **grid == the IPC's
+  20 in order** (261 ms); **`break-glass-crack` = tile 1** (`e2-06-assets-smart-arabic-glass.png`). The marker appeared on the Assets
+  screen that was mounted in Basic before the download — the status push reached the mounted hook.
+- **§9.3 3 — Basic: PASS.** `e2-drive.mjs basic` (`basic.log`, `e2-basic.json`; first run `basic-1.log` with 3 queries, the second added a
+  4th non-empty multi-word one): the row's native select → `basic` (prototype setter + bubbling `change`) → status `{mode:'basic',
+  choice:'basic', vectors 51 / 51}`, row "Now: Basic · vectors 51 / 51 ready"; **marker absent on every query**; tiles == the expected
+  `filterAssets` (computed in the driver from `fileList({path: root, extensions:'*'})` flattened in order, dot names skipped, every query
+  word in name / description / tags / `audio.category` of `libraryIndexGet`'s entry) **in order for all 4**: "whoosh" 6 tiles (flame-snuff,
+  dash-zip, whoosh-data-burst, whoosh-wind, whoosh-soft, whoosh-reverse — `e2-07-assets-basic-whoosh.png`), "glass" 2 (crash-tumble,
+  break-glass-crack), "things falling over" 0 = 0, "soft impact" 3 (impact-soft, impact-deep-soft, launch-thump). Then `e2-drive.mjs auto`
+  (`auto.log`) → choice `auto`, status smart / 51 / 51 (the profile is left on the default).
+- Stills checked one by one (Read): 01 Assets root, no marker; 02 the row before (stacked layout, Download (135 MB), Auto); 03 the bar at
+  24 % + "Downloading… 24%"; 04 "Now: Smart (auto) · vectors 51 / 51 ready", no button; 05 / 06 the "Smart" badge by the box, the grids as
+  logged, "20 items (filtered)"; 07 "whoosh", no badge, "6 items (filtered)".
+- Stopped 20:46:01: 5 `electron.exe` matched by port 9292 / the search-S3 profile (36108 36444 32036 32212 8032), 0 left (the launcher's
+  exit 127 = the killed `exec`, expected). `%TEMP%\vidtsx-studio\library-search` does not exist (no tf-cache).
+- **`node_modules` unchanged:** `find D:/repos/VidTSX-STUDIO/node_modules -newer step-e2/nm-marker` (marker 20:38:45.352, before both
+  launches and the app's model load) → **no output, rc 0** (20:46:10–20:59:34, `nm-scan.log`).
+- tsc (20:46, `tsc-web.log` / `tsc-node.log`) web **25**, node **10**; none names a library-search / Settings-row file.
+  `… vitest.mjs run src/renderer/components/SettingsModal src/features/asset-library src/shared/library-search-text.test.ts --maxWorkers=2`
+  → `Test Files 8 passed (8) · Tests 59 passed (59)` (`vitest-ui.log`).
+
 ## In progress — none. (LS-r7's pre-code record below is kept for the API it pinned; built in `d3b1108`, see Done.)
 
 Three NEW test files are on disk, untracked (`git status --short` → `??` ×3), **written but NOT run** (no red run was made — the stop came
@@ -619,7 +694,21 @@ build, no launch, no download, no test run, 0 `electron.exe` of ours (checked: p
 
 ## Next step (ONE concrete instruction)
 
-LS-r7 is DONE (`d3b1108`). Rebuild `wt/out` (still the `373125a` build — main changed in steps d + LS-r7, the renderer in step e + LS-r7) and
+**Step f — the exit check (Goal → Exit), with our app stopped (it is: 0 `electron.exe` at 20:46):** `S3\guard.ps1`, then the full
+worktree vitest gate logged to a file under `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-f\` (`node
+D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run` from the worktree root, `--maxWorkers=2` while headroom < 10 GB; DRIVING's load
+rules / E-d13 if the CPU is loaded — measure it): green except the three E-d2a suites (package resolution only, shown independent of
+`906273c..HEAD`) and the LS-r1b suites (`studio-cut-plan-run-handler`, `pack-package`, `project-package`, `project-package-import`), each
+failing ONLY with the `<wt>\stream[\promises]` error and each proven GREEN in a fresh `git worktree add --detach
+D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S3\f-wt HEAD` (run the 4 files there with the same vitest path, record commands + outputs, then
+`git worktree remove --force` it); tsc ≤ 25 / 10; `git diff 7967c6f -- src/main/services/library/sound-match.ts …-words.ts …-vocab.ts`
+empty; no file created in S3 over ~300 lines (`git diff --name-status 906273c..HEAD` A-files, `wc -l`); no `any`; no new npm package
+(`git diff 906273c..HEAD -- package.json package-lock.json` empty); the gated live-model test once at the final HEAD
+(`VIDTSX_SEARCH_MODEL_DIR=C:/Users/hasan/AppData/Local/vidtsx-e2e/search/S1/models/multilingual-e5-small node …/vitest.mjs run
+src/library-search-engine/embedder.live.test.ts`, S1's model read-only). Numbers into "Verified"; status DONE; LOG line; commit. No
+Status.md / TESTING.md records.
+
+(Done by builder #11 — kept for the record:) LS-r7 is DONE (`d3b1108`). Rebuild `wt/out` (still the `373125a` build — main changed in steps d + LS-r7, the renderer in step e + LS-r7) and
 run the §9.3 2 / 3 click-through; never select `smart-rerank` in the live app (it would make a provider call — DEFERRED-HASAN; the row's
 option may be read, not chosen): (0) read `docs/ui-automation-cdp.md` (builder #8 did not — it read DRIVING, UI_SPEC
 §colour / components, and the design); (1) `S3\guard.ps1` (resources + Hasan not rendering + 0 of ours), write the numbers here, then build
@@ -641,6 +730,12 @@ read the IPC's own order for the same request before suspecting the merge (`merg
 
 ## Open problems
 
+- (note, builder #11 — wording, not blocking) the row's state line reads "Now: Basic (auto — model not downloaded) · vectors no vectors
+  yet" before a build (`vectorStateLabel` → "no vectors yet" after the row's "vectors " prefix; pinned in `library-search-text.test.ts`).
+  Cosmetic; left as is (a fix = the label or the prefix + its test).
+- (note, builder #11 — for S4) the HF download's first `embedding:download:progress` event came ~5 s after the click with `percent: -1`,
+  `totalBytes: 0` (the small files first, by the look of it), then the onnx file 0 → 100 %; the row shows "Downloading… 0%" from +0.5 s.
+  The whole download took ~16 s here (~8 MB/s); slower links will sit at 0 % for those first seconds.
 - RESOLVED by LS-r7 (`d3b1108`): the rung is built (`rerank-prompt.ts`, `rerank.ts`, the runtime / app wiring, the Assets box's settle, the
   row's option enabled); its live call stays DEFERRED-HASAN (§9.4). Open edge (note, not tested live): with `smart-rerank` chosen, every
   settled query of the Assets box is one provider call on the user's app-default provider (cached per index version) — Hasan's first live try
@@ -748,6 +843,11 @@ read the IPC's own order for the same request before suspecting the merge (`merg
 - LS-r7 (`d3b1108`: rerank-prompt / rerank / runtime + app wiring / the box's settle / the row's option; 31 tests in the 3 files, red logged
   in `step-r7\vitest-red.log`) — extend, don't redo. **No live rerank in S3** (never choose `smart-rerank` in the live app). `wt/out` is still
   `373125a` — rebuild before the click-through.
+- **The §9.3 2 / 3 click-through PASSED (builder #11, `3f08759`) — do not re-run it** unless renderer / main search code changes. `wt/out` =
+  the `3f08759` sources. **The search-S3 profile now HAS the downloaded model** (`<profile>\ai-models\embeddings\multilingual-e5-small\`,
+  135,392,016 B, fetched by the app's own button 20:44) **and a 51-item vector file**; its choice is `auto` (Smart). A new "no model" check
+  needs both removed again. Kit: `S3\build-e2.sh`, `launch-e2.sh`, `restore-s3.ps1`, `e2-drive.mjs` (`watch|settings|download|assets|basic|auto`,
+  refuses `smart-rerank`).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -777,3 +877,8 @@ read the IPC's own order for the same request before suspecting the merge (`merg
 - 2026-10-29 20:25–20:35 · builder #10 · ~50 · read HANDOFF, ORCHESTRATOR (Answers in force, LS-r1b, LS-r7), the design §3 / §4 / §8.3 / §9 /
   §12, the rerank seams; LS-r7 red (8 failed) → code → green (31), folders 202 + tools 103 green, tsc 25 / 10, `d3b1108`; handed off at the
   step boundary (no build / launch; DRIVING, ui-automation-cdp and UI_SPEC not read this session — the click-through builder must read them).
+- 2026-10-29 20:34–20:50 · builder #11 · ~55 · read HANDOFF, the design §4–§12, ORCHESTRATOR (Answers in force, LS-r1…r7), DRIVING and
+  ui-automation-cdp in full; guard; two builds (the second after the Settings row layout fix, `3f08759`); **the §9.3 2 / 3 click-through
+  PASSED** (no download by itself over 30 s; the row's Download → 135,392,016 B in ~16 s, Smart (auto), 51 / 51; crash-tumble tile 4,
+  break-glass-crack tile 1, grid == IPC's 20 in order for both; Basic == `filterAssets` on 4 queries, marker gone); **step e DONE**; handed off
+  at the step boundary before step f (no full vitest run, no gated live test this session).

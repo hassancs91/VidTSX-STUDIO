@@ -39,3 +39,9 @@
   generation, `search-app.ts` → `llmEngine.generate` / `aiUsageService` (dynamic imports), the Assets box's 1 s idle / Enter settle +
   `keepAnswer`, the row's `smart-rerank` option enabled; green 31 / 31, folders 23 files / 202 tests, agent-tools + handlers 18 / 103, tsc 25 / 10,
   matcher diff empty; no provider / model call; no build / launch. Next: rebuild `wt/out`, the §9.3 2 / 3 click-through, then step f. HANDOFF.
+- 2026-10-29 21:00 · builder #11 · **step e DONE — the §9.3 2 / 3 click-through PASSED** on the search-S3 profile (CDP 9292, `wt/out` = the
+  `3f08759` sources; logs / stills `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-e2\`): guard OK (C: 44.6 GB, headroom 53.2 GB); our
+  copied model + vector file removed; Basic / not downloaded, 0 files in the models folder over 30 s; the row's Download fetched 135,392,016 B
+  in ~16 s, status → Smart (auto), build 51 / 51 (0 `presets/`); Assets box: crash-tumble tile 4, break-glass-crack tile 1, grid == the IPC's 20
+  in order for both; Basic: marker gone, tiles == `filterAssets` on 4 queries; profile left on Auto; node_modules scan empty. Fix found live
+  and committed: the Settings row stacks its controls (`3f08759`; the select had crushed the text). tsc 25 / 10; UI tests 8 / 59. Next: step f.
