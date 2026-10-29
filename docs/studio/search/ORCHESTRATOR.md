@@ -193,3 +193,23 @@
     that the runtime uses to unload the child before `deleteEmbeddingModel` runs for the search model (unit test); a live delete on Windows
     is a note for S4.
   Builder #5 (finish step c: LS-r2, LS-r3, the ping loop) to spawn.
+- 16:51 · S3 builder #5 spawned (HEAD `0e0435c`).
+- 17:03 · S3 builder #5 HANDOFF (63 calls, ~13 min; **step c DONE**): `373125a` — LS-r2 (`model-registry.ts:87-89` 135,392,016 B / "135 MB",
+  pinned by `model-registry.test.ts`), LS-r3 (`onBeforeEmbeddingModelDelete` / `runBeforeEmbeddingModelDelete`, `embedding-handlers.ts:182-183`
+  awaits the hooks, `LibrarySearchRuntime.beforeModelDelete` → `engine.unload()` kill + wait ≤ 2 s, registered `search-app.ts:77`; 11 new
+  tests, red 9 → green 18 files / 131); tsc 26 / 10; docs `22517c5`. **The ping loop (design §9.3 1) PASS:** `wt/out` rebuilt at `373125a`;
+  the render guard clear (Hasan not rendering; C: 50.2 GB, headroom 25.4 GB); profile `search-S3`, CDP 9292, Studio root set first; status
+  before the model Basic / not downloaded / 0; S1's model copied in; spawn + cold load + vector build: **152 pings, 0 errors, max gap 65.1 ms**
+  (bar 250), max RTT 8.6 ms; build 57 / 57 in ~4.5 s; first Smart query "things falling over" 40 ms, `ran: smart`, pool 45, `crash-tumble`
+  4th (= S1); node_modules unchanged. Its note: the build embeds the 6 `presets/*.json` (kind `data`) every `source`-copied profile carries
+  → 57 / 57, not 51 / 51. **Orchestrator re-check:** tree clean at `22517c5`, matcher diff empty, 0 instances of ours,
+  `…\search\S3\step-c\ping-report.json` read (pings 152, errors 0, maxGapMs 65.1, maxRttMs 8.6; first query party-popper /
+  break-crash-digital / crunch-bite / crash-tumble / break-glass-crack; status2 `smart`, `auto`, 135392016, vectors 57 / 57).
+- **Rulings (orchestrator, 17:04):**
+  - **LS-r4 — what search covers:** the pool's default kinds = the playable media kinds (audio / video / image — `formatLibraryListing`'s
+    `isPlayableMediaKind`); `data`, fonts, 3D models and other files are neither embedded nor returned by `library:search` (the Assets box
+    still finds them by name through Basic's filter, design §8.3). So the vector count on a `source`-copied profile reads 51 / 51 (design
+    §9.3 2 as written). `search-pool.ts` + `vector-sync` + tests.
+  - **LS-r5 — a search during a model delete:** while a before-delete hook for the search model is pending, Smart searches run Basic with
+    `degraded: 'model being removed'` and never spawn the child; cleared on the deleted / failed outcome. Unit test.
+  Builder #6 (LS-r4, LS-r5, then step d — the agent tools) to spawn.
