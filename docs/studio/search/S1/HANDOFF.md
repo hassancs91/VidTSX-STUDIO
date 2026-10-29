@@ -162,7 +162,8 @@ no `src/` change. The tree was clean at `3c0d213` before this hand-off's commit,
 Resources at 13:44: C: 51.3 GB free, D: 41.8 GB, memory commit headroom 42.4 / 99.7 GB. No download, copy or launch
 was made yet.
 
-Builder #2, 2026-10-29 13:55– (step (b) the embeddings).
+Builder #2, 2026-10-29 13:55–14:22 (step (b) the embeddings, plus (c) and the timing table). Commits `42f8d43` (progress) and
+`3eb1772` (hand-off), docs only: as of `3eb1772` the worktree is clean and `git diff 5de37df..3eb1772 -- src/` is empty.
 
 7. **Resource guard 13:55 (before the downloads):** C: 51.3 GB free, D: 41.7 GB, memory commit 60.1 / 99.7 GB → headroom
    39.6 GB (C: + headroom 90.9 ≥ 6); 0 `electron.exe` running.
