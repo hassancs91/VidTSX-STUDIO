@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (steps a, b, c DONE; LS-r4 + LS-r5 DONE `5796423`; step d part 1 — generate_sfx / generate_music on the search, the §9.1 no-claim + nothing-fits test — DONE `eebcaff`; step d part 2 — `list_assets` §8.2 — next)
+status: IN PROGRESS (steps a, b, c, d DONE — step d's last part, LS-r6 + `list_assets` §8.2, `332ef1b`; step e — the UI — next)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -281,6 +281,27 @@ the prompt pins in `studio-agent-prompt.test.ts` were edited together with the p
   generates iff the pool is empty and shows min(20, pool) rows; Basic generates iff no candidate)**, `audio-tools.test.ts` (a `search-app`
   mock only), `studio-agent-prompt.test.ts` (the :31-32 pins rewritten + a claim-free check of both lines).
 
+**Step d, part 2 — LS-r6 + `list_assets` §8.2: `332ef1b`** (as of `332ef1b`; red first at 17:29 — `step-d2\vitest-red.log`: 17 tests failed on
+their assertions — the 8 new `list_assets` ones on the old every-word listing / describe text, 9 header pins on "(words + meaning)" in Basic;
+the import worked (the no-query / project-scope tests passed red too, as they pin unchanged behaviour)). **Step d is DONE.**
+
+- NEW `src/main/services/studio/agent-tools/library-search-listing.ts` (42) — `searchMethodOf(ran)` (`'basic'` → "words only", else "words +
+  meaning"), `degradedLineOf` (moved here from `sound-reuse.ts`), `rankedHeaderOf(ran)` = `Ranked by search (<method>) — check the descriptions;
+  the order is not a ranking of fit`, `noSearchResultLineOf(query, kind?)` = `The library search found nothing for "<query>"[ (kind: <kind>)].`,
+  and `formatLibrarySearchListing(result, entries, query, kind, refPrefix)`: header · the degraded line when `degraded` · E2's `formatLibraryRow`
+  per candidate in the search's order (only playable kinds; the pool already guarantees it).
+- `sound-reuse.ts:35-37,56` — **LS-r6:** `reuseHeaderOf(prompt, ran)` prints "(words + meaning)" only when Smart ran, "(words only)" for Basic
+  (explicit or a fallback — the fallback also gets "Searched by words only: <reason>").
+- `project-tools.ts:25,59-67` — library scope: no / blank query → today's `formatLibraryListing(entries, {kind})` unchanged; a query → `loadIndex`
+  then `toolLibrarySearch({query: <trimmed raw>, kinds?: [kind], limit: 20}, entries)` → `formatLibrarySearchListing`; project scope unchanged;
+  the `query` describe text (:39) now says the library scope is ranked by the search (≤ 20, search order is not fit, read the descriptions).
+- Tests: NEW `list-assets-library.test.ts` (10: Basic header + rows == the search's candidates in order, a no-word item dropped and a one-word
+  item listed; Smart header + a no-word item listed, never a `data` file; kind → kinds + the raw trimmed query; ≤ 20 rows; the degraded line;
+  the runtime throws → Basic + "search engine unavailable"; the no-result line without "matching"; no / blank query → `formatLibraryListing`
+  output, no search; project scope unchanged; the describe text); `audio-tools-reuse.test.ts` (HEADER per mode + a new Smart header test);
+  `audio-tools-no-claim.test.ts` (the per-mode header on all 1,515 rows in both modes); `audio-tools-fill.test.ts` (Basic header "(words only)").
+  `library-listing.test.ts` unchanged and green.
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -436,16 +457,33 @@ load, no full run this session — so no resource guard was needed):
   `search-runtime.ts` 180. No new npm package.
 - Post-commit: `git status --short` clean after `eebcaff` (10 files, +470 −398).
 
+As of `332ef1b` (builder #7, 17:27–17:35; logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-d2\`; no build, no launch, no model
+load, no full run — no resource guard needed):
+
+- Red 17:29 (`vitest-red.log`): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/studio/agent-tools/list-assets-library.test.ts
+  …/audio-tools-reuse.test.ts …/audio-tools-fill.test.ts …/audio-tools-no-claim.test.ts --maxWorkers=2` → `Test Files 4 failed (4) · Tests 17 failed
+  | 16 passed (33)`.
+- Green 17:31 (`vitest-green.log`): `… vitest.mjs run src/main/services/studio/agent-tools src/main/services/studio/studio-agent-prompt.test.ts
+  --maxWorkers=2` → `Test Files 18 passed (18) · Tests 115 passed (115)` (26.3 s; incl. the 1,515-row no-claim file in both modes and
+  `library-listing.test.ts`).
+- tsc web → 26 `error TS` (`tsc-web.log`), node → 10 (`tsc-node.log`) — baseline; none in an agent-tools / library-search file. Matcher diff vs
+  `7967c6f` empty. No `any` in the touched files (grep: two hits = the word in `sound-reuse.ts` comments). Largest touched:
+  `audio-tools-reuse.test.ts` 218, `list-assets-library.test.ts` 195, `project-tools.ts` 92. No new npm package.
+- Post-commit: `git status --short` clean after `332ef1b` (7 files, +278 −15).
+
 ## Next step (ONE concrete instruction)
 
-Finish step d with `list_assets(scope: "library", query)` per design §8.2, red first: in `agent-tools/project-tools.ts:53-58`, when the
-trimmed query is non-empty, `loadIndex` then `toolLibrarySearch({ query, ...(kind ? { kinds: [kind] } : {}), limit: 20 }, entries)`
-(`tool-library-search.ts`, the raw query — not lower-cased) and print a new `library-search-listing.ts` formatter: line 1 = `Ranked by search
-(words + meaning) — check the descriptions; the order is not a ranking of fit`, then E2's `formatLibraryRow(entry, kind, 'library:')` per
-candidate in order (≤ 20; Basic lists only keyword hits), an empty result → a plain no-result line without "matching"; no query → today's
-`formatLibraryListing` unchanged; project scope unchanged; update the `query` describe text (library scope: ranked by search, ≤ 20). Tests (new
-`list-assets-library.test.ts`, the `search-app` mock pattern of `audio-tools-reuse.test.ts`): header + order == the search's candidates, kind →
-kinds, Basic drops a no-word item, Smart lists it, no query → the unchanged listing; keep `library-listing.test.ts` green. Commit, then step e.
+Start step e with the Settings row, red first: read DRIVING.md, `docs/ui-automation-cdp.md` and UI_SPEC.md first (none was read by builder #7);
+add `src/renderer/components/SettingsModal/rows/LibrarySearchRow.tsx` + its hook (pattern: `RenderTimeoutRow.tsx` 70 lines, registered in
+`GeneralSettingsContent.tsx` 147 lines) through the preload API only — `librarySearchStatus` / `librarySearchSettingsSet` /
+`onLibrarySearchEvent` (`src/preload/api/library-search.ts`) and `embeddingModelDownload` / `onEmbeddingDownloadProgress`
+(`src/preload/api/embedding.ts:22,26`): the three choices (Auto shown as the default), the size from `status.modelBytes` ("135 MB"), a Download
+button (only while `!modelDownloaded`) with its progress, the vector state ("51 / 51 ready", "building 12 / 51"); then the Assets box per design
+§8.3 as `src/features/asset-library/hooks/useLibrarySearch.ts` (debounced 250 ms `librarySearch`, scope = the breadcrumb's relPath, kinds from the
+category filter) + a pure merge in `src/features/asset-library/services/` (top 20 in the service's order, then the other `filterAssets` hits;
+chips still narrow; Basic = `filterAssets` unchanged) with unit tests, and the "Smart" marker with a tooltip — **`AssetLibraryScreen.tsx` is
+already 464 lines (pre-existing): add only the hook call + the merge call + the marker there, nothing else**; then rebuild `wt/out` and run the
+§9.3 2 / 3 click-through (HANDOFF Plan context + the task text: the profile's model folder and `<profile>\assets\.vidtsx\search\` removed first).
 
 ## Open problems
 
@@ -490,6 +528,8 @@ kinds, Basic drops a no-word item, Smart lists it, no query → the unchanged li
   imports `stream/promises`) that step d does not touch. Builder #4's step-c run did not include `src/main/services/studio`, so they were not seen
   before. LS-r1 names only `studio-cut-plan-run-handler.test.ts`: step f must give each of these the LS-r1 proof (passes in a fresh detached
   worktree at the gate's HEAD) or the orchestrator must extend LS-r1. Not re-bisected here.
+- RESOLVED by LS-r6 (`332ef1b`): the `generate_*` header and the `list_assets` header now name what ran ("(words + meaning)" only for Smart,
+  "(words only)" for Basic, + the degraded line on a fallback). The note below is kept for the record.
 - (note — for S4) **the §8.1 header is the same in every mode** ("found by search (words + meaning)"), as the design writes it (one neutral
   header; §9.3 4 "Basic → today's ordering under the neutral header"): an explicit Basic choice therefore prints "(words + meaning)" with no
   extra line — the design's "Searched by words only: <reason>" line is added only when the search reports `degraded` (a Smart fallback). Built
@@ -529,6 +569,9 @@ kinds, Basic drops a no-word item, Smart lists it, no query → the unchanged li
 - LS-r4 / LS-r5 (`5796423`) and step d part 1 (`eebcaff`: the generate tools, the 1,515-row no-claim test, E3's answer tests rewritten, the
   prompt pins) are done — extend, don't redo. `wt/out` is still `373125a` (main changed since: rebuild before step e's live checks; the search-S3
   profile's vector file holds 57 items from before LS-r4 — the next build prunes it to 51).
+- LS-r6 + `list_assets` §8.2 (`332ef1b`, 10 new tests + the per-mode header pins) — **step d is DONE**; extend, don't redo. `REUSE_NOTE` /
+  `FORCE_HINT` / the prompt lines still say "(words + meaning; …)" about the tool in general — LS-r6 names only the headers; left as they are.
+  `wt/out` is still `373125a`: rebuild before step e's live checks.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -543,3 +586,6 @@ kinds, Basic drops a no-word item, Smart lists it, no query → the unchanged li
 - 2026-10-29 17:06–17:25 · builder #6 · ~50 · LS-r4 + LS-r5 (`5796423`, red first); step d part 1 — generate_sfx / generate_music on the search
   (§8.1 answer, the seam `tool-library-search.ts`), REUSE_NOTE / FORCE_HINT / prompt :31-32 pinned, the 1,515-row no-claim + nothing-fits test in
   both modes, E3's answer tests rewritten (`eebcaff`); found 3 more LS-r1-class suites; `list_assets` §8.2 left as the next step.
+- 2026-10-29 17:27–17:35 · builder #7 · ~30 · LS-r6 (headers name what ran) + `list_assets(scope "library", query)` §8.2 (new
+  `library-search-listing.ts`, `list-assets-library.test.ts`), red first, `332ef1b` — **step d DONE**; scouted step e's files (Next step);
+  handed off at the step boundary (no build / launch; DRIVING, ui-automation-cdp and UI_SPEC not read).

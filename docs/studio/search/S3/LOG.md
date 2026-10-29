@@ -23,3 +23,6 @@
   force lines, no claim), REUSE_NOTE / FORCE_HINT / prompt :31-32 pinned, the §9.1 no-claim + nothing-fits test over all 1,515 rows in both modes
   green, E3's answer tests rewritten; tsc 26 / 10; matcher diff empty; 3 more LS-r1-class suites seen (`pack-package`, `project-package`,
   `project-package-import`). Next: `list_assets` §8.2, then step e.
+- 2026-10-29 17:35 · builder #7 · LS-r6 + `list_assets` §8.2 `332ef1b` (red 17 → green 18 files / 115 tests in agent-tools + prompt; headers
+  name what ran; library query ranked by the search, ≤ 20 E2 rows, no query unchanged); tsc 26 / 10; matcher diff empty; **step d DONE**. Next:
+  step e (the Settings row, then the Assets box, then the §9.3 2 / 3 click-through).
