@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { chipLabel, type CategoryFilter, type ChipFilter } from '../services/asset-search';
 
 interface AssetSearchBarProps {
@@ -8,6 +9,8 @@ interface AssetSearchBarProps {
   /** The chip filter set from the details panel (E3) — shown as a removable pill. */
   chip: ChipFilter | null;
   onClearChip: () => void;
+  /** Shown right after the input — the library search "Smart" marker (design §8.3). */
+  adornment?: ReactNode;
 }
 
 const CHIPS: { value: CategoryFilter; label: string }[] = [
@@ -18,7 +21,7 @@ const CHIPS: { value: CategoryFilter; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
-export function AssetSearchBar({ query, onQuery, category, onCategory, chip, onClearChip }: AssetSearchBarProps) {
+export function AssetSearchBar({ query, onQuery, category, onCategory, chip, onClearChip, adornment }: AssetSearchBarProps) {
   return (
     <div className="flex items-center gap-2">
       <input
@@ -32,6 +35,7 @@ export function AssetSearchBar({ query, onQuery, category, onCategory, chip, onC
         className="h-[28px] w-[240px] px-2 rounded bg-app-surface text-text-primary text-[12px] focus:outline-none"
         style={{ border: '0.5px solid var(--color-border-input)' }}
       />
+      {adornment}
       <div className="flex items-center gap-1">
         {CHIPS.map((option) => (
           <button
