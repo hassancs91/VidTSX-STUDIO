@@ -1,5 +1,5 @@
 # S1 — the spike: keywords vs local embeddings vs hybrid vs the LLM pick, on E3's labelled set (no product code)
-status: IN PROGRESS — builder #2 handed off after (b) embeddings × 4 models, (c) RRF and the timing table; next: (d) the LLM pick
+status: IN PROGRESS — builder #3 handed off after (d) the LLM pick (25 / 40 model calls used); next: optional (e) the reranker (repo + size named in Done 21), then the report, then the STOP judgement
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/search/ORCHESTRATOR.md` ("Answers in force" binds this part).
@@ -222,6 +222,54 @@ Builder #2, 2026-10-29 13:55–14:22 (step (b) the embeddings, plus (c) and the 
     smallest is MiniLM (22.6 MB) but me5-small is multilingual and within 3 points (it IS the best, and the only ones that read
     Arabic are the two e5s) → me5-small, unless the report reads the rule differently.
 
+Builder #3, 2026-10-29 14:24–14:40 (step (d) the LLM pick). Docs commit: see "Agents so far" (this hand-off's commit); no `src/` change.
+
+18. **App for (d):** resource guard 14:25 (C: 50.8 GB, D: 41.7 GB, commit headroom 42.3 / 99.7 GB, 0 `electron.exe`, ports 9222 /
+    5173 / 9290 free) → the worktree's `out/` built (DRIVING "Track E" step 1, log `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\logs\build.log`,
+    rc 0, 14:25:43–14:28:09) → 14:26:58 guard (C: 50.8, headroom 38.4) → profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\search-S1\profile`
+    = robocopy of `profiles\source\profile` with `/XF settings.db*` (rc 1 = copied; 0 `settings.db*` in the copy before launch; the
+    app's fresh one was never read) → launch `K\launch-d.sh` (CDP 9290, no Vite server) → `K\d-cdp.mjs root` FIRST:
+    `studioRootSet` → `studioRootGet` = `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\studio-root` (empty `projects\`).
+    Stopped 14:35:59 (4 `electron.exe` matched by the profile path + Name; 0 left).
+19. **The (d) kit:** `K\d-build-sample.cjs` → `K\d-sample.json` (the sample, its strata, the 12 batches of row ids), `K\d-prompt-template.txt`
+    (THE EXACT PROMPT TEMPLATE, both conditions — copy it into the report verbatim) and the 24 prompt files `K\d-prompts\{top20,full51}-NN.txt`.
+    Sample: 240 rows of the 1,509 with a non-empty pool (the 6 empty-pool ∅ rows left out), mulberry32 seed 20261029, round-robin over
+    source files inside each stratum: **A** (a)'s pick confident and wrong 40 · **N** the other ∅ rows 50 · **H** other held-out named
+    90 · **C** other corpus named 60 → 187 named / 53 ∅, 228 sfx / 12 music, all 15 source files (per-file counts in `d-sample.json`
+    `bySource`). The same 12 batches of 20 go to both conditions. top20 = each row's own list from `c-rrf60-multilingual-e5-small-mean.json`
+    (`perRow[].ranked`), each clip as `library:<relPath> | category | duration | tags | description` (duration added: the tool's line
+    shows it and min-length rows need it); full51 = the whole library once per call (sound effects, then music) and each request names
+    its section (= `poolOf(row)`). The model answers one JSON object {request no → ref | "none"}. Driver `K\d-cdp.mjs llm <label> <file>`
+    = ONE `window.api.llmGenerate({ prompt, providerId: 'claude-subscription' })`, ledger `K\d-calls.jsonl` (budget guard 40, +1 retry
+    only after an API error), replies `K\d-responses\<label>.json`; runner `K\d-run-all.sh` (keep-awake while running, log
+    `…\search\S1\logs\d-run.log`). Scorer `K\run-d-pick.cjs <cond>` → `K\reports\d-pick-<cond>.md|json` (definitions in its header).
+20. **Calls: 25 of 40 used** (probe "Say OK" → "OK" + 12 top20 + 12 full51), **0 errors, 0 retries**, every reply parsed, 0 off-list refs,
+    0 missing answers (`K\d-calls.jsonl`). Model `claude-sonnet-5-5` (the provider's default; the SDK's `modelUsage` also lists a
+    `claude-haiku-4-5` side call per turn). Wall per call: top20 8.2–13.0 s (prompts 113–124 k chars, ~36–38 k input tokens), full51
+    5.2–14.7 s (~18.7 k chars). **Results** (`K\reports\d-pick-top20.md`, `K\reports\d-pick-full51.md`; sample = 240 rows):
+
+    | condition | pick acc (named 187) | wrong-confident (240) | wc named / ∅ | correct none (∅ 53) | false none (named, ∅ not allowed, 156) |
+    |---|---|---|---|---|---|
+    | top20 of (c) | 170 / 187 = 90.9 % | 15 / 240 = 6.3 % | 4 / 11 | 42 / 53 = 79.2 % | 13 / 156 = 8.3 % |
+    | full51 | 164 / 187 = 87.7 % | 18 / 240 = 7.5 % | 8 / 10 | 43 / 53 = 81.1 % | 15 / 156 = 9.6 % |
+    | ref: (c) top-1 alone, same rows | 72.2 % | — | — | — | — |
+    | ref: (a) pick, same rows | 54.5 % | 61 / 240 = 25.4 % | | | |
+
+    HELD-OUT: top20 pick acc 86.2 % (106 / 123), wrong-confident 3.5 %, correct none 17 / 18; full51 83.7 %, 5.7 %, 17 / 18. CORPUS:
+    top20 100.0 % (64 / 64), wrong-confident 10 / 99 (all 10 on ∅ rows); full51 95.3 %, 10 / 99. Stratum A (where (a) was confidently
+    wrong): top20 31 / 37 = 83.8 %, wrong-confident 2 / 40; full51 75.7 %, 4 / 40. The top-20 ceiling on the sample is 99.5 %. So the
+    top-20 condition beats the full list on every line, and the pick lifts (c)'s top-1 from 72.2 % to 90.9 % on the same rows.
+    Reading the misses (lists at the end of each `d-pick-*.md`): most false nones are the r5 broad / odd-phrasing rows ("a door
+    sparkling", "a swooshing menu", "a door swooshing open" → none) whose labels S1 widened (Open problems 3); most ∅ "wrong" picks
+    are corpus ∅ rows that a plain-meaning reading would fill ("a river running" → stream-soft, "taking a picture" → camera-shutter,
+    "a clicker" → ui-click-soft, "woooosh" → whoosh-soft, "a buildup" → riser-soft): E3 labelled those ∅ for the keyword matcher's
+    word-sense tests. The report must say this, row by row for the ∅ picks (11 top20 / 10 full51), not just the rate.
+21. **(e) named BEFORE any download (none made yet):** `Xenova/ms-marco-MiniLM-L-6-v2` (a cross-encoder, English, MS MARCO), files
+    by HEAD on `https://huggingface.co/Xenova/ms-marco-MiniLM-L-6-v2/resolve/main/{file}`: `config.json` 824 B · `tokenizer.json`
+    711,396 B · `tokenizer_config.json` 1,242 B · `onnx/model_quantized.onnx` 23,143,499 B → **23,856,961 B total** — small. It runs
+    through `@huggingface/transformers` 4.0.1's `AutoTokenizer` + `AutoModelForSequenceClassification` (already installed; no new
+    package). English-only: expect it to fail the 10 Arabic rows. Target folder `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\ms-marco-MiniLM-L-6-v2\`.
+
 ## Verified (exact commands + outputs)
 
 - `cd K; node build-kit.cjs` → seven lines + `TOTAL 1073 rows in 7 files; library 51 clips` (`K\build-kit.log`).
@@ -248,24 +296,31 @@ Builder #2, 2026-10-29 13:55–14:22 (step (b) the embeddings, plus (c) and the 
   `K\reports\b-*.log`) · `node run-c-hybrid.cjs <same>` (rc 0; `K\reports\c-rrf60-*.log`) · `node run-t-timing.cjs <id> <pooling>` and
   `ELECTRON_RUN_AS_NODE=1 …/electron.exe run-t-timing.cjs <id> <pooling>` → the `t-*.md` rows quoted in Done 15–16. Every (b) report's
   last line says `load: fallback dtype q8 (app options failed: … not found locally at "…/onnx/model.onnx")`.
+- **Builder #3 (d), 14:30–14:36:** `cd K; node d-build-sample.cjs` → `{"seed":20261029,"rows":240,"eligible":1509,"strata":{"A a-wrong":40,"N null":50,"H held-out named":90,"C corpus named":60},…,"kinds":{"named":187,"null":53},"cls":{"sfx":228,"music":12},"batches":12,…}`.
+  `node d-cdp.mjs root` → `{"set":{"success":true},"get":{"root":"C:\\Users\\hasan\\AppData\\Local\\vidtsx-e2e\\search\\S1\\studio-root"}}`.
+  `node d-cdp.mjs llm probe-say-ok d-probe.txt` → `{"n":1,…,"success":true,"model":"claude-sonnet-5-5",…,"textHead":"OK"}`. `bash K/d-run-all.sh`
+  → `logs\d-run.log` ends `14:35:32 ALL DONE`; `d-calls.jsonl` 25 lines, n 1–25, all `success: true`, none `retryOfApiError`.
+  `node run-d-pick.cjs top20` / `full51` → rc 0 each, the tables in Done 20 (`K\reports\d-pick-*.md|json|log`).
+- **After (d), 14:35:59:** 0 `electron.exe` (4 stopped by the search-S1 profile path + Name), 0 keep-awake PowerShell left; C: 50.0 GB
+  free, D: 41.6 GB, commit headroom 34.4 / 99.7 GB. `node_modules` 2026-10-16 12:57:48 · `@huggingface\transformers` 2026-07-07
+  10:32:45, 6 children · `node_modules\.cache` 0 items · files under `node_modules` written after 2026-10-29 14:22: **0**. Worktree
+  `git status --short` empty before this hand-off's edits (its `out/` is gitignored).
 - Model files on C: (bytes = the HEAD sizes in Done 8): `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\{all-MiniLM-L6-v2,
   bge-small-en-v1.5, multilingual-e5-small, multilingual-e5-base}\` (489.5 MB).
 
 ## Next step (ONE concrete instruction)
 
-Run (d), the LLM pick, exactly as "Plan context" → "(d)" says (build the worktree's `out/`, the `profiles\search-S1` copy
-WITHOUT `settings\settings.db*`, launch on CDP 9290, `studioRootSet` FIRST to `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\studio-root`,
-the "Say OK" probe = call 1 of ≤ 40, then `window.api.llmGenerate({ prompt, providerId: 'claude-subscription' })` from a FILE
-driver), with a fixed stratified sample of ~150–250 scored rows (every source file represented, all ∅-heavy files included,
-the same rows in both conditions, 15–25 rows per call): condition 1 = each row's top-20 from **(c) RRF60 + me5-small**
-(`K\reports\c-rrf60-multilingual-e5-small-mean.json` `perRow[].ranked`, already top-20), condition 2 = the full 51-clip list
-filtered to `poolOf(row)`; each clip shown as id + category + tags + description; the model answers per row one clip id or
-`none`. Score with `eval-lib` (`pick` = first choice, `confident: true` for any id; `none` → `{ id: null }`), write
-`K\reports\d-pick-top20.md|json` and `K\reports\d-pick-full51.md|json`, record the exact prompt template, the call count and
-each call's wall time; stop the app (Name='electron.exe' + the profile path) and re-run the resource guard. Then the optional
-(e) (a reranker repo named here with its size BEFORE any download), then write `docs/studio/search/S1-spike-report.md` from the
-kit's report files (every table: ALL / CORPUS / HELD-OUT + per file, the timing table from `K\reports\t-*.md`, the floors,
-Done 9's worker finding), and only then judge the STOP rule.
+Run the optional (e) in the kit (resource guard first, numbers here): curl the four files of `Xenova/ms-marco-MiniLM-L-6-v2`
+named in Done 21 (23,856,961 B) into `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\ms-marco-MiniLM-L-6-v2\`, write
+`K\run-e-rerank.cjs` (transformers.js 4.0.1 `AutoTokenizer` + `AutoModelForSequenceClassification` from the absolute model dir,
+`local_files_only`, `allowRemoteModels = false`, `dtype: 'q8'`, cache dirs on scratch) that re-orders each row's top-20 from
+`K\reports\c-rrf60-multilingual-e5-small-mean.json` by the cross-encoder's logit (query = prompt, passage = `itemText(e)`) and writes
+`K\reports\e-rerank-ms-marco-MiniLM-L-6-v2.md|json` with `writeReport` + `floorStudy` on the top-1 logit + its timing per row (20 pairs);
+re-check `node_modules` (Verified baseline). THEN write `docs/studio/search/S1-spike-report.md` from the kit's report files (every
+table: ALL / CORPUS / HELD-OUT + per file for (a) (b)×5 (c)×5 (e); the timing table from `K\reports\t-*.md`; the floors; Done 9's
+worker finding; the (d) table + `K\d-prompt-template.txt` verbatim + the strata + the row-by-row ∅ picks of Done 20; Hasan's rule; "what
+S2 needs" with recall@3/5/8/10 of (c) RRF60 + me5-small — compute k = 5 and 8 from that report's `perRow[].ranked` in a small kit
+script, they are not in any report yet), and only then judge the STOP rule.
 
 ## Open problems
 
@@ -289,6 +344,14 @@ Done 9's worker finding), and only then judge the STOP rule.
    the candidate for it. The RRF fused score is rank-based (max 2/61), so its floor is about agreement, not similarity.
 6. **Process slip (builder #2):** one one-line status edit of this file went through `sed` (14:03, the `status:` line; content
    correct) against the Edit-tool-only rule; every other doc edit used Edit.
+7. **(d) label disagreements (for the report, and S2's bar):** the pick's "wrong-confident" on corpus ∅ rows (10 / 35 in both
+   conditions) is mostly a label question, not a pick error: E3's corpus marks "a river running", "taking a picture", "a clicker",
+   "woooosh", "a buildup", "a runner", "a rewound tape" ∅ because they test the keyword matcher's word senses, while a plain-meaning
+   pick fills them (stream-soft, camera-shutter, ui-click-soft, whoosh-soft, riser-soft, dash-zip, whoosh-reverse). Likewise most
+   held-out false nones are S1's widened broad-set labels on odd phrasings ("a door sparkling" → none). The report states the rates
+   as measured AND lists those rows; whether S2's bar re-labels the corpus ∅ rows for the pick is S2's (or Hasan's) call — not a
+   stop for S1.
+8. **(d) budget left:** 15 of 40 model calls (+ the retry allowance) remain unused; nothing in S1 needs them now.
 
 ## Do-not-redo
 
@@ -296,6 +359,9 @@ Done 9's worker finding), and only then judge the STOP rule.
 - `K\out\corpus.cjs` is the matcher at the worktree's code. Rebuild it only if the worktree's `src/main/services/library/`
   changes (it should not in S1).
 - Do not hand-label the 2,674 broad cross-products. They are excluded by rule, with the reason.
+- (d) is DONE: do not launch the app or make model calls again for S1 (25 / 40 used; replies on disk in `K\d-responses\`). Re-score
+  with `node run-d-pick.cjs <cond>` if the scorer changes; never re-ask the model. The worktree's `out/` (built 14:28) and the
+  `profiles\search-S1` profile stay as they are.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -304,3 +370,6 @@ Done 9's worker finding), and only then judge the STOP rule.
 - 2026-10-29 13:55–14:22 · builder #2 · ~48 calls · held-out subtotals, (a) re-run, model sizes + downloads (4 catalog models,
   489.5 MB on C:), (b) × 5 runs (4 models, bge mean + CLS), (c) RRF60 × 5, the timing kit (node + Electron), the worker dtype
   finding, the `node_modules` re-checks; no launch, 0 / 40 model calls used.
+- 2026-10-29 14:24–14:40 · builder #3 · ~45 calls · (d) the LLM pick: worktree build, the search-S1 profile + launch on 9290 (stopped),
+  the stratified 240-row sample, 25 / 40 model calls (0 errors), the two pick reports; (e)'s reranker named with its size (not
+  downloaded); the report and the STOP judgement not started. Hand-off commit: the one that adds this line (hash in LOG.md's next line / `git log`).
