@@ -88,3 +88,15 @@
   fits" belongs to the pick, not retrieval. Process slip: one HANDOFF status line edited by `sed` (content right; its Open problems 6).
   Orchestrator re-check: tree clean at `1bacaac`, `5de37df..HEAD -- src/ scripts/` empty, the c / b / t reports read (numbers match), 0
   `electron.exe`, models 466.9 MiB on disk. Builder #3 ((d) the LLM pick, optional (e), the report, the STOP judgement) to spawn.
+- 14:23 · S1 builder #3 spawned (HEAD `89343e6`).
+- 14:38 · S1 builder #3 HANDOFF (47 calls, ~15 min; (d) DONE, docs `ee2b78b`, no `src/` change): `wt/out` built; profile `search-S1`
+  copied WITHOUT `settings.db*`, CDP 9290, Studio root set first, app stopped after; **25 / 40 model calls** (probe + 12 + 12, 0 errors,
+  `claude-sonnet-5-5`, 5–15 s each, ~120 k prompt chars per batch). Sample 240 rows (187 named / 53 ∅; strata A (a)-wrong 40 · N ∅ 50 · H
+  held-out 90 · C corpus 60). `reports\d-pick-top20.md` / `d-pick-full51.md`: top-20 of (c) — pick acc 170 / 187 (90.9 %),
+  wrong-confident 15 / 240 (6.3 %), correct none 42 / 53 (79.2 %), false none 13 / 156 (8.3 %); held-out 86.2 % / 3.5 %; full 51 —
+  87.7 % / 7.5 % / 81.1 % / 9.6 %; same rows: (c) top-1 72.2 %, (a) pick 54.5 % with 25.4 % wrong-confident. Its caveat: most ∅ "wrong"
+  picks are corpus ∅ rows plain meaning would fill ("a river running" → stream-soft, "taking a picture" → camera-shutter) — labelled ∅
+  for the keyword matcher's word-sense tests (S2's call). (e) named, not downloaded: `Xenova/ms-marco-MiniLM-L-6-v2` 23,856,961 B,
+  English-only. **Orchestrator re-check:** tree clean at `ee2b78b`, `89343e6..HEAD -- src/ scripts/` empty, 0 `electron.exe`,
+  `d-calls.jsonl` 25 lines; the report's generic table reads R@1 80.7 on ALL where the pick table reads 90.9 % — the pick table counts a
+  "none" on an `x|∅` row as right → builder #4 must define both in the report. Builder #4 ((e), the report, the STOP judgement) to spawn.
