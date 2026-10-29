@@ -80,7 +80,7 @@ export interface CorpusAnswerRow { id: string; label: SoundAnswerLabel; coverage
 /** The ANSWER the tool shows for a row (E-d16): the fill over every candidate; [] = a true miss (the tool generates). */
 export function corpusAnswer(prompt: string, opts: CorpusOpts = {}): CorpusAnswerRow[] {
   const ranking = rankLibrarySounds(CORPUS_LIBRARY, prompt, { ...matchOptionsOf(opts), limit: CORPUS_LIBRARY.length });
-  return (selectSoundAnswer(ranking)?.rows ?? []).map((r) => ({ id: idOf(r.match.entry.relPath), label: r.label, coverage: r.match.coverage }));
+  return (selectSoundAnswer(ranking, prompt)?.rows ?? []).map((r) => ({ id: idOf(r.match.entry.relPath), label: r.label, coverage: r.match.coverage }));
 }
 
 const showAnswer = (answer: CorpusAnswerRow[]): string =>

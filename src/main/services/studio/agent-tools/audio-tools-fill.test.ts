@@ -159,6 +159,26 @@ describe('Studio audio tools — the answer-level recall fill (E3 fix round 4, E
     expect(forced.content[0].text).toContain('project asset id "asset-9"');
   });
 
+  it('E-d16b "a sparkling screen": the confident power-down covers only `screen` → the sparkle carriers go ahead of scan-hum (screen only)', async () => {
+    const res = await toolsByName().generate_sfx.handler({ prompt: 'a sparkling screen' }, {});
+    expect(res.content[0].text.split('\n')[0]).toBe(
+      'The library already has 1 sound matching "a sparkling screen" — nothing was generated (no cost, no provider needed). 3 shown: 1 matched, 1 weak match, 1 closest:',
+    );
+    expect(rowsOf(res.content[0].text)).toEqual(['matched power-down', 'weak match pop-reveal', 'closest sparkle-soft']);
+    expectNothingGenerated();
+  });
+
+  it('E-d16b "a whooshing screen": two whooshes beside power-down (pop-reveal / scan-hum only repeat `screen`); "a clicking screen" is the stated limit', async () => {
+    const tools = toolsByName();
+    const res = await tools.generate_sfx.handler({ prompt: 'a whooshing screen' }, {});
+    expect(rowsOf(res.content[0].text)).toEqual(['matched power-down', 'closest whoosh-soft', 'closest whoosh-reverse']);
+    expect(res.content[0].text.split('\n')[0]).toContain('3 shown: 1 matched, 2 closest:');
+    // power-down's own description ("one soft click") covers `clicking`: no word is uncovered, E-d16a's order stands
+    const click = await tools.generate_sfx.handler({ prompt: 'a clicking screen' }, {});
+    expect(rowsOf(click.content[0].text)).toEqual(['matched power-down', 'weak match pop-reveal', 'weak match scan-hum']);
+    expectNothingGenerated();
+  });
+
   it('generate_music: the same fill (labelled), the length rule drops a short bed from it, a plan never looks, force generates', async () => {
     const tools = toolsByName();
     const res = await tools.generate_music.handler({ prompt: 'a pulsing bed' }, {});

@@ -87,7 +87,7 @@ export async function libraryReuseAnswer(
     const index = await loadIndex(getLibraryRoot());
     // Every candidate, not the matcher's default top three per list: the fill orders them itself.
     const limit = Math.max(ANSWER_SIZE, index.entries.length);
-    answer = selectSoundAnswer(rankLibrarySounds(index.entries, prompt, { ...opts, limit }));
+    answer = selectSoundAnswer(rankLibrarySounds(index.entries, prompt, { ...opts, limit }), prompt);
   } catch {
     return null;
   }
