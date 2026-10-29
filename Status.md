@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-28 — END-TO-END E3: reuse before generate — the prompt rule, `generate_sfx` / `generate_music` answer the top-3 library matches unless `force`; the Assets screen plays audio and filters by origin / tag chips — DONE (fix round 3 after verifier round 3 FAIL on F3, a matcher defect — builders #9–#12, decision E-d15: stem hits weigh less, placement openers / adverbs, the miss rule; fix round 2 after verifier round 2 FAIL on F2 — builders #7–#8; fix round 1 after verifier round 1 FAIL on F1 — builders #5–#6; the E3 verifier round 4 — E3's last — is next)
+## 2026-10-28 — END-TO-END E3: reuse before generate — the prompt rule, `generate_sfx` / `generate_music` answer the top-3 library matches unless `force`; the Assets screen plays audio and filters by origin / tag chips — DONE (fix round 4 after verifier round 4 FAIL on F4 (builders #13–#20, decisions E-d16 + E-d16a + E-d16b + E-d16c + E-d16d: the answer-level recall fill with the word-diversity rule, no matcher change); fix round 3 after verifier round 3 FAIL on F3, a matcher defect — builders #9–#12, decision E-d15: stem hits weigh less, placement openers / adverbs, the miss rule; fix round 2 after verifier round 2 FAIL on F2 — builders #7–#8; fix round 1 after verifier round 1 FAIL on F1 — builders #5–#6; the E3 verifier round 5 — E3's last — is next)
 
 - **What:** part E3 of `docs/studio/END_TO_END_PLAN.md` (track E, session 6; worktree branch `end-to-end-p0-e`, E-d1). Row:
   "Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips".
@@ -422,10 +422,189 @@
     and the tool generates without `force`, (iii) an F1 / F2 / F3-class phrasing where a confident match puts a clearly
     wrong sound first while the right clip exists, (iv) a false record; a right clip second or third, a stranger in the
     nearest list, or another class is a note for Hasan's list.
+- **Verifier round 4 FAIL (F4: the 0.6 stem factor + the equal-hit head rule — 'a cracked screen' → power-down only) → fix
+  round 4 `34feafe` `9a13e3b` `d30830a` `c5a6124`.** Round 4 (2026-10-29 01:24–02:00, no launch, no model call; evidence
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r4\` — `g-probe.txt` 32 phrasings, `c-ordinary.txt` 236, `f-probe.txt`
+  41, `h-noprov2.txt`) confirmed the gates, the corpus (5 files / 814 tests, every expectation fair), the tool level, the
+  build and every other record, but FAILED on F4 (E-d15 (iii)): fix round 3's own `STEM_STRENGTH = 0.6`
+  (`sound-match-words.ts:35`) with the equal-hit head rule (`sound-match.ts:159`) let a verb-form modifier + a noun that is
+  ANOTHER clip's tag match that clip CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — dropped into
+  the nearest list a match answer never shows: "a cracked screen" → `power-down 0.43` (the head rule) alone (the olds
+  `break-glass-crack 0.57 | power-down 0.43`), through the real handler "The library already has 1 sound matching …" →
+  `library:sfx/power-down.mp3`; the same for "a glitching / glitched / corrupted / shattered / zapped / crashing / breaking
+  screen"; "a scribbled note" / "scribbling a note" / "a sketched note" / "a scribbled note when the text appears" / "a typed
+  note" → `chime-reward 0.30` alone; with `STEM_STRENGTH = 1` 13 of its 14 wrong firsts reverted. Plus four (iv) number nits
+  (below) and its notes 1–10 ("Not measured / open" (24)). The session-8 rule stopped the run. **The decisions
+  (ORCHESTRATOR.md "Session 9"):** **E-d16** (Hasan's go 10:07) — the answer-level recall fill: `generate_sfx` /
+  `generate_music` answer up to THREE library sounds whenever any candidate scores, the matches first, then the closest
+  others, each row labelled `matched` / `weak match` / `closest`; only weak matches → the library "may have" the sound; a
+  pure miss keeps fix round 3's wording; `force` and a true miss as before; the matcher (`7967c6f`) unchanged; the corpus
+  RECALL over the answer's three. **E-d16a** (10:33, "Note-level") — after the confident matches the slots fill from weak +
+  closest together BY COVERAGE, a closest before a weak match on a tie, so "a breaking screen" shows power-down + both break
+  clips; a first AT the 0.5 line or tied with a right clip, the right clip in the three, is a note, and so is a right clip
+  sharing no word with the prompt (vocabulary). **E-d16b** (11:22, "Diversity rule + note") — one more tool-layer rule: after
+  the confident rows, a below-threshold sound covering a prompt word no shown row covers goes first (each group in E-d16a's
+  order); a confident first (> 0.5) ALREADY first at `09e81ea`, with the right clip in the three, is a note. **E-d16c**
+  (11:46, "Notes") — no more code: where a shown confident clip's own text already carries the prompt word (so E-d16b cannot
+  fire) and that first was already first at `09e81ea`, a right clip missing from the three is a note (the 9 below).
+  **E-d16d** (12:05, "Try greedy, else note") — one experiment, E-d16b applied greedily slot by slot; keep it only if it
+  loses NO right clip vs `c5a6124` AND `7967c6f`, moves no confident first and the corpus stays green, else `c5a6124` stays
+  and the six F9 "a quiet `<-ing>`" probes are notes — it was NOT kept (below). Fix round 4 = builders #13–#20 (2026-10-29
+  10:37–12:30; no launch, no model turn; the live turns belong to the track-E exit, E-d9).
+  - **The fill (`34feafe`, builder #13; E-d16b's rule added by `c5a6124`, builder #17; pointers as of `c5a6124`):** NEW pure
+    `src/main/services/library/sound-answer.ts` — `selectSoundAnswer(ranking, prompt)` :77-96 over a `rankLibrarySounds()`
+    ranking called with `limit` = every candidate (`sound-reuse.ts:89-90` — an option, not a matcher change): the CONFIDENT
+    matches (`coverage >= CONFIDENT_COVERAGE` 0.5 :47, the matcher's `MATCH_COVERAGE` mirrored) first in the matcher's order
+    (≤ 3), then the below-threshold sounds — weak (head-rule) matches AND the nearest together — by `byCoverageClosestFirst`
+    :57-62 (coverage desc; within `COVERAGE_EPSILON` 1e-9 :49 a tie → `closest` before `weak match`; a stable sort), regrouped
+    by `newWordsFirst` :64-75 (E-d16b); `ANSWER_SIZE` 3 :45; null = no candidate scored (a TRUE miss → generation proceeds);
+    `labelOfMatch` :52; the kind follows the rows SHOWN ('match' if a `matched` row, else 'weak' if a `weak match` row, else
+    'nearest' — a stated choice). **E-d16b's rule:** group A = the below rows that cover a prompt word NO shown confident row
+    covers, then group B = the rest, each keeping E-d16a's order; no confident row shown → E-d16a's order (every scoring row
+    covers some word), three shown → no slot left; the groups are formed once against the shown confident rows (stated — "a
+    whooshing screen" shows two whooshes). **How "covers" is decided** (NEW `sound-answer-words.ts`, the rule in its header
+    :7-13): the prompt's words = `promptTerms(prompt).terms` (head + qualifiers; placement words out; negated words already
+    dropped by `soundTokens`) — `promptSoundWords` :19-21; an entry covers a word when `matchStrength(word, token) > 0` for a
+    token of its tags, file-name parts, category or description — ANY field, ANY strength, i.e. exactly when the matcher's
+    `hitOf` weight is > 0 (`wordsCoveredBy` :35-39; the field reading duplicated because the matcher does not export
+    `fieldsOf`, pinned against the matcher by `sound-answer-words.test.ts`). **The answer** (`agent-tools/sound-reuse.ts`,
+    `headerOf` :42-60, `placementHintOf` :62-68): each row = E2's `formatLibraryRow` with the label after its "- " (`-
+    [matched] library:sfx/… (audio, 0.68 s, imported) — "…" · category: … · tags: …`, `- [weak match] …`, `- [closest] …` —
+    `formatLabelledRow` :37-40); headers — every shown row confident: `The library already has N sounds matching "<prompt>" —
+    nothing was generated (no cost, no provider needed):` (the old header, byte for byte); confident + others: `The library
+    already has 1 sound matching "<prompt>" — nothing was generated (no cost, no provider needed). 3 shown: 1 matched, 1 weak
+    match, 1 closest:` (zero parts omitted); only weak: `The library may have a sound for "<prompt>" — only 1 weak match,
+    nothing confident; nothing was generated (no cost, no provider needed). The closest library sounds:`; the pure miss, fix
+    round 3's verbatim: `No library sound matched "<prompt>" well — nothing was generated (no cost, no provider needed). The
+    closest library sounds:` (its rows now `[closest]`); last line — 'match': `Place the one that fits with
+    insert_asset(assetId: "library:<first shown>", lane: "audio", at: …) — a library ref works as the asset id. Only if none
+    of them fits, call <tool> again with force: true to generate a new one.`; 'weak' / 'nearest': `If one of them fits, place
+    it with insert_asset(…) — a library ref works as the asset id. If none fits, call <tool> again with force: true to
+    generate a new one.` `audio-tools.ts` (199) `FORCE_HINT` :60-61 / `REUSE_NOTE` :63-64 name the three labels; the handlers
+    unchanged (`force` :133 / :173, `if (reuse) return text(reuse.text)` :135 / :178, the provider check after);
+    `studio-agent-prompt-tools.ts:31` — "returns up to three `library:<path>` refs instead of generating (no cost, no provider
+    needed) — the matches first, then the closest other library sounds, each row labelled `matched`, `weak match` or `closest`
+    (only weak matches: the library "may have" the sound)" (pinned, `studio-agent-prompt.test.ts:130`).
+  - **The tests, red → green** (logs under `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\`): builder #13 (`34feafe`) —
+    NEW `sound-answer.test.ts` (10), NEW `agent-tools/audio-tools-fill.test.ts` (8; the REAL handlers over the 51-clip
+    fixture, `hasAudioProvider` / the engine / the import never called: "a cracked screen" → `weak match power-down | closest
+    break-glass-crack | closest pop-reveal` + "may have"; "a scribbled note" → `closest pencil-scribble | weak match
+    chime-reward`; "a breaking screen" → `matched power-down | closest break-crash-digital | closest break-glass-crack`;
+    "running water" → `matched stream-soft | closest dash-zip`, never padded; music "a pulsing bed"), the miss / reuse /
+    prompt tests updated (the reuse mock's `whoosh-wind` is now a `weak match` — "1 sound matching … 3 shown: 1 matched, 1
+    weak match, 1 closest"): red `Test Files 5 failed (5)` · `Tests 13 failed | 25 passed (38)` + `sound-answer.test.ts`
+    unloadable (`fix4-red.log`) → green `26 passed (26)` · `995 passed (995)` (`fix4-green-2.log`); builder #14 (`9a13e3b`) —
+    the new rows red on the old helper `Test Files 2 failed (2)` · `Tests 36 failed | 230 passed (266)`
+    (`fix4-corpus-red.log`) → with the answer-level helper `2 failed | 5 passed (7)` · `8 failed | 1072 passed (1080)` (the 4
+    E-d16a edges + the 4 vocabulary rows; `fix4-corpus-try1.log`) → annotated → `7 passed (7)` · `1080 passed (1080)`
+    (`fix4-corpus-green.log`), `28 passed (28)` · `1261 passed (1261)` (`fix4-corpus-green-2.log`); builder #15 (`d30830a`) — a
+    comment only, no run; builder #17 (`c5a6124`) — `sound-answer.test.ts` 10 → 17 tests (describe "the word-diversity rule
+    (E-d16b)", 7), NEW `sound-answer-words.test.ts` (3 — incl. `covers ≥ 1 word` ⇔ the ranking scores the clip, 15 prompts ×
+    the class), `audio-tools-fill.test.ts` 8 → 10 ("a sparkling screen" → `matched power-down | weak match pop-reveal |
+    closest sparkle-soft`; "a whooshing screen" → `matched power-down | closest whoosh-soft | closest whoosh-reverse`; "a
+    clicking screen" pinned as the stated limit): red `3 failed (3)` · `6 failed | 21 passed (27)` (`fix4b-red.log`) → green
+    `17 passed (17)` · `99 passed (99)` (`fix4b-green.log`), `src/main/services/library/` `37 passed (37)` · `1386 passed
+    (1386)` (`fix4b-corpus.log`); no existing pin changed.
+  - **The corpus (`9a13e3b`, builder #14 — E-d16 (i)):** verifier round 4's three probe files as rows over the same fixture
+    — NEW `sound-match-corpus-r4-frames.test.ts` (67 rows: g-probe's 32 + f-probe's 35 new of 41, f-probe's verdicts the
+    builder's) and `-r4-ordinary.test.ts` (197 rows: c-ordinary's 236 minus 39 already rows; 45 duplicates skipped in all —
+    `E3\fix4-corpus-review.txt:2`); `sound-match-corpus-rows.ts` (79 → 146): the FIRST assertion stays on `matches[0]`, `not`
+    on the matches, the RECALL runs over the ANSWER (`corpusAnswer()` = the `sound-reuse.ts` call); the r4 files go through
+    `describeAnswerCorpus` (the named clip in the three; a `matched` first must be allowed, except on an E-d16a `edge: 'line'
+    | 'tie'` row, and an `edge` row whose first IS allowed fails as a stale note). `edge: 'line'` — "a breaking screen"
+    (power-down 0.50), "a glitched photo" (camera-shutter 0.50), "a typed message" (ui-send 0.50); `edge: 'tie'` — "an F major
+    triad" (the three majors at 0.60); the 4 vocabulary '∅' rows (the named clip scores 0) — "a rewound tape", "a clicker", "a
+    river running", "a running tap". The five old files pass unchanged with the recall over the answer. The corpus is 1,073
+    rows (150 / 194 / 204 / 129 / 132 / 67 / 197 — `E3\catalog-order-fix4b.txt:3`), 7 files / 1,080 tests; at `c5a6124` the
+    answer-level recall misses 0 of the 1,073 (`E3\variants-fix4c.txt:3`, "corpus recall false … c5a6124 0").
+  - **The record fixes (`d30830a`, builder #15; open item (16) `2d04e9a`, builder #16):** verifier round 4's four (iv) nits —
+    "the whooshes at 0.41" → 0.38, "trap-snap 0.32 on 'shutting down'" → 0.34, "power-down 0.46" → 0.43, "(riser-soft says
+    build / build-up)" → "build / building" — and the same false comment in `sound-match-corpus-r3-ordinary.test.ts:16`
+    (comment only); its note 1 ("the right clip FIRST in the nearest") → "SECOND in four of the seven adjective + verb-form
+    phrasings" here and in TESTING §18.17; open item (16) "trap-snap 0.32" → 0.34 (`E3\catalog-order-fix4.txt`, "the shutting
+    rows": 0.3424 on "shutting down" / "shutting off" / "a shutting down sound"; no shutting row at 0.32).
+  - **Step 4 — what the MODEL SEES, at `34feafe` (builder #16):** per prompt the ANSWER of four versions on the REAL E3 index
+    (read-only — SHA-256 `876f9f61…6c95`, mtime `2026-10-28T22:31:02.584Z` before = after; the pool 57 entries without
+    `generated/`, 51 audio = the fixture): `788c8d2` / `09e81ea` = that matcher's top three, `7967c6f` = matches else
+    nearest, the fill with labels. Columns: answer changed · first shown changed · a right clip LOST · of those none left ·
+    GAINED · a confident first changed · WORSE. **Catalog** (`E3\catalog-order-fix4.txt:4-6`, the 1,073 rows): vs `788c8d2`
+    577 · 283 · 3 · 0 · 186 · 161 · 2; vs `09e81ea` 483 · 208 · 3 · 0 · 120 · 100 · 3; vs `7967c6f` 326 · 7 · 1 · 0 · 15 · 0
+    · 0 (the 1 = "a moving transition"; the 7 firsts = a weak first → a closest first on an exact tie). **The broad set**
+    (`…\vidtsx-e2e\E3\broad-probes-fix4.txt`, summary `E3\broad-probes-fix4-summary.txt:3-6`): 243 base words, 12 nouns
+    (screen, photo, message, board, device, door, page, glass, book, menu, piece, timer), **15,998 probes in nine FRAMES** —
+    F1 bare `<form>`, F2 "a `<form>`", F3 "a `<form>` sound", F4 "a soft `<form>`" (1,281 each), F5 "a `<base>` `<opener>`" ×
+    the 7 placement openers (1,701), F6 "right when the slide changes, a `<base>`" / "just a `<base>`" / "could you add a
+    `<base>`" (729), **F7 participle + noun** "a `<-ed / -ing form>` `<noun>`" (5,064), **F8 noun + participle** "a `<noun>`
+    `<-ing form>`" (2,532), **F9 adjective + verb-form** "a gentle / loud / slow / quiet `<-ing form>`" (848); a right clip =
+    a carrier of the base word: vs `788c8d2` 10,330 · 6,769 · 955 · 880 · 4,690 · 4,667 · 1,976; vs `09e81ea` 8,194 · 4,988 ·
+    88 · 22 · 3,172 · 3,471 · 1,678; vs `7967c6f` 8,159 · 10 · **0 · 0** · 6,482 · **0** · 0 — the fill only adds. **The
+    noun-first class** (summary :46; builder #16's `fix4-analyze*.cjs` counts): 5,709 F7 / F8 probes whose fill first is a
+    CONFIDENT clip carrying only the NOUN — 3,624 AT the 0.5 line (each with a verb carrier in the three — E-d16a notes),
+    2,085 above (0.53–0.89): 2,034 with a verb carrier in the three, **51 without** (all "… screen"; `right in the three:
+    false` = 51); 24 of the 2,085 had a verb carrier first at `09e81ea` (all "a longed / longing `<noun>`" nonsense) →
+    builder #16 BLOCKED → E-d16b.
+  - **The E-d16b definition experiment (builder #17, kit; `E3\variants-fix4b.txt:2-4`, the 15,998 probes, index
+    unchanged):** three readings of "covers" — changed vs `34feafe` · right LOST vs `7967c6f` · right LOST vs `34feafe` ·
+    confident first moved · noun-first above 0.5 with no right clip in the three (`34feafe`: 51): **any** field, any strength
+    63 · 0 · 0 · 0 · **9**; **strong** (tag / name / category) 125 · 0 · 6 · 0 · 0; **asym** (shown rows strong, candidates
+    any) 142 · 0 · 35 · 0 · 0. The strong reading's 6 losses are F4 "a soft `<form>`" (the ten "-soft" FILE NAMES jump ahead
+    — "soft" sits in the confident clip's description, in no tag). **Chosen: any** (no loss anywhere; the matcher's own
+    coverage sense).
+  - **The fix4b re-run at `c5a6124` (builder #18; index unchanged; a fourth column `34feafe`):** catalog
+    (`E3\catalog-order-fix4b.txt:4-7`): vs `788c8d2` 580 · 283 · 4 · 0 · 186 · 161 · 2; vs `09e81ea` 487 · 208 · 4 · 0 · 120 ·
+    100 · 3; vs `7967c6f` 329 · 7 · **2 · 0** · 15 · **0** · 0; vs `34feafe` 10 · 0 · **1 · 0** · 0 · **0** · 0 — the 2 LOST
+    vs `7967c6f` = "a moving transition" (whoosh-wind out by E-d16a's tie rule, whoosh-soft first) and NEW "a sucking whoosh
+    before the reveal" (= the 1 vs `34feafe`: `[matched] whoosh-reverse 0.60 | [closest] pop-reveal 0.21 | [closest]
+    impact-deep-soft 0.21` — the two cover `reveal`, which whoosh-reverse does not; `E3\why-fix4b.txt`), each with a right
+    clip first; the edge rows hold. Broad (`E3\broad-probes-fix4b-summary.txt:3-7`, the same nine frames, 15,998 probes): vs
+    `788c8d2` 10,350 · 6,769 · 941 · 866 · 4,718 · 4,667 · 1,976; vs `09e81ea` 8,218 · 4,988 · 73 · 8 · 3,200 · 3,471 · 1,678;
+    vs `7967c6f` 8,196 · 10 · **0 · 0** · 6,524 · **0** · 0; vs `34feafe` **63** · 0 · **0 · 0** · 42 · **0** · 0 — every
+    number the experiment predicted. The 63, all read (`E3\broad34-read.txt`): 48 = 16 bases × "a `<-ed>` screen" / "a
+    `<-ing>` screen" / "a screen `<-ing>`" (the verb's carrier now in the three after power-down — "a whooshing screen" →
+    `power-down 0.55 | whoosh-soft 0.27 | whoosh-reverse 0.27`) + 15 F4 "a soft `<form>`" (a "-soft" file takes a second verb
+    clip's slot — the "a soft crunching" side effect, a note). The noun-first class (summary :56) 5,709, `right in the three:
+    false` **9** — E-d16c's notes. The 8 vs `09e81ea` with no carrier left: 2 of the 9 + the six F9 "a quiet `<-ing>`" (none
+    lost vs `7967c6f` — fix round 3's matcher, not the fill).
+  - **The greedy experiment, E-d16d — NOT kept (builder #19; kit `E3\sound-answer-greedy.ts`, driver `variants-fix4c`, index
+    unchanged; `E3\variants-fix4c.txt:3-4`, the read file `E3\variants-fix4c-read.txt`):** corpus (1,073) 30 changed · **5
+    right clips LOST vs `c5a6124`** · 5 vs `7967c6f` (**3 NEW**: "a moving whoosh", "a wind blowing softly", "the wind is
+    blowing softly") · 0 gained · **0 confident firsts moved** · recall false 0; the 7 corpus files run with greedy through an
+    alias config → `7 passed (7)` · `1080 passed (1080)` (`corpus-greedy-fix4c.log`); broad (15,998) 895 changed (F4 21 · F7
+    534 · F8 268 · F9 72; 799 pure reorders, 96 swap a clip) · **56 LOST vs `c5a6124`** (6 with none left — "a outed / outing
+    screen", "a screen outing", and "a sparkled / sparkling screen", "a screen sparkling": pop-reveal's DESCRIPTION covers
+    "sparkling", so sparkle-soft drops out) · **20 LOST vs `7967c6f`, all NEW** · 6 gained · 0 confident moved · noun-first
+    "right in the three: false" 15 (`c5a6124` 9); the six quiet probes all FIXED (`:7-12`). By E-d16d's rule **greedy is NOT
+    kept** — `c5a6124` stays, the six are notes.
+  - **Gates, build and the matcher proof** (builder #18 — the gates that count; no `src/` change since): CPU first, then the
+    FIRST default full run counted — files 3 failed / 508 passed / 5 skipped (516), tests 9 / 5,394 / 35 (5,438), 63.53 s, 0
+    "timed out", only the 3 E-d2a suites; rule (b) NONE of 106 paths; tsc web 26 / node 10; `wt/out` rebuilt,
+    `out/main/index.js` 11:54:37 after `c5a6124` (11:36:59), markers 1 / 1 / 3 — the Gates and `wt/out` bullets below. `git
+    diff 7967c6f -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+    src/main/services/library/sound-match-vocab.ts | wc -c` → `0` (as of `2102dbf`, re-checked after this records commit).
+  - **The code, fix round 4** (`git show --stat`; line counts by `wc -l` as of `2102dbf` = `src/` at `c5a6124`; every later
+    commit is docs): `34feafe` NEW `library/sound-answer.ts` (75 → **96** at `c5a6124`) + `sound-answer.test.ts` (89 →
+    **158**), `agent-tools/sound-reuse.ts` (74 → **95**), `audio-tools.ts` (**199**, 2 lines), `studio-agent-prompt-tools.ts`
+    (**87**, :31), `studio-agent-prompt.test.ts` (200 → **204**), NEW `audio-tools-fill.test.ts` (184 → **204**),
+    `audio-tools-miss.test.ts` (180 → **184**), `audio-tools-reuse.test.ts` (173 → **177**); `9a13e3b`
+    `sound-match-corpus-rows.ts` (79 → **146**), NEW `sound-match-corpus-r4-frames.test.ts` (**85**), NEW `-r4-ordinary.test.ts`
+    (**211**); `d30830a` one comment in `sound-match-corpus-r3-ordinary.test.ts` (**45**); `c5a6124` NEW `sound-answer-words.ts`
+    (**39**) + `sound-answer-words.test.ts` (**53**), `sound-answer.ts` / `sound-answer.test.ts` / `audio-tools-fill.test.ts`,
+    one line each in `sound-reuse.ts` and `sound-match-corpus-rows.ts` (the prompt argument). The matcher files unchanged
+    (181 / 211 / 90).
+  - **E-d16's bar for verifier round 5, in one sentence:** it fails E3 only for (i) a corpus row failing (the 809 rows +
+    verifier round 4's probes — now the 264 r4 rows), (ii) an ordinary phrasing where the library clearly has the sound and
+    the right clip is NOT among the answer's three, (iii) a confident (≥ 0.5) match that puts a clearly wrong sound first
+    while the right clip exists, (iv) a false record; a weak match first with the right clip beside it, a stranger in the
+    three, or another class is a note — and by E-d16a a first AT the 0.5 line or tied with a right clip (the right clip in the
+    three) and a right clip sharing no word with the prompt are notes; by E-d16b a confident first already first at
+    `09e81ea`, the right clip in the three, is a note; by E-d16c a right clip missing where a shown confident clip's own text
+    carries the prompt word and that first was already first at `09e81ea` is a note (the 9); by E-d16d the six F9 "a quiet
+    `<-ing>`" probes are notes.
 - **The code** (every file:line below re-read at HEAD `55b223a` for fix round 1, the matcher's at `09e81ea` for fix round 2,
-  the fix-round-3 files at `7967c6f` with line counts by `wc -l` there; `src/` last changed in `7967c6f` — `git log -1
-  --format=%h -- src/` → `7967c6f` and `git diff --stat 7967c6f..HEAD -- src/ scripts/` empty, re-checked after the
-  fix-round-3 records commit (it was `09e81ea` as of `532559a`, `788c8d2` as of `55b223a`); fix round 1 touched only
+  the fix-round-3 files at `7967c6f` with line counts by `wc -l` there — fix round 4's files and today's line counts are in
+  the fix-round-4 bullet above; `src/` last changed in `c5a6124` — `git log -1 --format=%h -- src/` → `c5a6124` and `git
+  diff --stat c5a6124..HEAD -- src/ scripts/` empty as of `2102dbf`, re-checked after the fix-round-4 records commit (it was
+  `7967c6f` after the fix-round-3 records commit, `09e81ea` as of `532559a`, `788c8d2` as of `55b223a`); fix round 1 touched only
   `sound-match.ts` and three test files — `sound-match-placement.test.ts` NEW in `b176881`, `audio-tools.test.ts` /
   `audio-tools-reuse.test.ts` split in `788c8d2`; fix round 2 (`09e81ea`) touched only `sound-match.ts` (249 → 141 lines)
   and added `sound-match-words.ts` (179), `sound-match-words.test.ts` (63), `sound-match-corpus.test.ts` (208) and
@@ -436,7 +615,8 @@
   `sound-reuse.ts` (45 → 74), `audio-tools.ts` (198 → 199), `studio-agent-prompt-tools.ts` (87, five sentences),
   `studio-agent-prompt.test.ts` (200), NEW `audio-tools-miss.test.ts` (180), `audio-tools-reuse.test.ts` (173, one prompt),
   `sound-match-corpus-rows.ts` (62 → 79), `sound-match-corpus.test.ts` (208 → 192), three r3 files (the ten `∅` rows);
-  every other `src/` file is unchanged since `8bde97c`; every later commit is docs):
+  every other `src/` file is unchanged since `8bde97c` apart from fix round 4's four commits (the bullet above); every commit
+  after `c5a6124` is docs):
   - `6224040` — reuse before generate.
     - `src/main/services/library/sound-match.ts` (224 lines at `6224040`, 249 at `b176881`–`788c8d2`, 141 at `09e81ea`,
       **181 since `02e2a10`**; NEW, pure — entries in, ranked matches out, no I/O) + `sound-match-words.ts` (179 at
@@ -467,8 +647,9 @@
       (:100) = coverage + 0.05 per hit, cap 0.10 (:50-51). Ranked by `rankOf`, then strong hits (tag / name / category),
       then `usedIn` count, then relPath (:133-139); top `limit ?? 3` (:140). `generate_music` also drops a bed shorter than
       the asked length (`minDurationSec`).
-    - `src/main/services/studio/agent-tools/sound-reuse.ts` (45 at `6224040`, **74 since `7967c6f`**; pointers as of
-      `7967c6f`): `ReuseAnswer { kind: 'match' | 'nearest'; text }` :27; `formatSoundMatches` :34 ("The library already has N
+    - `src/main/services/studio/agent-tools/sound-reuse.ts` (45 at `6224040`, 74 at `7967c6f`, **95 since `34feafe`**; the
+      pointers in this item are as of `7967c6f` — history: `34feafe` replaced `formatSoundMatches` / `formatNearestSounds` with
+      `formatReuseAnswer` and the labelled rows; the current answer is in the fix-round-4 bullet above): `ReuseAnswer { kind: 'match' | 'nearest'; text }` :27; `formatSoundMatches` :34 ("The library already has N
       sound(s) matching … — nothing was generated (no cost, no provider needed):" + E2's `formatLibraryRow` rows — ref ·
       duration · origin · description · category · tags · LUFS · used in); `formatNearestSounds` :45 (the miss answer —
       "No library sound matched "<prompt>" well — nothing was generated (no cost, no provider needed). The closest library
@@ -491,7 +672,8 @@
       whoosh, a hit, a chime, a music bed) search it first: `list_assets(scope: "library", kind: "audio", query: "whoosh")`
       …"; :31 `generate_sfx(…, force?)` — "It checks the library FIRST: when sounds there match the prompt it returns the
       top three `library:<path>` refs instead of generating (no cost, no provider needed) … pass `force: true` only when none
-      of them fits"; :32 `generate_music` — "same library check as generate_sfx (a bed shorter than the length you ask is not
+      of them fits" (the wording until `34feafe`; since then "… returns up to three `library:<path>` refs …, each row
+      labelled …" — the fix-round-4 bullet above); :32 `generate_music` — "same library check as generate_sfx (a bed shorter than the length you ask is not
       offered)"; :70 step 6 — "Sound: search the library before generating any sound … only when nothing fits,
       `generate_sfx` … or `generate_music`"; :75 the EDITING PRESET mapping — "an `sfx` step means `list_assets(scope:
       "library", kind: "audio")` FIRST and a library sound that fits, else `generate_sfx` …; a `music` step the same".
@@ -576,9 +758,16 @@
   rc 0 (`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\build-fix3.log`), main "✓ built in 10.39s", preload "192ms",
   renderer "✓ built in 2m 32s", only the 3 "use client" warnings; `out/main/index.js` **00:54:49** (3,064,094 bytes),
   `out/renderer/index.html` 00:57:20 — both AFTER the `7967c6f` commit (00:30:57); `out/main/index.js` holds "No library
-  sound matched" (1 hit) and `STEM_STRENGTH` / "closest library sounds" (9 hits) (re-read by builder #12). `src/`
-  unchanged since `7967c6f` (`git diff --stat 7967c6f..HEAD -- src/ scripts/` empty, re-checked after the fix-round-3
-  records commit) — the build is the current code.
+  sound matched" (1 hit) and `STEM_STRENGTH` / "closest library sounds" (9 hits) (re-read by builder #12). `src/` was
+  unchanged since `7967c6f` after the fix-round-3 records commit — that build was the current code then. **Rebuilt at
+  `c5a6124`** by builder #18 (fix round 4 changed main code; 11:54:14 → 11:57:38; 0 `electron.exe`, C: 51.8 GB free; tree =
+  `c5a6124` + docs only): the same command → rc 0 (`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\build-fix4.log`), main
+  "✓ built in 12.69s", preload "✓ built in 245ms", renderer "✓ built in 2m 59s", no warn / error line but "use client";
+  `out/main/index.js` **2026-10-29 11:54:37** (3,067,635 bytes), `out/renderer/index.html` 11:57:36 — both AFTER the
+  `c5a6124` commit (11:36:59); in `out/main/index.js` (`grep -c`, as of `2102dbf`): "The library may have a sound for" **1**
+  (the fill's marker), "No library sound matched" **1**, "PLACEMENT_BONUS" **3**. `src/` unchanged since `c5a6124` (`git diff
+  --stat c5a6124..HEAD -- src/ scripts/` empty as of `2102dbf`, re-checked after the fix-round-4 records commit) — the build
+  is the current code.
 - **The live step** (builder #3, 2026-10-28 ~20:00–20:15; CDP 9263; two launches, both WITHOUT `VIDTSX_AUDIO_STANDIN_FILE`;
   watchdog on; guard before each launch and the import: C: 50.3 GB, D: 43.8 GB, headroom 28.3–28.8 GB; first call
   `studioRootSet` → `studioRootGet` = `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\root`; `libraryRootGet` =
@@ -645,8 +834,28 @@
     pill "Origin: imported ×" (every `sfx/` file is imported — nothing to narrow here; origin matching is unit-tested)
     (`live-assets.json`, `live-assets2.json`, `assets-full.png`).
   - The app was stopped after each launch by profile path + `Name='electron.exe'` (4 and 5 processes, 0 left).
-- **Gates** (fix round 3, builder #11, 2026-10-29 00:47–00:57; no app running — 0 `electron.exe`; `src/` as of `7967c6f`,
-  the code the current `wt/out` build holds; the docs HEAD during the runs `1d7d5ed`; logs in
+- **Gates** (fix round 4, builder #18, 2026-10-29 11:50–11:54; no app running — 0 `electron.exe`; `src/` as of `c5a6124`,
+  the code the current `wt/out` build holds; the docs HEAD during the runs `1535ba7`; logs in
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\` unless named under the D: scratch). **DRIVING's NORMAL rule, NOT E-d13** —
+  **CPU measured** 11:50:57 (`cpu-fix4.txt`): 16 logical cores, `LoadPercentage` 32 / 39 (before / after the 5 s window),
+  per-process sum over 5 s **48.22 %** of all cores (`brave` 20.04 %, `MsMpEng` 6.97 %, `chrome` 3.61 %, `vmmemWSL` 2.58 %,
+  `WmiPrvSE` 2.42 %, `System` 1.7 %, the rest ≤ 1.23 %) — moderate external load (a browser), so the normal rule first; guard
+  C: 51.8 GB, D: 43 GB, memory commit limit 99.7 GB / headroom 25.8 GB (C: + headroom 77.6 GB), 0 `electron.exe`, no
+  `%TEMP%\vidtsx-studio\export`. Full worktree vitest from a script file in the background (`E3\vitest-full-fix4.sh`: `cd
+  <wt>; unset ELECTRON_RUN_AS_NODE; node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run`): **run 1 = the COUNTED
+  run** (`Start at` 11:51:35, `vitest-full-fix4.log`) → **`Test Files 3 failed | 508 passed | 5 skipped (516)` · `Tests 9
+  failed | 5394 passed | 35 skipped (5438)` · 63.53 s, 0 "timed out"**; the 3 files / 9 tests = `builder-libraries` 1,
+  `shot-bundle` 5, `shot-bundle-in-place` 3 — E-d2a's package-resolution suites only. Gate MET on the first default run. The
+  totals grew from fix round 3's 511 files / 5,141 tests by the two r4 corpus files and the answer / words / fill tests. Rule
+  (b) of E-d2a at `c5a6124`: `git diff --name-only 5d77600..HEAD -- src/ scripts/` → **106 paths (105 under `src/`, 1
+  `scripts/`; the unfiltered list 122 incl. docs)** (`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\diff-list-fix4.txt`;
+  the same 106 as of `2102dbf`, re-checked after the fix-round-4 records commit) vs the suites' import graphs (`node
+  C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs <wt> diff-list-fix4.txt`, rc 0) → 2 / 15 / 23 local modules
+  (+ `scripts/builder-unpack.mjs` 1), touched by the E diff: **NONE** (`…\E3\import-graph-fix4.txt`). Types at `c5a6124`:
+  `tsc -p tsconfig.web.check.json --noEmit` **26** `error TS` (`tsc-web-fix4.log`), `-p tsconfig.node.check.json` **10**
+  (`tsc-node-fix4.log`); 0 lines name `sound-` / `audio-tools` / `library-listing`. `wt/out` rebuilt at `c5a6124` (above).
+- **Gates, fix round 3** (history; builder #11, 2026-10-29 00:47–00:57; no app running — 0 `electron.exe`; `src/` as of
+  `7967c6f`, the code the `7967c6f` `wt/out` build held; the docs HEAD during the runs `1d7d5ed`; logs in
   `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\` unless named under the D: scratch). **DRIVING's NORMAL rule, NOT E-d13** —
   **CPU measured** 00:47:45 (`cpu-fix3.txt`): 16 logical cores, `LoadPercentage` 28 / 29 (before / after the 5 s window),
   per-process sum over 5 s **19.6 %** of all cores (`vmmemWSL` 7.8 %, `OLED Care Screensaver.scr` 4.9 %, `System` 1.7 %,
@@ -757,8 +966,8 @@
   right after their code — and `sound-match-words.test.ts` (fix round 2, written after the code). No component tests — vitest
   is node-only; the components were checked live only, the hook's DOM event order live in both directions (above). (9)
   `AssetLibraryScreen.tsx` is 464 lines (456 before E3 — already over the ~300 rule; a split is later cleanup);
-  `audio-tools.test.ts` 202 + `audio-tools-reuse.test.ts` 173 since `788c8d2`; `sound-match.ts` 249 as of `788c8d2`, 141 +
-  `sound-match-words.ts` 179 since `09e81ea`. (10) The importer
+  `audio-tools.test.ts` 202 + `audio-tools-reuse.test.ts` 173 since `788c8d2` (177 since `34feafe`); `sound-match.ts` 249 as
+  of `788c8d2`, 141 + `sound-match-words.ts` 179 at `09e81ea`, 181 + 211 since `02e2a10` (`wc -l` as of `2102dbf`). (10) The importer
   rewrites the gitignored `wt/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs` on every run — scratch (verifier
   note 6). (11) Stated design choices: `generate_music` follows the same rule (T6 names only
   `generate_sfx`); the `list_assets` query is broadened (strictly broader for one word). (12) The stand-in returns identical
@@ -814,13 +1023,58 @@
   LF (the older ones CRLF) — cosmetic. (23) The broad set is mechanical: ~60 % of its 7,554 probes are nonsense inflections
   ("keysing", "cozyy") — their changes vs `788c8d2` are the loose prefix rule's artefacts, not regressions; the
   ordinary-phrasing content is the 243 base words × the 10 placement / wrapper forms + the real inflections; the verifier's
-  own probe set (E-d15) should be phrasings a user types, not this generator.
+  own probe set (E-d15) should be phrasings a user types, not this generator. (24) **Verifier round 4's notes 1–10, where
+  they stand at `c5a6124`:** 1 — corrected in the records by `d30830a` (the fill now shows those phrasings' clips as
+  `[closest]` rows under fix round 3's miss wording — "a soft knocking" → three closest, `audio-tools-fill.test.ts`); 2 —
+  vocabulary gaps that generate without `force` (no candidate scores): "a buildup" (riser-soft is tagged `build`; only "a
+  build-up" matches — the strongest (ii) candidate by plain meaning, a vocabulary note by E-d16a), "a ding" ×3, "a runner",
+  "eaten", "woooosh", "a clicker / ticker / zipper"; 3 — a music prompt containing "bed" is never a true miss on this library
+  (every bed carries the tag `bed`); 4 — "an F major triad" → `piano-c-maj` (one-letter tokens dropped, the three majors tie;
+  the corpus's `edge: 'tie'` row); 5 — "cozy lofi hip hop under the tutorial" / "a click every single time the button is
+  tapped" → no match at `7967c6f` with the right clip first in the nearest (F1-class near misses; not re-measured per
+  phrasing at the fill); 6 — "objects clattering down" → no match (nearest `crash-tumble 0.44`), a 0.58 match at both olds —
+  class (16); 7 — strangers first in a closest list ("a single bell ring" → `knock-solid 0.20` ahead of the chimes, "a dying
+  battery" → `flame-snuff | power-down 0.24`, "a tap running" / "running creek" / "a river running" → `dash-zip` alone); 8 —
+  polysemy confident matches with no right clip ("a fire crackling" → `launch-thump`, "winding up" → the wind clips, "a
+  shocking moment" → `zap-electric`, "a flickering screen" → `power-down`; the same at both olds); 9 — the index's `hash`
+  field is not a SHA-1 of the file bytes (nothing in E3 reads it); 10 — a generated file without a `category` argument
+  indexes `category undefined` (expected). (25) **The noun-first class** (builder #16, at `34feafe`): 5,709 F7 / F8 broad
+  probes whose first is a CONFIDENT clip carrying only the noun — 3,624 at the 0.5 line (E-d16a notes), 2,085 above it
+  (0.53–0.89; 2,061 with that first or a non-carrier first already at `09e81ea`; 24 had a verb carrier first there — all "a longed /
+  longing `<noun>`" nonsense, a 0.50 tie) — "a zapped device" → `[matched] power-down 0.54 | [closest] glitch-zap 0.28 | [closest]
+  zap-electric 0.28`: E-d16b notes. (26) **The 9 (E-d16c notes):** "a clicked / clicking screen", "a screen clicking"
+  (power-down's description "one soft click" carries the verb word), "a softed / softing screen", "a screen softing", "a
+  warmed / warming screen", "a screen warming" (pop-reveal's "warm … soft … on screen") — a shown confident clip's own text
+  carries every prompt word, so E-d16b cannot fire; each first already first at `09e81ea`; "a clicking screen" is the one
+  ordinary phrasing. (27) **Strangers in the three by the fill's own rules:** "a moving transition" — `[matched] whoosh-soft
+  0.50 | [closest] chess-piece-thock 0.30 | [closest] wind-soft 0.30`, whoosh-wind (a weak match at 0.30) fourth by E-d16a's
+  tie rule; "a sucking whoosh before the reveal" — pop-reveal / impact-deep-soft (they cover `reveal`) replace whoosh-soft /
+  whoosh-wind by E-d16b; whoosh-soft / whoosh-reverse first and confident in both — the catalog's 2 LOST vs `7967c6f`. (28)
+  **The "a soft crunching" side effect** (15 F4 broad probes): when the confident clip covers the verb but not `soft`, a
+  "-soft" FILE NAME (whoosh-soft / impact-soft 0.16–0.18) takes a second verb clip's slot ("a soft crunching" → `crunch-bite
+  0.50 | whoosh-soft 0.16 | impact-soft 0.16`, was `| break-crash-digital 0.30 | whoosh-soft`); the right clip stays first.
+  (29) **The six F9 "a quiet `<-ing>`" probes (E-d16d's fallback):** "a quiet airing / emphasising / singling / snapping /
+  tailing / warming" → three `quiet` clips (clock-tick-soft, keys-typing-soft, scan-hum; 0.31–0.36) above the verb's carrier
+  (0.25–0.29), no confident row so E-d16b does not apply; the same at `7967c6f` (fix round 3's matcher), shown at `09e81ea`;
+  greedy fixed all six but lost right clips elsewhere, so it was not kept — "a quiet snapping" / "a quiet warming" read as
+  ordinary phrasings. (30) Music "may have" is covered by the pure unit tests only (no music prompt on the 51-clip fixture
+  yields a weak match — `E3\fix4-rank.txt`). (31) The broad set's 10 first changes vs `7967c6f` are a weak first → a closest
+  first on an exact tie ("a quiet appearing / firing / flipping / marking / moving / switching" → the verb carrier; "a
+  screen firing / flipping / marking / moving" → `[closest] power-down 0.47` first, the verb carrier second — E-d16 notes).
+  (32) Stated choices and kit facts: the answer's kind follows the rows shown; the E-d16b groups are formed once against the
+  shown confident rows; the prompt is a required argument of `selectSoundAnswer` (the kit's `fix4-corpus.e3.test.ts` /
+  `fix4-lib.ts` still call it with one — finished reports, not re-run); the greedy kit module writes
+  `E3\greedy-loaded.txt` on load (scratch); builder #18 appended one HANDOFF block by heredoc (content checked); the "For
+  Hasan" line below said "the right clip is first in it" for the adjective + verb-form class until this records commit
+  (verifier round 4's note 1 — `d30830a` corrected the three other places).
 - **For Hasan:** listening to a tile / the details playback in the Assets screen and to a placed library whoosh in the real
   editor (the by-ear half of "plays"); the one live ElevenLabs generation (E2's item, a real key) through the reuse rule
   with `force`; watching the reuse offers in real use (the matcher is a heuristic — the corpus is the bar, E-d14 then
   E-d15; a prompt that ranks badly is added to the corpus). Since fix round 3: an adjective the clip's own text lacks +
   a verb-form head ("a soft knocking", "a slow ticking") answers the nearest list instead of a match — the right clip is
-  first in it, nothing is generated (item (16) below); the -er real words ("a door knocker", "a ticker", "a zipper") find
+  in it (SECOND in four of the seven such phrasings; since fix round 4 shown as `[closest]` rows), nothing is generated
+  (item (16) above); since fix round 4 every answer shows up to three labelled library sounds, so a right clip a weak or
+  wrong first used to hide is now beside it, and a few strangers ride along in the three (items (25)–(29) above); the -er real words ("a door knocker", "a ticker", "a zipper") find
   nothing (a synonym gap, fix round 2's design); on a clean library a sound it lacks ("a cuckoo clock chime") now gets the
   closest three first and a generation needs `force: true` — one extra tool call per true novelty (E-d15).
 - **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\` — `live.json` (every live number), `live-assets.json`,
