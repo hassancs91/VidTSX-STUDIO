@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF (builder #18, 2026-10-29 11:58) — **items 2–4 DONE (no `src/` change; `src/` = `c5a6124`): item 2 the fix4b re-run (catalog + broad — every number builder #17's experiment predicted holds; 9 left = E-d16c's NOTES), item 3 the gates (vitest 3 / 508 / 5 — the E-d2a suites only, first default run; tsc 26 / 10; rule (b) NONE), item 4 `wt/out` rebuilt 11:54. Item 5 (the records, incl. E-d16c) is next — builder #19, Next step.** Before: HANDOFF (builder #17, 2026-10-29 11:37) — **Hasan answered builder #16 with E-d16b (the word-diversity rule + a long-standing confident first is a note). Builder #17 item 1 DONE `c5a6124`: the E-d16b rule in `sound-answer.ts` + NEW `sound-answer-words.ts` (red → green; "covers" = any matcher field, any strength — the definition experiment in Built "builder #17"); items 2–5 (re-run the corpus + both step-4 drivers → `*-fix4b` reports, gates, rebuild, records) are next — Next step.** Before: BLOCKED (builder #16, 2026-10-29 11:15) — **step 4 (regression + broad probes) DONE: the fill regresses nothing vs `7967c6f`; a question E-d16 / E-d16a do not settle (confident noun-carrier firsts ABOVE the 0.5 line on participle + noun phrasings, pre-existing at `09e81ea`; 51 probes with the verb carrier not in the three) — Open problems "builder #16", Next step; steps 5–7 wait for Hasan's answer.** Earlier: **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) DONE by builder #15 `d30830a`; step 4 (regression + broad probes) is next, then 5–7 — builder #16** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
+status: HANDOFF (builder #19, 2026-10-29 12:12) — **E-d16d items 1–2 DONE, NO `src/` change (`src/` = `c5a6124`): the greedy experiment (kit; corpus 1,073 + broad 15,998, index unchanged) fixes the six quiet probes but LOSES right clips (vs `c5a6124`: corpus 5, broad 56 — 6 with none left, incl. "a sparkling screen"; vs `7967c6f`: 3 / 20 NEW), 0 confident firsts moved, corpus green → by E-d16d's rule greedy is NOT kept; `c5a6124` stays and the six F9 "a quiet `<-ing>`" probes are NOTES (Built / Verified "builder #19"). Item 3 (the records, incl. E-d16c + E-d16d) is next — builder #20, Next step.** Before: HANDOFF (builder #18, 2026-10-29 11:58) — **items 2–4 DONE (no `src/` change; `src/` = `c5a6124`): item 2 the fix4b re-run (catalog + broad — every number builder #17's experiment predicted holds; 9 left = E-d16c's NOTES), item 3 the gates (vitest 3 / 508 / 5 — the E-d2a suites only, first default run; tsc 26 / 10; rule (b) NONE), item 4 `wt/out` rebuilt 11:54. Item 5 (the records, incl. E-d16c) is next — builder #19, Next step.** Before: HANDOFF (builder #17, 2026-10-29 11:37) — **Hasan answered builder #16 with E-d16b (the word-diversity rule + a long-standing confident first is a note). Builder #17 item 1 DONE `c5a6124`: the E-d16b rule in `sound-answer.ts` + NEW `sound-answer-words.ts` (red → green; "covers" = any matcher field, any strength — the definition experiment in Built "builder #17"); items 2–5 (re-run the corpus + both step-4 drivers → `*-fix4b` reports, gates, rebuild, records) are next — Next step.** Before: BLOCKED (builder #16, 2026-10-29 11:15) — **step 4 (regression + broad probes) DONE: the fill regresses nothing vs `7967c6f`; a question E-d16 / E-d16a do not settle (confident noun-carrier firsts ABOVE the 0.5 line on participle + noun phrasings, pre-existing at `09e81ea`; 51 probes with the verb carrier not in the three) — Open problems "builder #16", Next step; steps 5–7 wait for Hasan's answer.** Earlier: **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) DONE by builder #15 `d30830a`; step 4 (regression + broad probes) is next, then 5–7 — builder #16** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -833,7 +833,66 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   NO matcher change (E-d16 / E-d16c) → recorded as an open note: **"a quiet snapping" / "a quiet warming" are plausible phrasings — a
   verifier could read them as bar (ii)** (they were in builder #16's 22 too, at `34feafe`; the fill did not cause them).
 
+### Built (builder #19, fix round 4, 2026-10-29) — E-d16d items 1–2: the GREEDY experiment → NOT kept (the fallback); NO `src/` change (code stays `c5a6124`)
+
+- **The variant (kit only, never in `src/`):** `E3\sound-answer-greedy.ts` = `sound-answer.ts` at `c5a6124` with `newWordsFirst`
+  replaced by `greedyFill` — after the confident rows (≤ 3, the matcher's order) the slots are filled ONE AT A TIME: among the
+  remaining below-threshold rows (weak + closest, in E-d16a's order: coverage, a closest before a weak match on a 1e-9 tie), the first
+  that covers a prompt word NO already-shown row (confident OR an earlier pick) covers; none → E-d16a's next. No confident row → the
+  first slot is E-d16a's top. "Covers" = the SHIPPED `sound-answer-words.ts` (`promptSoundWords` / `wordsCoveredBy`: any field, any
+  strength, `promptTerms(prompt).terms`) imported unchanged. Same exports as the shipped module.
+- **The driver:** `E3\variants-fix4c.e3.test.ts` — the 1,073 corpus rows (the seven files' `ROWS`, read as `catalog-fix4b` does; a
+  right clip = one the expected string names) AND builder #16's 15,998 broad probes (frames F1–F9 generated verbatim as
+  `variants-fix4b` does; a right clip = a carrier of the base word); per row the `7967c6f` answer, the shipped fill `c5a6124` (HEAD,
+  via `fix4b-lib.answers`) and the greedy fill. **Report `E3\variants-fix4c.txt`** (374,932 bytes, every changed row inline — under
+  1 MB, so nothing went to C:): :1-2 the index — 61 entries, the pool 57 without `generated/`, 51 audio = the fixture verbatim; SHA-256
+  `876f9f61…6c95` / mtime `2026-10-28T22:31:02.584Z` before = after, **UNCHANGED**; :3-4 the counts; :7-12 the six quiet probes.
+  The READ: `E3\variants-fix4c-read.txt` (180 lines, by awk from the report: the 30 corpus rows ids-only, the 895 broad per frame and as
+  removed → added patterns, the 96 broad rows with a clip swapped per probe).
+- **Corpus (1,073) — `variants-fix4c.txt:3`:** answers changed vs `c5a6124` **30** · right clip LOST vs `c5a6124` **5** (all with
+  another right clip still shown: "a taking off whoosh" whoosh-soft → chess-piece-capture; "a whoosh going down" whoosh-reverse →
+  party-popper; "a moving whoosh" whoosh-wind → chess-piece-thock; "a wind blowing softly" / "the wind is blowing softly" wind-soft →
+  riser-soft) · right LOST vs `7967c6f` **5** — **3 NEW** ("a moving whoosh" whoosh-wind, "a wind blowing softly" / "the wind is
+  blowing softly" wind-soft) + the 2 `c5a6124` already had ("a sucking whoosh before the reveal", "a moving transition") · GAINED 0 ·
+  first moved 0 · **confident first moved 0** · recall false (right clip not in the three) greedy **0** / `c5a6124` 0.
+- **The 7 corpus files run WITH the greedy selection:** `E3\vitest.e3-greedy-corpus.config.ts` (root = the worktree, include
+  `src/main/services/library/sound-match-corpus*.test.ts`, alias `^\./sound-answer$` → the kit's greedy file; nothing in the worktree
+  changes) → **7 files passed / 1,080 tests passed** (1,073 rows + 7 count tests); the alias proven by the module's own marker
+  `E3\greedy-loaded.txt` (deleted before, written 12:05:53 by that run). **The corpus stays green** — its rows check recall in the
+  three, and every lost clip above left another right clip shown.
+- **Broad (15,998) — `variants-fix4c.txt:4`:** answers changed vs `c5a6124` **895** (F4 21 · F7 534 · F8 268 · F9 72; **799 are pure
+  reorders of the same three clips**, 96 swap a clip) · right LOST vs `c5a6124` **56** — **6 with NO right clip left**: "a outed / outing
+  screen", "a screen outing" (whoosh-wind → pop-reveal) and **"a sparkled / sparkling screen", "a screen sparkling" (sparkle-soft →
+  scan-hum — E-d16b's own target undone: pop-reveal's DESCRIPTION covers "sparkling", so once it is shown no clip adds a new word and
+  E-d16a's next, scan-hum, takes the slot)**; the other 50 keep a right clip (F7 / F8 "… screen" second carriers — whoosh-reverse,
+  chime-magic, ui-send, camera-shutter, clock-tick-soft, keys-typing-soft, pencil-scribble, piano-c-maj, whoosh-data-burst — and F4 / F9
+  "a soft / gentle / quiet `<-ing>`" second carriers replaced by a "-soft" file or clock-tick-soft) · right LOST vs `7967c6f` **20, all
+  NEW** (`c5a6124`: 0) — F4 / F9: "a soft / gentle / quiet brokening", "a soft brokened" (crash-tumble), "a gentle / quiet digitaling"
+  (whoosh-data-burst), "a gentle / quiet failing" (break-glass-crack), "a quiet impacting" (launch-thump), "a soft / gentle / quiet
+  majing", "a soft majed" (piano-g-maj), "a quiet motioning" (whoosh-wind), "a soft / gentle / quiet pianoing", "a soft pianoed"
+  (piano-f-maj), "a quiet rewarding" (warm-shimmer), "a quiet whooshing" (whoosh-wind) · GAINED **6** (= the six quiet probes) · first
+  moved 0 · **confident first moved 0** · noun-first "right in the three: false" greedy **15** / `c5a6124` 9 (+ "a outed / outing
+  screen", "a screen outing", "a sparkled / sparkling screen", "a screen sparkling").
+- **The six F9 "a quiet `<-ing>`" probes (`variants-fix4c.txt:7-12`): all six FIXED by greedy** (a carrier 2nd, e.g. "a quiet
+  snapping" → `clock-tick-soft 0.31 | ui-click-soft 0.29 | keys-typing-soft 0.31`, "a quiet warming" → `… | warm-shimmer 0.25 | …`).
+- **The decision (E-d16d's rule, binding): greedy is NOT kept.** It moves no confident first and the corpus stays green, but it LOSES
+  right clips vs `c5a6124` (corpus 5, broad 56 — 6 with none left) and vs `7967c6f` (corpus 3 NEW, broad 20 NEW). So: NO code change,
+  `c5a6124` stays, the experiment is recorded here, and **the six F9 "a quiet `<-ing>`" probes ("a quiet airing / emphasising /
+  singling / snapping / tailing / warming") are NOTES for verifier round 5 (E-d16d's fallback)**. Builder #18's gates and `wt/out`
+  build stand (no `src/` change since `c5a6124`).
+
 ## Verified (exact commands + outputs)
+
+### builder #19 (E-d16d items 1–2, 2026-10-29 12:03–12:15) — no launch, no model call, no `src/` change (HEAD `e3bcfdf`, `src/` = `c5a6124`)
+
+- From the worktree root (`unset ELECTRON_RUN_AS_NODE`): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config
+  D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E3/vitest.e3.config.ts variants-fix4c > E3\variants-fix4c.log` → `Test Files 1 passed
+  (1) · Tests 1 passed (1)`, Start 12:05:39, 136.83 s, rc=0 (the driver asserts the index SHA / mtime unchanged).
+- `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config
+  D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E3/vitest.e3-greedy-corpus.config.ts > E3\corpus-greedy-fix4c.log` (marker deleted
+  first) → `Test Files 7 passed (7) · Tests 1080 passed (1080)`, Start 12:05:53, 2.64 s, rc 0; `E3\greedy-loaded.txt` = `loaded
+  2026-10-29T10:05:53.997Z` (= 12:05:53 local, this run). (A first corpus run at 12:05:39 overlapped the driver's start, so its marker
+  could not be attributed — the re-run alone is the counted one; both 7 / 1,080 green.)
 
 ### builder #18 (item 2, 2026-10-29 11:41–11:50) — no launch, no model call, no `src/` change (HEAD `bedcff8`, `src/` = `c5a6124`)
 
@@ -1423,11 +1482,17 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 4, continued — builder #19: item 5, the records (items 1–4 are DONE: #17 `c5a6124` the rule; #18 the fix4b re-run, the
-gates, the rebuild — Built / Verified "builder #18"; do not redo them; no code change, no launch, no model call).** Write, with the
-Edit tool, (a) the Status.md E3 entry: title :10 → "…; fix round 4 after verifier round 4 FAIL on F4 (builders #13–#19, decisions
-E-d16 + E-d16a + E-d16b + E-d16c: the answer-level recall fill with the word-diversity rule, no matcher change); the E3 verifier round
-5 — E3's last — is next" (and DONE stays); a NEW bullet "**Verifier round 4 FAIL (F4 …) → fix round 4 `34feafe` `9a13e3b` `d30830a`
+**FIX ROUND 4, continued — builder #20: E-d16d item 3, the records (everything else is DONE: #17 `c5a6124` the rule; #18 the fix4b
+re-run, the gates, the rebuild; #19 the greedy experiment → NOT kept, the fallback — Built / Verified "builder #18" and "builder #19";
+do not redo them; no code change, no launch, no model call).** Write, with the Edit tool (never Python / node / sed / heredoc for a doc
+edit), (a) the Status.md E3 entry: title :10 → "…; fix round 4 after verifier round 4 FAIL on F4 (builders #13–#20, decisions
+E-d16 + E-d16a + E-d16b + E-d16c + E-d16d: the answer-level recall fill with the word-diversity rule, no matcher change); the E3
+verifier round 5 — E3's last — is next" (and DONE stays); **plus E-d16d in the new bullet: one line for the decision (ORCHESTRATOR.md
+"### E-d16d" :1494) and the greedy experiment from `E3\variants-fix4c.txt:1-4` + `:7-12` and `E3\variants-fix4c-read.txt` (Built
+"builder #19": corpus 30 changed / 5 LOST vs `c5a6124` / 3 NEW vs `7967c6f` / 0 conf moved / corpus 7 files 1,080 green with greedy;
+broad 895 changed (799 reorders) / 56 LOST vs `c5a6124` (6 none left, incl. "a sparkling screen") / 20 NEW vs `7967c6f` / 0 conf
+moved / noun-first 15 vs 9; the six quiet probes fixed by greedy → greedy NOT kept by E-d16d's rule → the six are NOTES); the gates
+that count = builder #18's (no code change);** a NEW bullet "**Verifier round 4 FAIL (F4 …) → fix round 4 `34feafe` `9a13e3b` `d30830a`
 `c5a6124`.**" after the round-3 bullet (:137 to :424 as of `1535ba7` — re-grep) carrying builders #13–#18 in substance: F4 in one
 sentence; E-d16 / E-d16a / E-d16b / E-d16c in one line each (E-d16c from ORCHESTRATOR.md "Session 9" — read the "### E-d16c" block
 :1476, never stage that file); the fill + labels + wording (Built "#13"); how "covers" is decided (Built "#17": `sound-answer-words.ts`
@@ -1441,13 +1506,15 @@ the three test files). (b) The Status.md "The code" bullet (:425) if it lists th
 "Gates (fix round 4, builder #18 …)" bullet from Verified "builder #18" items 3–4, the round-3 one marked history; the `wt/out` line
 (:561) → built at `c5a6124` 11:54:37; "Not measured / open" (:739) + verifier round 4's notes 1–10 (Open problems "Verifier round 4"),
 the 9 (E-d16c), "a sucking whoosh before the reveal", the "a soft crunching" side effect, "a moving transition", the F9 "a quiet
-`<-ing>`" six (Open problems "builder #18" item 4 — the risk sentence verbatim). (c) TESTING §18.17 (:524-543): a NEW `- [x]
+`<-ing>`" six — now NOTES by E-d16d's fallback (Open problems "builder #18" item 4 + "builder #19"; greedy fixed them but lost right
+clips elsewhere, so it was not kept). (c) TESTING §18.17 (:524-543): a NEW `- [x]
 **Verifier round 4 FAIL (F4 …) → fix round 4 …**` line after :533, the Gates line :539 → fix round 4's, the Not-measured line :540 +
 the same notes. Numbers only from the report files (re-open each one you cite). Commit `docs(studio): E3 fix round 4 — the records`
 (explicit paths: Status.md docs/studio/TESTING.md docs/studio/end-to-end/E3/HANDOFF.md docs/studio/end-to-end/E3/LOG.md); every git /
 tree / build statement "as of `<hash>`", re-checked AFTER the commit; HANDOFF `status: DONE`, Next step = "E3 verifier round 5 — E3's
-LAST; bar E-d16 + E-d16a + E-d16b + E-d16c (CDP 9273, `profiles\E3-verify` may be reused; range `74b29e0..HEAD`; the records to check:
-Status.md E3 entry :<first>-<last>, TESTING §18.17 :<first>-<last>)"; the LOG line; commit.
+LAST; bar E-d16 + E-d16a + E-d16b + E-d16c + E-d16d (CDP 9273, `profiles\E3-verify` may be reused; range `74b29e0..HEAD`; the records
+to check: Status.md E3 entry :<first>-<last>, TESTING §18.17 :<first>-<last>)"; the LOG line; commit. (Re-check before writing: `git log
+-1 --format=%h -- src/` = `c5a6124`; `git diff --stat c5a6124..HEAD -- src/ scripts/` empty; matcher diff vs `7967c6f` 0 bytes.)
 
 (Builder #18's own start note, 11:52 — kept:) **Item 2 is DONE (Built / Verified "builder #18" — do not redo it); builder #18 continues with item 3 (gates),
 item 4 (rebuild), item 5 (records) as worded below. E-d16c (Hasan 11:46, ORCHESTRATOR.md "Session 9" — the orchestrator's
@@ -1857,6 +1924,17 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 #4 (gates + records) is done: gates green (Verified above), records committed; no code change, no live run.
 
 ## Open problems
+
+### Fix round 4 (builder #19, E-d16d items 1–2) — notes for the records, none blocking (E-d16d's fallback settles the quiet six)
+
+1. **The six F9 "a quiet `<-ing>`" probes are NOTES for verifier round 5** (E-d16d's fallback; Hasan 12:05): "a quiet airing /
+   emphasising / singling / snapping / tailing / warming" — no confident row is shown and five `quiet` clips tie above the verb's
+   carrier, so E-d16b does not fire; greedy would show a carrier 2nd in all six (`E3\variants-fix4c.txt:7-12`) but was not kept.
+2. **Why greedy was not kept, in one line for the records:** once a below row is picked, a SECOND carrier of the same word no longer
+   adds a word, so E-d16a's next (often a stranger with more coverage) takes the slot — corpus 5 / broad 56 right clips lost vs
+   `c5a6124`, 3 / 20 NEW losses vs `7967c6f`, and the description-cover case undoes E-d16b's own target ("a sparkling screen":
+   pop-reveal's description covers "sparkling" → sparkle-soft out, none left). 0 confident firsts moved; the corpus stayed green.
+3. Kit hygiene: the greedy module writes `E3\greedy-loaded.txt` on load (the alias proof); it is a scratch file, never committed.
 
 ### Fix round 4 (builder #18, items 2–4) — notes for the records, none blocking (E-d16c settles the 9)
 
@@ -2270,6 +2348,10 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Do-not-redo
 
+- E-d16d items 1–2 (builder #19, NO `src/` change, `src/` = `c5a6124`): the greedy experiment (`E3\sound-answer-greedy.ts`,
+  `E3\variants-fix4c.e3.test.ts`, `E3\vitest.e3-greedy-corpus.config.ts` → `E3\variants-fix4c.txt`, `E3\variants-fix4c-read.txt`,
+  `E3\corpus-greedy-fix4c.log`) and its decision — greedy NOT kept (it loses right clips vs `c5a6124` and `7967c6f`); the six quiet
+  probes are notes. Never implement greedy; never re-run the gates or the build for it (builder #18's stand).
 - Fix round 4 items 2–4 (builder #18, docs commits only, `src/` = `c5a6124`): the fix4b re-run (`E3\catalog-order-fix4b.txt`,
   `…\vidtsx-e2e\E3\broad-probes-fix4b.txt`, `E3\broad-probes-fix4b-summary.txt`, the 63-row read `E3\broad34-read.txt`,
   `E3\why-fix4b.txt`), the gates (`…\E3\cpu-fix4.txt`, `vitest-full-fix4.log`, `tsc-web-fix4.log` / `tsc-node-fix4.log`,
@@ -2425,3 +2507,8 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   fix round 3's matcher — a verifier risk noted); gates (CPU 48 % external, normal rule met on run 1: 3 / 508 / 5, 9 / 5,394 / 35, the
   E-d2a suites only; rule (b) 106 paths, NONE; tsc 26 / 10); `wt/out` rebuilt 11:54:37 (markers 1 / 1 / 3). E-d16c (orchestrator
   message 11:46) taken into the Next step. No records (item 5 → builder #19), no launch, no model call.
+- 2026-10-29 · builder #19 (E-d16d items 1–2) · ~35 tool calls · the greedy experiment in the kit (`sound-answer-greedy.ts`, driver
+  `variants-fix4c`, the 7 corpus files run through an alias config): corpus 30 changed / 5 LOST vs `c5a6124` / 3 NEW vs `7967c6f` / 0
+  conf moved / 7 files 1,080 green; broad 895 changed (799 reorders, read as patterns) / 56 LOST vs `c5a6124` (6 none left) / 20 NEW vs
+  `7967c6f` / 0 conf moved / noun-first 15 vs 9; the six quiet probes fixed → NOT kept by E-d16d's rule (the fallback: no code change,
+  the six are notes). No records (item 3 → builder #20), no gates / build needed, no launch, no model call.
