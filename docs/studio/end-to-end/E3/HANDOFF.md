@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF — **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) DONE by builder #15 `d30830a`; step 4 (regression + broad probes) is next, then 5–7 — builder #16** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
+status: BLOCKED (builder #16, 2026-10-29 11:15) — **step 4 (regression + broad probes) DONE: the fill regresses nothing vs `7967c6f`; a question E-d16 / E-d16a do not settle (confident noun-carrier firsts ABOVE the 0.5 line on participle + noun phrasings, pre-existing at `09e81ea`; 51 probes with the verb carrier not in the three) — Open problems "builder #16", Next step; steps 5–7 wait for Hasan's answer.** Earlier: **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) DONE by builder #15 `d30830a`; step 4 (regression + broad probes) is next, then 5–7 — builder #16** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -676,7 +676,78 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   chess-piece-thock 0.38)" in open item (16) — not one of the verifier's four nits; whether any F3 shutting row scores 0.32 is
   unchecked.
 
+### Built (builder #16, fix round 4, 2026-10-29) — step 4: regression + broad probes (what the MODEL SEES); NO `src/` change (code HEAD stays `9a13e3b` + the comment-only `d30830a`)
+
+- **Kit (scratch `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\`, not committed):** `fix4-lib.ts` — per prompt the answer of
+  four versions on the REAL E3 index (fix3-lib's `loadPool`: one read, SHA-256 + mtime before / after, the pool = every entry NOT
+  under `generated/` so the 4 generated entries are seen by no version, the fixture asserted = the pool's 51 audio entries
+  verbatim): `788c8d2` / `09e81ea` = that matcher's top three (a miss generated — nothing shown); `7967c6f` = matches top three
+  else nearest top three, from HEAD's matcher (byte-identical to `7967c6f`; `rankLibrarySounds` sorts then slices, so the full
+  ranking's first three = the default call's); the fill = `selectSoundAnswer(rankLibrarySounds(pool, p, { …, limit:
+  max(ANSWER_SIZE, pool) }))` with labels (the `sound-reuse.ts` :89-90 call). `compare()` per old version: answer changed (shown
+  ids / order), first shown changed, a right clip LOST (old showed it, the fill does not), LOST with NO right clip left shown,
+  GAINED, a confident first changed (the fill's first `[matched]` and different), WORSE (old first right, the fill's confident
+  first not). Drivers `catalog-fix4.e3.test.ts` (4a), `broad-fix4.e3.test.ts` (4b); readers `fix4-analyze.cjs`,
+  `fix4-analyze2.cjs`, `fix4-analyze3.cjs` (the noun-first classes below). Logs `catalog-fix4.log`, `broad-fix4.log` (each `1
+  passed`).
+- **4a — `E3\catalog-order-fix4.txt`** (1,073 rows = the seven corpus files' `ROWS` literals, per-file counts asserted 150 / 194 /
+  204 / 129 / 132 / 67 / 197; a RIGHT clip = one the row names): **vs `788c8d2`: 577 changed · 283 first shown changed · 3 LOST · 0
+  with no right clip left · 186 GAINED · 161 confident first changed · 2 WORSE. vs `09e81ea`: 483 · 208 · 3 · 0 · 120 · 100 · 3. vs
+  `7967c6f`: 326 · 7 · 1 · 0 · 15 · 0 · 0.** Read: the WORSE rows are the E-d16a `edge: 'line'` rows ("a breaking screen", "a
+  glitched photo", + "a typed message" vs 09e — the right clip in the three); the LOST rows each keep another right clip shown (vs
+  7967c6f only "a moving transition", the recorded note; vs 788 "quickly moving air", "a running whoosh", "a popper"; vs 09e "a
+  quicker whoosh", "a long whoosh", "a moving transition"); the 7 firsts changed vs `7967c6f` are a weak match first → a closest
+  first on an exact tie (E-d16a's tie rule): "a scribbled note", "scribbling a note", "a scribbled note when the text appears", "a
+  sketched note" → `pencil-scribble`, "a typed note" → `keys-typing-soft`, "air moving past" → `wind-soft`, "a stinging slap" ('*')
+  → `sting-scare-comic`. **No row lost its last right clip against any version.**
+- **Next step (a), open item (16) settled:** the shutting rows' full `7967c6f` rankings (same file, "the shutting rows" section, 34
+  rows): trap-snap scores **0.3424** on "shutting down", "shutting off", "a shutting down sound"; 0.3000 (nearest) on "a door
+  shutting" / "shutting the door" / "the door is shutting"; 0.2585 on "a lid / box shutting", "a shutting lid"; 0.2180–0.2468 on the
+  rest. **No shutting row scores 0.32 → Status.md :789 "trap-snap 0.32" → "trap-snap 0.34" (Edit tool, this commit).**
+- **4b — the broad set** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\broad-probes-fix4.txt`, 4.8 MB, every probe with the four
+  answers; the kit summary `E3\broad-probes-fix4-summary.txt`, 2.4 MB, = counts per version and per frame + the lists). **Frames:**
+  F1 bare `<form>` · F2 "a `<form>`" · F3 "a `<form>` sound" · F4 "a soft `<form>`" (every inflection — plural, -ing, -ed, -y, the
+  69-word -er list — of every base word: tag / tag hyphen-part / file-name part / category, ≥ 3 letters; 1,281 probes each) · F5 "a
+  `<base>` `<opener>`" × the 7 placement openers (1,701) · F6 "right when the slide changes, a `<base>`" / "just a `<base>`" / "could
+  you add a `<base>`" (729) — builder #11's frames verbatim — **plus NEW F7 participle + noun "a `<-ed form>` `<noun>`" / "a `<-ing
+  form>` `<noun>`" (5,064), F8 noun + participle "a `<noun>` `<-ing form>`" (2,532), F9 adjective + verb-form "a gentle / loud /
+  slow / quiet `<-ing form>`" (848; soft is F4)**; nouns = other clips' words (the candidate list ∩ the base words): screen, photo,
+  message, board, device, door, page, glass, book, menu, piece, timer (note / card / window / button / phone / key / logo / tape are
+  no catalog word); a RIGHT clip = a carrier of the BASE word (the noun's carriers listed, not right — the F4 shape). **243 base
+  words · 15,998 probes. vs `788c8d2`: 10,330 changed · 6,769 first shown changed · 955 LOST · 880 with no carrier left · 4,690
+  GAINED · 4,667 confident first changed · 1,976 WORSE. vs `09e81ea`: 8,194 · 4,988 · 88 · 22 · 3,172 · 3,471 · 1,678. vs
+  `7967c6f`: 8,159 · 10 · 0 · 0 · 6,482 · 0 · 0.** Read: vs `7967c6f` the fill only ADDS (6,482 probes gain a carrier, none loses
+  one, no confident first moves); its 10 first changes are a weak match first → a closest first ("a quiet appearing / firing /
+  flipping / marking / moving / switching" → the verb carrier on an exact tie; "a screen firing / flipping / marking / moving" →
+  `[closest] power-down 0.47` first, the verb carrier second — a closest first of another class = an E-d16 note). The LOST / WORSE
+  vs the two olds are fix round 3's matcher (the same rows show at `7967c6f`); the 22 vs `09e81ea` with no carrier left are listed in
+  the summary (section "vs 09e81ea — a carrier LOST with NO carrier left shown"), not classified one by one this round.
+- **The noun-first class (`fix4-analyze*.cjs` over the two files) — the reason for BLOCKED (Open problems "builder #16"):** 5,709
+  F7 / F8 probes whose fill first is a CONFIDENT clip carrying only the NOUN: **3,624 AT the 0.5 line** (every one with a verb carrier
+  in the three — E-d16a notes; 1,648 of them had the verb carrier first at `09e81ea`: fix round 3's F3a regression, now at the line)
+  and **2,085 ABOVE it (0.53–0.89)** — 2,034 with a verb carrier in the three (e.g. "a zapped device" → `[matched] power-down 0.54 |
+  [closest] glitch-zap 0.28 | [closest] zap-electric 0.28`), **51 without** (all "… screen": "a sparkling / clicking / ticking /
+  whooshing / snapping screen", their "a screen …-ing" forms and nonsense forms; "a sparkling screen" → `[matched] power-down 0.53 |
+  [weak match] pop-reveal 0.49 | [weak match] scan-hum 0.32`, sparkle-soft not shown). Of the 2,085 only **24** had a verb carrier
+  first at `09e81ea` — all "a longed / longing `<noun>`" nonsense (a 0.50 tie there); of the 51, **none** (e.g. "a clicking screen"
+  → `power-down 0.82` at both olds). Every one of these answers has the same first at `7967c6f`.
+
 ## Verified (exact commands + outputs)
+
+### builder #16 (step 4, 2026-10-29 11:05–11:15) — no launch, no model call, no `src/` change
+
+- `git diff 7967c6f -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+  src/main/services/library/sound-match-vocab.ts | wc -c` → `0` (as of `f1fe772`; this commit touches docs only).
+- Index stamps (bash `sha256sum` + `stat`, before / after both drivers): `876f9f611c2704eb1980502bb8d9e44c79ef899957586af4bb10c86545c16c95`,
+  mtime `2026-10-29 00:31:02.584` (+0200) — unchanged; the drivers' own header lines say the same ("UNCHANGED", 61 entries, 57
+  without `generated/`, 51 audio = the fixture, the 4 `generated/` entries excluded).
+- From the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config
+  D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E3/vitest.e3.config.ts catalog-fix4` → `1 passed`, 7.36 s; the same with
+  `broad-fix4` → `1 passed`, 114.62 s. Numbers above are copied from the two files' header lines.
+- `node fix4-analyze.cjs broad-probes-fix4-summary.txt` → `rows 5709`, `F7 at0.50 right-in-3:true 2413`, `F8 at0.50 … 1211`, `F7
+  >0.50 right-in-3:false 34`, `F8 … 17`, `F7 >0.50 right-in-3:true 1356`, `F8 … 678`; `node fix4-analyze3.cjs
+  C:/Users/hasan/AppData/Local/vidtsx-e2e/E3/broad-probes-fix4.txt` → `{ total: 5709, over: 2085, at: 3624, r09: 1672, r788: 1961,
+  rboth: 1320, overR09: 24, overNoRight: 51, overNoRightR09: 0 }`.
 
 - **Fix round 4, builder #15 (2026-10-29 10:59–11:03, step 3; worktree root; HEAD `023b7b3` → `d30830a`):** Edit tool only;
   `git diff --stat` before the commit → `Status.md | 19 ++++++++++++-------`, `docs/studio/TESTING.md | 4 ++--`,
@@ -1189,7 +1260,18 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 4, continued — builder #16: step 4 (regression + broad probes), then steps 5–7 (steps 1–3 are DONE — builder #13
+**BLOCKED (builder #16, 2026-10-29 11:15) — orchestrator: put the question in Open problems → "Fix round 4 (builder #16, step 4)
+— BLOCKED" to Hasan, then spawn builder #17 for his answer.** Step 4 is DONE (Built / Verified "builder #16"; do not redo it —
+its reports `E3\catalog-order-fix4.txt`, `…\vidtsx-e2e\E3\broad-probes-fix4.txt`, `E3\broad-probes-fix4-summary.txt` and the
+`fix4-analyze*.cjs` counts are the step-4 numbers for the records), and Status.md :789 is settled (0.34, this commit). **On (A)**
+builder #17 does steps 5–7 exactly as builder #15's brief below words them, adding the noun-first class (the numbers in Built
+"builder #16") to the records' open notes and Hasan's bar sentence to the verifier-round-5 Next step; **on (B)** builder #17 makes
+the tool-layer change red-first in `src/main/services/library/sound-answer.ts` (+ `sound-answer.test.ts`, an
+`audio-tools-fill.test.ts` row for "a sparkling screen"), re-runs the corpus and both step-4 drivers with the same commands (the
+LESS check vs `7967c6f` must stay 0), then steps 5–7; **on (C)** builder #17 writes the DONE-PARTIAL records (Status.md E3 entry +
+TESTING §18.17) and the track-E exit runs next. NO matcher change in any case unless Hasan says so.
+
+(Step 4 DONE by builder #16 — kept for the record:) **FIX ROUND 4, continued — builder #16: step 4 (regression + broad probes), then steps 5–7 (steps 1–3 are DONE — builder #13
 `34feafe` the fill, builder #14 `9a13e3b` the corpus, builder #15 `d30830a` the (iv) record fixes: Built / Verified "builder #13" /
 "#14" / "#15"; do not redo them; NO matcher change — `git diff 7967c6f --` the three matcher files must stay empty).** Do step 4
 exactly as builder #15's brief below words it (from "**Step 4 — regression + broad probes**" to its end: the E3 index READ-ONLY with
@@ -1558,6 +1640,34 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Open problems
 
+### Fix round 4 (builder #16, step 4) — BLOCKED: a question E-d16 / E-d16a do not settle
+
+- **The question (one paragraph).** The fill regresses nothing — vs `7967c6f` no broad probe and no corpus row loses its last right
+  clip (the corpus's one LOST row is "a moving transition", the recorded note) and no confident first moves — and every fix-round-3
+  regression in the participle + noun frames lands AT the 0.5 line with the verb carrier in the three (E-d16a notes, 1,648 probes).
+  But 2,085 broad probes (F7 / F8) have a CONFIDENT first ABOVE the line (0.53–0.89) on the clip that carries only the NOUN; 2,061
+  of them already had that first (or a non-carrier first) at `09e81ea` and many at `788c8d2` (the matcher's noun field weight, not
+  a fix-round regression); 24 regressed, all "a longed / longing `<noun>`" nonsense. In 51 of them — all "… screen": "a sparkling /
+  clicking / ticking / whooshing / snapping screen", their "a screen …-ing" forms, and nonsense forms — the verb carrier is NOT in
+  the three, because the two weak head-rule screen clips (`pop-reveal`, `scan-hum`) outrank it by coverage under E-d16a's order
+  ("a sparkling screen" → `[matched] power-down 0.53 | [weak match] pop-reveal 0.49 | [weak match] scan-hum 0.32`, sparkle-soft not
+  shown); in the other 2,034 the verb carrier is a `[closest]` row ("a zapped device" → `[matched] power-down 0.54 | [closest]
+  glitch-zap 0.28 | [closest] zap-electric 0.28`). By E-d16's letter, verifier round 5 could FAIL on such a phrasing under (ii)
+  (the right clip not among the three) or (iii) (a confident first ≥ 0.5 that is clearly wrong while the right clip exists) — the
+  bar does not say whether behaviour that is the same at `09e81ea` / `788c8d2` counts — and the fill cannot reach these without
+  departing from E-d16a's "by coverage" order, while E-d16 forbids a matcher change. **Hasan, which: (A) record them as notes and go
+  to steps 5–7 → verifier round 5, with one added bar sentence ("a confident first that is the same at `09e81ea` is a note; so is
+  a right clip that the fill does not show where `7967c6f` did not either") — builder's recommendation: the fill met its goal
+  (6,482 probes gain a right clip, none loses one) and the class is as old as the matcher; (B) amend E-d16a in the tool layer —
+  after the confident rows, a below-threshold row that covers a prompt word no shown row covers goes before a row that covers only
+  words already covered (expected to put sparkle-soft / ui-click-soft / clock-tick-soft / the whooshes into the 51 — to be
+  verified red-first; the corpus + both step-4 drivers re-run), then steps 5–7; or (C) stop E3 as DONE-PARTIAL with this class on
+  your real-video list?**
+- The evidence: Built / Verified "builder #16"; the 51 = the lines of the kit summary's section "a CONFIDENT fill first that carries
+  only the NOUN" whose coverage is above 0.50 and that end `right in the three: false`; the 24 = `fix4-analyze3.cjs`'s `overR09`
+  set (it counts them; the list was printed with an inline reader over the same broad file — "a longed / longing" × the 8 nouns
+  photo, message, device, door, page, glass, book, timer in F7 / F8); the broad file holds every probe's four answers.
+
 ### Fix round 4 (builder #15, step 3) — notes for the records, none blocking
 
 - Status.md :789 (open item (16), as of `d30830a`) says "the F3 rows would stay unmatched (dash-zip 0.26–0.32 / trap-snap 0.32 /
@@ -1904,6 +2014,9 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Do-not-redo
 
+- Fix round 4 step 4 (builder #16): the regression report over the 1,073 rows (`E3\catalog-order-fix4.txt`) and the 15,998-probe
+  broad set with the F7 / F8 / F9 frames (`…\vidtsx-e2e\E3\broad-probes-fix4.txt` + the kit summary) — re-run (`catalog-fix4`,
+  `broad-fix4`, the commands in Verified) only if `sound-answer.ts` or the matcher changes; Status.md :789's 0.34 is settled.
 - Fix round 4 step 3 (builder #15, `d30830a`): the (iv) record fixes — Status.md :189 / :213 / :215 / :305, verifier note 1 at
   :405 / :412 / :783, TESTING §18.17 :533 / :540, the r3-ordinary comment :16 (only Status.md :789 is left, Next step (a)).
 - Fix round 4 step 2 (builder #14, `9a13e3b`): the corpus — the recall over the answer's three, the E-d16 convention
@@ -2027,3 +2140,10 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   :215 0.43, :305 build / building, note 1 at :405 / :412 / :783 (checked against `probe-fix3.txt`), TESTING §18.17 :533 / :540,
   the r3-ordinary comment :16; matcher diff vs `7967c6f` 0 bytes — `d30830a`. Handed off at the step boundary (30 % rule); steps 4–7
   to builder #16. No test run (comment-only `src/` change), no launch, no model call, no gate run, no rebuild.
+- 2026-10-29 11:04–11:15 · builder #16 (fix round 4, step 4) · ~40 calls · the regression report (1,073 rows, four versions'
+  answers, `catalog-order-fix4.txt`: vs `7967c6f` 1 LOST — "a moving transition" — 0 with no right clip left, 0 confident first
+  changed) and the broad set (15,998 probes, builder #11's frames + participle + noun / noun + participle / adjective + verb-form:
+  vs `7967c6f` 0 LOST, 6,482 gained, 0 confident first changed); open item (16) settled (trap-snap 0.3424, Status.md :789 → 0.34);
+  the noun-first class found (2,085 confident firsts above the line, 51 with the verb carrier not shown, pre-existing at `09e81ea`)
+  → BLOCKED on a question for Hasan. Index read-only (SHA-256 + mtime unchanged). No `src/` change, no gate run, no rebuild, no
+  launch, no model call.

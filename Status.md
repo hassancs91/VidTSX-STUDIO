@@ -786,7 +786,7 @@
   generated; E-d15 (ii) / (iii) do not reach it. The mechanism is F3a's own: a 0.6 stem hit on the head cannot carry an
   adjective over the 0.5 line, and the head rule asks for an equal hit. A possible later fix (NOT done — outside the fix
   clause; it would need the corpus + both probe sets re-run): a verb-form head hit at a higher floor (coverage ≥ 0.4); the
-  F3 rows would stay unmatched (dash-zip 0.26–0.32 / trap-snap 0.32 / chess-piece-thock 0.38, none with an equal head).
+  F3 rows would stay unmatched (dash-zip 0.26–0.32 / trap-snap 0.34 / chess-piece-thock 0.38, none with an equal head).
   Candidate recall rows in the fix-round-3 bullet. (17) The `*` rows of the r3 corpus files (48 by this record's `grep`)
   stay open by meaning — polysemy, no clip for the sound, a tag-only trace; the -er real words ("a door knocker", "a
   ticker", "a sparkler", "a zipper", "a streamer", "a clicker") find nothing at `09e81ea` and `7967c6f` (`788c8d2` matched
