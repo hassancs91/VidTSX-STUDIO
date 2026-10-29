@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (step a part 1 done; the fixture script next)
+status: IN PROGRESS (step a DONE as of `2ffcc27`; step b — the engine — next)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -120,6 +120,26 @@ module" before the code existed).
   The vector file shape it expects: `{version:1, modelId:'multilingual-e5-small', dims:384, pooling:'mean', prefixVersion:1, precision:
   'int8'|'int16', check:{…}, items:{[relPath]:{textHash, s, v}}, queries:{[rawPrompt]:{s, v}}}` (`VectorFixtureFile`).
 
+**Step a, part 2 — the fixture + its generator; the §9.1 benchmark GREEN: `2ffcc27`** (as of `2ffcc27`). **Step a is DONE.**
+
+- `scripts/library-search-fixture.mjs` (218 lines) — `--model <dir> --labelled <S1 labelled-set.json> [--s1-report <S1 c-rrf60 json>]
+  [--out <scratch>]`. esbuild-bundles (stdin entry, `packages: 'external'`) the PRODUCT's `CORPUS_LIBRARY`, `semanticItemOf`, `queryText` /
+  `passageText` / `PREFIX_VERSION`, `runBenchmark` / `recallTable` / `benchDeps`, `encodeVector` / `decodeVector`, `fixtureRanker`, `asCounts` /
+  `S1_C_RRF60_E5_SMALL`; onnxruntime-node DLL PATH prepend (resolved via `createRequire`, not hard-coded); `env.allowRemoteModels = false`,
+  `env.localModelPath` = the model's parent, `env.cacheDir` = `<out>/tf-cache` (never created — nothing was cached anywhere);
+  `pipeline('feature-extraction', <dir>, { local_files_only: true, dtype: 'q8' })`, batches of 32, mean + normalise. Runs the benchmark at
+  float32, then int8, then int16; **the design's rule (§9.1): int8 iff its table equals S1's float32 (c) table, else int16 (checked too); exit 1
+  if neither.** Also records rows whose top-20 differs from this run's float32 / from S1's `perRow`, and every clip pair (of 51) whose cosine
+  order flips vs float32 with its float32 gap. Writes the two fixture files (one entry per line) + a report to `<out>`.
+- `benchmark/fixtures/labelled-set.json` (374,708 B) — `{from, rows}` = S1's 1,565 rows (its `excluded` list, 2,899 entries, dropped).
+- `benchmark/fixtures/vectors-multilingual-e5-small.json` (1,698,742 B) — **int16**, 51 items + 1,505 queries; `check` =
+  `{"precision":"int16","tableEqualsS1":true,"rowsTop20DifferFromS1":13,"rowsTop20DifferFromFloat32":14,"flippedPairsVsFloat32":36,
+  "maxFloat32CosineGapOfAFlip":0.00000222,"float32TableEqualsS1":true,"float32RowsTop20DifferFromS1":1,"tried":[{int8: tableEqualsS1 false,
+  rows differing 1,171, flipped pairs 9,684, max gap 0.00148},{int16: true, 14, 36, 0.00000222}],"scoredRows":1515,"dtype":"q8"}`.
+- `benchmark/library-search-benchmark.test.ts` — the matcher's rankings computed once in `beforeAll` (180 s) — the two "Basic = today" tests
+  timed out at 5 s recomputing 1,515 full rankings each (~7–8 s); the row-field check accepts E3's empty-prompt corpus row `#48` (`∅`, a real
+  corpus case) and pins it; a new assertion on the file's recorded `check` (`tableEqualsS1`, `float32TableEqualsS1`, `scoredRows: 1515`).
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -131,32 +151,65 @@ All from the worktree root, as of `3cb73df`:
 - `git diff 7967c6f --stat -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
   src/main/services/library/sound-match-vocab.ts` → empty.
 - Resources at 15:14: C: 51.3 GB free, D: 41.5 GB, memory commit headroom 30.5 GB.
-- **RED by design at this hand-off:** `src/main/services/library-search/benchmark/library-search-benchmark.test.ts` (ENOENT on
-  `benchmark/fixtures/labelled-set.json` — the fixture + its generator are the next step).
+- (superseded by `2ffcc27`, below) the benchmark test was RED at `3cb73df` by design (ENOENT on the fixture).
+
+As of `2ffcc27` (builder #2, 15:23–15:40):
+
+- Resources at 15:23 (before the model load): C: 51.3 GB free, D: 41.5 GB, memory commit headroom 33.5 GB; 0 `electron.exe` running.
+- `node scripts/library-search-fixture.mjs --model "C:/Users/hasan/AppData/Local/vidtsx-e2e/search/S1/models/multilingual-e5-small" --labelled
+  "D:/repos/VidTSX-STUDIO/.vidtsx-temp/search/S1/labelled-set.json" --s1-report
+  "D:/repos/VidTSX-STUDIO/.vidtsx-temp/search/S1/reports/c-rrf60-multilingual-e5-small-mean.json" --out
+  "C:/Users/hasan/AppData/Local/vidtsx-e2e/search/S3/fixture"` → rc 0; `run.log` / `library-search-fixture-report.md` there: "load 2599 ms;
+  embedded 51 items + 1505 prompts in 9895 ms (batches of 32) · rows: 1565 (scored 1515) · chosen precision: int16" + the `check` above; the
+  report holds the float32 / int8 / int16 tables. (A first run with a stricter self-made rule — int8/int16 only if NO row's top-20 differs from
+  float32 — chose nothing; replaced by the design's rule. Same vectors, same numbers.)
+- **The fixture's (c) table equals S1's float32 table:** float32 → `float32TableEqualsS1: true`; int16 → `tableEqualsS1: true`; int8 → false.
+- `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library-search` → `Test Files 7 passed (7) · Tests 60
+  passed (60)` (30.9 s; log `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\fixture\vitest-library-search.log`) — the benchmark's 18 tests
+  incl. every §9.1 threshold row, CORPUS 7 files at 100, no regression vs Basic on R@10, Smart counts == `S1_C_RRF60_E5_SMALL`, Basic's first 3
+  == `selectSoundAnswer` on every row, Basic counts == `S1_A_KEYWORDS`, nothing-fits (pool > 0 → min(20, pool) candidates; pool 0 → none).
+- tsc web → 26 `error TS` (baseline), node → 10 (baseline) (`tsc-web.log` / `tsc-node.log` in the same scratch folder), none in library-search.
+- `git diff 7967c6f --stat -- src/main/services/library/sound-match.ts …-words.ts …-vocab.ts` → empty.
+- No cache written: `<out>\tf-cache` was never created; `node_modules/@huggingface/transformers/` has no `.cache` (listing unchanged, all
+  entries dated Jul 7); **`find D:/repos/VidTSX-STUDIO/node_modules -newer <marker>` → no output** (marker
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\fixture\nm-marker` written 15:23:15, before both model loads at 15:23:57 / 15:25:40;
+  the scan ran 15:25:40–15:56).
+- Post-commit: `git status --short` clean; `git show --stat HEAD` = the 4 paths (3,377 insertions, 5 deletions).
 
 ## Next step (ONE concrete instruction)
 
-Write `scripts/library-search-fixture.mjs` (esbuild-bundle an entry exporting `CORPUS_LIBRARY`, `semanticItemOf`, `queryText` /
-`passageText`, `runBenchmark` / `recallTable` / `benchDeps`, `encodeVector` / `decodeVector` / `cosine`, `asCounts` / `S1_C_RRF60_E5_SMALL`
-into a scratch dir — precedent `scripts/import-sfx-library.mjs:135`; load `@huggingface/transformers` with `env.allowRemoteModels = false`,
-`env.localModelPath` = the model's parent, `env.cacheDir` = scratch under `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\`,
-`pipeline('feature-extraction', <S1 model dir>, { local_files_only: true, dtype: 'q8' })`, the onnxruntime DLL PATH prepend as in
-`S1\run-b-embeddings.cjs`; embed `passageText(itemText(e))` for the 51 clips and `queryText(prompt)` for the 1,505 unique scored prompts,
-batches of 32, mean + normalize; run the benchmark on float32, then int8 — keep int8 iff its counts equal `S1_C_RRF60_E5_SMALL`, else int16
-(and check that too); write `benchmark/fixtures/labelled-set.json` (`{rows}` = S1's 1,565 rows, `excluded` dropped) and the vector file with
-`check` = {precision, tableEqualsS1, rowsTop20DifferFromS1 (vs S1's `perRow`), rowsTop20DifferFromFloat32}; a report .md to the scratch dir);
-run it, make the benchmark test green, commit; then step a is DONE.
+Step b, red first: write the failing tests, then `src/library-search-engine/` per design §3 / §5 / §7 — `types.ts` (the host ↔ child messages),
+an `embedder.ts` (the transformers.js core: `allowRemoteModels = false`, `localModelPath` / `cacheDir` off node_modules, `local_files_only`,
+`dtype: 'q8'`, mean + normalise, `queryText` / `passageText` from `prefixes.ts`, batches of 32 — node-importable so the gated test can use it
+without a utilityProcess), `vector-store.ts` (the `<library root>/.vidtsx/search/vectors-<modelId>.json` file: header check → rebuild,
+relPath + textHash keys, atomic `.tmp` + rename, cosine ranking), `worker.ts` (the utilityProcess child over both) and `search-engine.ts` (the
+host as `src/content-safety-engine/safety-engine.ts`: lazy spawn, request ids, 5 s cold / 2 s warm timeouts rejecting with `'model loading'` /
+a timeout reason, death → reject pending + respawn, 10 min idle unload) implementing `SemanticRanker`; the `library-search-worker` entry
+beside `embedding-worker` in `electron.vite.config.mjs:31-32`; `src/main/services/library-search/vector-sync.ts`; the gated live test
+(`VIDTSX_SEARCH_MODEL_DIR` set → re-embed the 51 clips + 1,505 prompts through `embedder.ts`, every vector's cosine vs the fixture ≥ 0.99,
+the §9.1 thresholds on live vectors; skipped otherwise — run it once with the S1 model dir, then prove `node_modules` unchanged); and the
+`src/embedding-engine/worker.ts:57-59` `dtype: 'q8'` fix + its test. Commit; then step b is DONE.
 
 ## Open problems
 
 - (note, not blocking) audio requests WITHOUT a sound class use the generic coverage ranking (see `keyword-retriever.ts`); the design names only
   "audio → E3's matcher" and "image / video → coverage". Step d's `list_assets(kind: audio)` will rank that way unless S4 / Hasan say otherwise.
+  (Orchestrator ruling after builder #1: accepted.)
+- (note, not blocking — for S4) **the int16 fixture's near-ties.** The design's check (§9.1: "the fixture's (c) table equals S1's float32
+  table … int8 if that holds, else 16-bit") holds at int16 (and at float32; int8 fails). Its literal "changes NO ranking" is met at the level
+  the design measures (every table count, all 18 row sets); at the level of single rows, 14 of 1,515 rows' top-20 ORDER differs from this
+  run's float32, from 36 clip pairs (over 1,505 queries × 1,275 pairs) whose cosine order flips — every one a float32 gap ≤ 2.22e-6, i.e.
+  ties below the stored precision. Same-precision noise is of the same kind: this run's float32 vs S1's own float32 `perRow` differs in 1 row.
+  Recorded in the file's `check` and the report; no bar moves. (Float32 storage would be ≈ 3.3 MB — computed: 1,556 vectors × 384 × 4 B as base64 — over the design's ~3 MB.)
 
 ## Do-not-redo
 
 - The service files and their 42 unit tests (`3cb73df`) — extend, don't rewrite.
 - S1's tables are already transcribed as counts in `benchmark/s1-tables.ts` (checked against the reports' `table` fields).
+- The fixture (`2ffcc27`): don't regenerate it unless item text / prefixes change (a changed textHash makes the benchmark run Basic and fail
+  loudly). Regenerating needs only the command under "Verified"; it never downloads (S1's model dir, read-only).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-29 15:05–15:20 · builder #1 · ~45 · read the docs; step a part 1 (service + unit tests + benchmark harness), `3cb73df`.
+- 2026-10-29 15:21–15:45 · builder #2 · ~35 · the fixture script + fixture (int16), benchmark test fixes, step a DONE, `2ffcc27`.
