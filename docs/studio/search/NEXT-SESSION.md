@@ -1,5 +1,8 @@
 # Library search — next session (resume after Hasan's shutdown pause, 2026-10-29 17:55)
 
+> **SPENT (2026-10-29 22:02):** this paste-in was used at 20:24; the run finished — S3 DONE, S4 PASS (round 1, ruling LS-r8), records
+> `cf7d550`. See `docs/studio/search/ORCHESTRATOR.md` (table + "Stops"). Nothing below is pending.
+
 > Written by the session-10 orchestrator. The run PAUSED mid-S3 on Hasan's word ("please stop after the current task, we will continue
 > later, I need to shutdown", 17:51) — nothing failed, no STOP rule fired. Paste the block below into a new Claude Code session at
 > `D:\repos\VidTSX-STUDIO`.
