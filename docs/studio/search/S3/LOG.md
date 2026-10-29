@@ -45,3 +45,12 @@
   in ~16 s, status → Smart (auto), build 51 / 51 (0 `presets/`); Assets box: crash-tumble tile 4, break-glass-crack tile 1, grid == the IPC's 20
   in order for both; Basic: marker gone, tiles == `filterAssets` on 4 queries; profile left on Auto; node_modules scan empty. Fix found live
   and committed: the Settings row stacks its controls (`3f08759`; the select had crushed the text). tsc 25 / 10; UI tests 8 / 59. Next: step f.
+- 2026-10-29 21:12 · builder #12 · **step f DONE — S3 DONE** (as of `65cbef0`; logs `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-f\`):
+  guard OK (C: 45.0 GB, headroom 79.0 GB, 0 electron.exe), CPU 11.7 %; full worktree gate (default workers) `Test Files 28 failed | 509 passed
+  | 6 skipped (543) · Tests 9 failed | 5354 passed | 37 skipped (5400)` — the 3 E-d2a suites (all 9 failed tests; package resolution only;
+  esbuild-metafile runtime graph holds 0 of the 107 `906273c..HEAD` paths) + 25 suites failing at import ONLY with `<wt>\stream` /
+  `<wt>\stream\promises` (the 4 LS-r1b names + 21 agents / flows / templates suites no step run had reached), all 25 green in a fresh detached
+  worktree at `65cbef0` (`25 passed · 239 tests`; removed); tsc 25 / 10; matcher diff empty; no created code file over 300 (largest 286; the
+  2 JSON fixtures are data); 0 `any` types; package files unchanged; asset-library ↔ studio 0 imports; no Node / electron / `@main` import in
+  renderer code; the gated live test green (2 / 2; min cosine 1.000000 / 1.000000 batched / 0.991872 one at a time; ALL R@10 / R@20 99.3 /
+  99.9, HELD-OUT 97.9 / 99.8, CORPUS 100 / 100 — = builder #3); `node_modules` unchanged. Next: S4 (orchestrator). DONE.

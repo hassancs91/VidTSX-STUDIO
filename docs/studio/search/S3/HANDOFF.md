@@ -1,5 +1,9 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (steps a, b, c, d, **e DONE** — e part 1 `4337910`, LS-r7 `d3b1108`, **the §9.3 2 / 3 click-through PASSED at `3f08759`** (builder #11, 20:43–20:46; the Settings row's layout fixed in `3f08759`); **next: step f — the exit check**)
+status: **DONE** (steps a–f; **step f — the exit check — met at `65cbef0`** (builder #12, 21:01–21:12; the gate's HEAD; the docs-only
+commit after it changes no `src/`): full worktree gate 509 passed / 28 failed / 6 skipped files, the 28 = the 3 E-d2a suites (package
+resolution only, 0 diff files in their runtime import graph) + 25 LS-r1b-class suites (only `<wt>\stream[\promises]`, all 25 GREEN in a
+fresh detached worktree at `65cbef0`); tsc 25 / 10; matcher diff empty; house rules clean; the gated live-model test green (R@10 / R@20 ALL
+99.3 / 99.9); **next: S4 — the independent verifier (orchestrator)**)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -658,6 +662,85 @@ As of `a8133a0` (builder #11, 20:34–; logs / stills / reports in `C:\Users\has
   `… vitest.mjs run src/renderer/components/SettingsModal src/features/asset-library src/shared/library-search-text.test.ts --maxWorkers=2`
   → `Test Files 8 passed (8) · Tests 59 passed (59)` (`vitest-ui.log`).
 
+**As of `65cbef0` — step f, the exit check** (builder #12, 21:01–; every log in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-f\`;
+kit `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S3\` + new `cpu-top.ps1`, `import-graph.mjs`, `import-graph-esbuild.mjs`; no build, no
+launch, no download, no provider / model call except the gated test's local load of S1's model):
+
+- **Guard** (`guard-1.log`, 21:01:52): C: free 45.0 GB, D: 41.4 GB, memory commit headroom 79.0 GB; electron.exe 0 (ours 0, others 0); 0
+  render-like; 0 recent TEMP entries → GUARD OK. Headroom ≥ 10 GB → default workers. **CPU** (`cpu-before-gate.log`, 21:02:18, 5 s, 16 cores):
+  sum of process CPU 11.7 % of all cores (System 5.0, BackgroundDownload 4.4, MsMpEng 0.6) — not loaded; DRIVING's load rule / E-d13 not
+  needed (no timeout in the run). `git status --short` → only ` M docs/studio/search/ORCHESTRATOR.md` (the orchestrator's, not ours).
+- **The full worktree gate** (`vitest-gate-1.log`, `gate-1.start`): from the worktree root `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs
+  run > …\step-f\vitest-gate-1.log 2>&1` (21:02:26–21:03:04, rc 1) → **`Test Files 28 failed | 509 passed | 6 skipped (543) · Tests 9 failed |
+  5354 passed | 37 skipped (5400)`**, 37.60 s. The 28, every one accounted for:
+  - **(a) the three E-d2a suites — package resolution only:** `src/shared/tsx-engine/builder-libraries.test.ts` 1 failed ("@remotion/paths
+    (builder-libraries.ts) is not installed"); `src/main/services/studio/shot-bundle.test.ts` 5 failed (`Could not resolve "roughjs"` /
+    `"@remotion/shapes"` / `"@react-three/fiber"` / `"chroma-js"` / `"@remotion/google-fonts/SpaceGrotesk"`); `shot-bundle-in-place.test.ts`
+    3 failed (two `{ok: false}` outcomes of shots that `import chroma from 'chroma-js'` + the third's `Could not resolve "chroma-js" (v1.tsx:1)`)
+    = all 9 failed tests. **Independent of `906273c..HEAD`** (`git diff --name-only 906273c..HEAD` = 107 paths, `diff-906273c-HEAD.txt`):
+    method 1 — the runtime import graph by an **esbuild metafile** (`import-graph-esbuild.mjs`: bundle the test entry, packages external,
+    type-only imports dropped by esbuild, the modules the test `vi.mock`s WITH a factory not followed — the factories' own dynamic imports
+    are followed; `e-d2a-import-graph-esbuild.log`): builder-libraries 2 inputs / **0 in the diff**; shot-bundle 12 / **0**; shot-bundle-in-place
+    20 (factory-mocked, not followed: `shot-generator.ts`, `shot-import-land.ts`, `media-import.ts`) / **0**; positive control
+    `audio-tools-reuse.test.ts` 52 / 13 in the diff. Method 2 — a superset regex walk (`import-graph.mjs`: every relative / alias specifier
+    incl. comments, dynamic imports and `vi.mock`'d modules FOLLOWED; `e-d2a-import-graph.log`): builder-libraries 2 files / 0; shot-bundle 9 / 0;
+    shot-bundle-in-place 553 / 6 (`library-index-events.ts`, `library-index-io.ts`, `shared/ipc/types/index.ts`, `…/types/library-search.ts`,
+    `shared/types/ai-usage.ts`, `shared/types/library-search.ts` — reached only through the factory-mocked modules and type-only imports,
+    which method 1 shows are not in the runtime graph). `git diff --stat 906273c..HEAD -- src/main/services/studio/shot-bundle* src/shared/tsx-engine/`
+    → empty.
+  - **(b) the LS-r1b class — 25 suites, each failing at import ONLY with "Cannot find module '<wt>\stream'" (15) or "'<wt>\stream\promises'"
+    (10) from vitest's `module-evaluator.js`** (`ls-r1b-files.tsv` maps each to its error; 0 tests ran in each): the 4 LS-r1b names
+    (`src/main/ipc/studio-cut-plan-run-handler`, `src/main/services/studio/pack-package`, `project-package`, `project-package-import`) **+ 21 the
+    step runs never reached** (this is the worktree's first full run): `src/main/services/agents/{agent-pack-script, agent-package,
+    agent-store, agent-runner, agent-runner-builder, agent-service-typed, web-page-export}`, `agents/tools/{flow-listing, propose-flow,
+    registry, run-flow, save-flow, tool-server}`, `src/main/services/flows/{flow-catalog, flow-export-import, flow-package, flow-store,
+    flow-render, flows-builtins, freeze-session}`, `src/main/services/templates/template-install` (`.test.ts` each). LS-r1b's text covers
+    "every suite that fails in THIS worktree ONLY with" that error. **The proof, per suite:** `git worktree add --detach
+    D:/repos/VidTSX-STUDIO/.vidtsx-temp/search/S3/f-head-wt HEAD` (21:04:32, HEAD `65cbef0`, `f-head-wt-add.log`; no `node_modules` in it), then
+    from inside it `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run <the 25 files>` → **`Test Files 25 passed (25) · Tests 239
+    passed (239)`**, rc 0 (21:04:41, 9.34 s, `ls-r1b-fresh-wt.log`); the SAME command from this worktree → `Test Files 25 failed (25) · Tests
+    no tests`, rc 1, all 25 with only the two `stream` errors (21:05:01, `ls-r1b-this-wt.log`); `git worktree remove --force …/f-head-wt` rc 0
+    (21:05:08, `f-head-wt-remove.log`; `git worktree list` = the main checkout, the track-E worktree, this one).
+  - No other failure; no timeout.
+- **tsc** (21:06:56–21:07:16): `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` → **25**
+  `error TS` (`tsc-web.log`), `-p tsconfig.node.check.json --noEmit` → **10** (`tsc-node.log`) — ≤ 25 / 10; the erroring files are the same
+  as builder #11's `step-e2` lists; 0 lines name a library-search / rerank / smart-search / engine / events / tool file.
+- **Matcher:** `git diff 7967c6f -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+  src/main/services/library/sound-match-vocab.ts` → **0 bytes** (`house-1.log`).
+- **House rules over `git diff --name-only 906273c..HEAD -- src/ scripts/`** (97 paths: 73 created, 24 modified, 0 deleted / renamed;
+  `house-1.log`, `house-2.log`, `house-3.log`, `any-hits.log`):
+  - **Size:** no created code file over ~300 lines — the largest `search-runtime.test.ts` 286, `scripts/library-search-fixture.mjs` 218,
+    `list-assets-library.test.ts` 195, `search-runtime.ts` 193, `search-engine.ts` 183, `vector-store.ts` 180. Over 300 only the two JSON
+    **data** fixtures (`benchmark/fixtures/labelled-set.json` 1,570 lines, `vectors-multilingual-e5-small.json` 1,569 — one row / vector per
+    line, design §9.1's fixture). Pre-existing files already over 300 that the branch touched: `src/renderer/types/electron.d.ts` 648 → 656,
+    `src/shared/ipc/channels.ts` 647 → 654, `src/features/asset-library/components/AssetLibraryScreen.tsx` 464 → 474; every other modified
+    file stays ≤ 246.
+  - **No `any`:** the added lines (non-JSON) hold the word 16 times — every one a comment, a test title, the string literal `'any'` (a
+    `BenchRow` kind) or vitest's `expect.any(String)`; 0 `any` types.
+  - **No new npm package / Remotion pins untouched:** `git diff 906273c..HEAD -- package.json package-lock.json` → 0 bytes.
+  - **Feature isolation / IPC-only bridge:** `src/features/asset-library` → `features/studio` imports 0, the reverse 0 (whole folders);
+    added lines in the 22 renderer / feature / shared / preload paths: 0 imports of `fs` / `path` / `os` / `child_process` / `electron` /
+    `@main` / `node:*` / `stream` / `crypto` / `worker_threads`, 0 `require(` / `window.require`, 0 relative imports into `main/` or an
+    `*-engine/`; the preload additions are `ipcRenderer.invoke` / `on` / `removeListener` only (`src/preload/api/library-search.ts`).
+- **The gated live-model test, at `65cbef0`** — guard 21:07:45 (`guard-live.log`: C: 45.0 GB, headroom 79.2 GB, electron.exe 0, GUARD OK);
+  S1's model dir 4 files, 135,392,016 B (read-only; nothing downloaded); `node_modules` marker `step-f\nm-marker` written **21:07:45.984**,
+  before the model load; then `VIDTSX_SEARCH_MODEL_DIR=C:/Users/hasan/AppData/Local/vidtsx-e2e/search/S1/models/multilingual-e5-small node
+  D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/library-search-engine/embedder.live.test.ts --reporter=verbose --silent=false`
+  (21:07:52–21:08:14, `live-test.log`) → rc 0, **`Tests 2 passed (2)`**, 22.33 s. Model loaded 1,274 ms; **51 clips min cosine 1.000000;
+  1,505 prompts min cosine 1.000000 in batches of 32, 0.991872 one at a time** (≥ 0.99); the 51-clip build through the core 819 ms; 1,515
+  rows through the core 12,009 ms. The live table (`live-test.log`) — R@10 / R@20 (bar R@10 / R@20):
+  ALL 1,375 named **1,366 (99.3) / 1,374 (99.9)** (98.5 / 99.5) · CORPUS 950 **950 (100.0) / 950 (100.0)** (each of the 7 files therefore
+  100 / 100) · HELD-OUT 425 **416 (97.9) / 424 (99.8)** (96.5 / 99.0) · `r5/c-ordinary` 171 / 171 (170 / 171) · `r5/d-stopword` 166 (95.4) /
+  173 (99.4) (93.0 / 97.5) · `r5/j-falling` 12 / 12 (11 / 12, 12 / 12) · `r5/b-broad-flagged` 26 / 26 · `S1-own-en` 24 / 24 · `S1-own-ar`
+  9 (90.0) / 10 (100.0) (8 / 10, 9 / 10) · `r5/i-nine` 6 / 6 · `r5/e-realindex` 2 / 2. R@1: ALL 1,206 (87.7), HELD-OUT 266 (62.6),
+  `j-falling` 4 (33.3) — a note only (§9.4). **Every number equals builder #3's `step-b\live-test-verbose-2.log`.** The test's scratch
+  `%TEMP%\vidtsx-library-search-live-z1eZgN` held only `.vidtsx` (no tf-cache) and is gone after the run (no `vidtsx-library-search-live-*`
+  left); `%TEMP%\vidtsx-studio\library-search` does not exist.
+- **`node_modules` unchanged:** `find D:/repos/VidTSX-STUDIO/node_modules -newer …\step-f\nm-marker` (21:08:21–21:08:25, `nm-scan.log`) →
+  **no output, rc 0**. Controls (`nm-scan-control.log`): the walk covers 87,511 entries (`find … | wc -l`, warm cache — why it took 4 s, not
+  builder #11's 13 min); `-maxdepth 2 -newermt 2026-07-01` → 7,130 (the comparison does list older-marker hits); `-newermt '2026-10-29
+  21:07:45'` re-run 21:09:59 → 0. `node_modules/@huggingface/transformers/` lists `LICENSE README.md dist package.json src types` only.
+
 ## In progress — none. (LS-r7's pre-code record below is kept for the API it pinned; built in `d3b1108`, see Done.)
 
 Three NEW test files are on disk, untracked (`git status --short` → `??` ×3), **written but NOT run** (no red run was made — the stop came
@@ -694,7 +777,11 @@ build, no launch, no download, no test run, 0 `electron.exe` of ours (checked: p
 
 ## Next step (ONE concrete instruction)
 
-**Step f — the exit check (Goal → Exit), with our app stopped (it is: 0 `electron.exe` at 20:46):** `S3\guard.ps1`, then the full
+**S3 is DONE — the orchestrator spawns S4, the independent verifier** (design §9; it repeats the E-d2a and LS-r1b proofs for the 28
+gate failures listed under "Verified → As of `65cbef0`", on its own profile `search-S4-verify`, CDP 9295). Nothing is left for an S3
+builder.
+
+(Done by builder #12 — kept for the record:) **Step f — the exit check (Goal → Exit), with our app stopped (it is: 0 `electron.exe` at 20:46):** `S3\guard.ps1`, then the full
 worktree vitest gate logged to a file under `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-f\` (`node
 D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run` from the worktree root, `--maxWorkers=2` while headroom < 10 GB; DRIVING's load
 rules / E-d13 if the CPU is loaded — measure it): green except the three E-d2a suites (package resolution only, shown independent of
@@ -729,6 +816,16 @@ Open problem) — the ping check's "crash-tumble 4th" was with `kinds:['audio'],
 read the IPC's own order for the same request before suspecting the merge (`mergeSmartResults` keeps the service's order — unit-tested).
 
 ## Open problems
+
+- (note, builder #12 — for the orchestrator / S4) **the LS-r1b class is 25 suites in a full run, not 4.** The worktree's first full gate
+  (`step-f\vitest-gate-1.log`) shows the 4 named suites plus 21 under `src/main/services/agents/`, `agents/tools/`, `flows/` and
+  `templates/template-install` — none of which the step runs had reached — each failing at import ONLY with "Cannot find module
+  '<wt>\stream'" / "'<wt>\stream\promises'" (0 tests ran), and all 25 GREEN (239 tests) in a fresh detached worktree at `65cbef0`. Counted
+  under LS-r1b's own words ("every suite that fails in THIS worktree ONLY with …", the 4 were "today:"); if the orchestrator reads the
+  ruling as the 4 names only, that is its call. The cause is still not found (not re-bisected: the third time-boxed miss is not worth it;
+  the track-E worktree and every fresh worktree pass).
+- (note, builder #12) the 2 JSON fixtures (`labelled-set.json` 1,570 lines, `vectors-multilingual-e5-small.json` 1,569) are the only
+  created files over ~300 lines — data, one row / vector per line (design §9.1 fixes the fixture and its ≤ ~3 MB size), not code.
 
 - (note, builder #11 — wording, not blocking) the row's state line reads "Now: Basic (auto — model not downloaded) · vectors no vectors
   yet" before a build (`vectorStateLabel` → "no vectors yet" after the row's "vectors " prefix; pinned in `library-search-text.test.ts`).
@@ -848,6 +945,10 @@ read the IPC's own order for the same request before suspecting the merge (`merg
   135,392,016 B, fetched by the app's own button 20:44) **and a 51-item vector file**; its choice is `auto` (Smart). A new "no model" check
   needs both removed again. Kit: `S3\build-e2.sh`, `launch-e2.sh`, `restore-s3.ps1`, `e2-drive.mjs` (`watch|settings|download|assets|basic|auto`,
   refuses `smart-rerank`).
+- **Step f — the exit check — is DONE at `65cbef0` (builder #12)**: the full gate, the LS-r1b proof (25 suites, fresh worktree removed),
+  the E-d2a graph proof, tsc, the matcher diff, the house rules, the gated live test and the `node_modules` scan — do not re-run them in S3;
+  S4 repeats what the design asks. Kit additions: `S3\cpu-top.ps1` (top CPU over 5 s), `import-graph.mjs` (superset walk),
+  `import-graph-esbuild.mjs` (runtime graph by esbuild metafile; factory-mocked modules not followed).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -882,3 +983,8 @@ read the IPC's own order for the same request before suspecting the merge (`merg
   PASSED** (no download by itself over 30 s; the row's Download → 135,392,016 B in ~16 s, Smart (auto), 51 / 51; crash-tumble tile 4,
   break-glass-crack tile 1, grid == IPC's 20 in order for both; Basic == `filterAssets` on 4 queries, marker gone); **step e DONE**; handed off
   at the step boundary before step f (no full vitest run, no gated live test this session).
+- 2026-10-29 21:00–21:15 · builder #12 · ~45 · read HANDOFF, the design §9, ORCHESTRATOR (Answers in force, LS-r1 / LS-r1b), DRIVING
+  (Repo facts, Track E); **step f DONE at `65cbef0`**: guard + CPU 11.7 %; the full gate 509 passed / 28 failed / 6 skipped — 3 E-d2a
+  (resolution only; esbuild-metafile runtime graph 0 diff files) + 25 LS-r1b-class (only `<wt>\stream[\promises]`; all 25 green in a fresh
+  detached worktree, 239 tests; removed); tsc 25 / 10; matcher diff empty; house rules clean; the gated live test green (ALL R@10 / R@20
+  99.3 / 99.9, = builder #3); `node_modules` unchanged; **S3 DONE**.
