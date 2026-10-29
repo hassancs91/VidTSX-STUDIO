@@ -1,5 +1,5 @@
 # S1 — the spike: keywords vs local embeddings vs hybrid vs the LLM pick, on E3's labelled set (no product code)
-status: IN PROGRESS — builder #2 on (b) the embeddings (MiniLM + (c) RRF done; bge-small, me5-small, me5-base downloading)
+status: IN PROGRESS — builder #2 handed off after (b) embeddings × 4 models, (c) RRF and the timing table; next: (d) the LLM pick
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/search/ORCHESTRATOR.md` ("Answers in force" binds this part).
@@ -191,6 +191,35 @@ Builder #2, 2026-10-29 13:55– (step (b) the embeddings).
 12. **(b) all-MiniLM-L6-v2 mean** (`K\reports\b-all-MiniLM-L6-v2-mean.md`): ALL R@10 97.7 · R@20 99.1 · MRR 0.874; CORPUS R@10 99.8;
     HELD-OUT R@10 93.2; Arabic R@10 30.0. **(c) RRF60 + MiniLM** (`K\reports\c-rrf60-all-MiniLM-L6-v2-mean.md`): ALL R@10 99.3,
     HELD-OUT R@10 97.9.
+13. **(b) multilingual-e5-small mean** (`K\reports\b-multilingual-e5-small-mean.md`): ALL R@1 83.6 · R@10 98.7 · R@20 99.8 · MRR
+    0.886; CORPUS R@10 99.9; HELD-OUT R@10 96.0 · R@20 99.3; Arabic R@10 90.0 · R@20 100.0. Youden floor on top-1 cosine 0.825
+    (named kept 79.2 %, ∅ kept 12.7 %) — e5 cosines sit in a narrow high band. **(c) RRF60 + me5-small**
+    (`K\reports\c-rrf60-multilingual-e5-small-mean.md`): ALL R@1 87.4 · R@10 99.3 · R@20 99.9 · MRR 0.917; CORPUS R@10 100.0;
+    HELD-OUT R@10 97.9 · R@20 99.8.
+14. **(b) bge-small-en-v1.5** (query instruction on): mean (`K\reports\b-bge-small-en-v1.5-mean.md`) ALL R@10 97.6 · R@20 98.7 ·
+    MRR 0.894, HELD-OUT R@10 93.9 · R@20 96.0; CLS (`…-cls.md`) ALL R@10 97.5 · R@20 99.0, HELD-OUT R@10 93.2 · R@20 96.9; Arabic
+    R@20 50.0 both. **(c) RRF60 + bge-small**: mean ALL R@10 98.8 / HELD-OUT 96.2; CLS ALL 98.9 / HELD-OUT 96.5
+    (`K\reports\c-rrf60-bge-small-en-v1.5-{mean,cls}.md`).
+15. **Timing kit** `K\run-t-timing.cjs <id> <pooling>` (plain node 22.14.0 and `ELECTRON_RUN_AS_NODE=1` Electron 41.0.2 / node
+    24.14.0; main thread; index vectors as `Float32Array`; definitions in its header) → `K\reports\t-<id>-<pooling>-<node|electron>.md|json`.
+    Warm p95 per query over 51 clips (node / electron, ms): MiniLM 2.49 / 2.92 · bge-small mean 7.5 (node) · bge-small CLS 6.37 /
+    7.86 · me5-small 7.95 / 6.33; over 2,000: MiniLM 7.85 / 8.04 · bge-small CLS 15.05 / 16.09 · me5-small 15.24 / 15.88. Indexing
+    2,000 synthetic items (batches of 32): MiniLM ~21.8 s · bge-small 29.7–35.8 s · me5-small 48.6–50.8 s. RSS loaded: MiniLM
+    ~128 MB · bge-small ~146 MB · me5-small 413–452 MB. (A first MiniLM run with plain `tolist()` arrays gave 2,000-scan p50 23 ms;
+    replaced by the `Float32Array` run, the reports hold only the latter.)
+16. **(b) multilingual-e5-base mean** (`K\reports\b-multilingual-e5-base-mean.md`; files 278,647,662 + 17,082,660 + 686 + 418 B,
+    the onnx resumed with `curl -C -` after a 600 s cap): ALL R@1 79.3 · R@10 97.8 · R@20 99.6 · MRR 0.859; CORPUS R@10 99.7; HELD-OUT
+    R@10 93.6 · R@20 99.3; Arabic R@10 90.0 · R@20 100.0 — not better than me5-small at 2.2× the bytes. **(c) RRF60 + me5-base**: ALL
+    R@10 98.4, HELD-OUT 94.8. Timing (node, `K\reports\t-multilingual-e5-base-mean-node.md`): 282 MB on disk, cold 2,036 ms, RSS
+    loaded 609 MB, index 51 2.3 s, index 2,000 107.5 s, warm p95 13.14 ms (51) / 29.23 ms (2,000); the Electron run is in
+    `…-electron.md`. bge-m3 (568 MB) was NOT downloaded: me5-base already shows the bigger multilingual model does not help here.
+17. **Where the race stands (for the report; the STOP rule is judged only after (d) / (e) and the report):** best retrieval =
+    **(c) RRF60 + me5-small** — ALL R@10 99.3 / R@20 99.9; HELD-OUT R@10 97.9 / R@20 99.8 (`K\reports\c-rrf60-multilingual-e5-small-mean.md`).
+    R@10 best (b) vs (a): ALL 98.7 vs 91.8 (+6.9) · CORPUS 99.9 vs 100.0 (−0.1, (a) is 100 by construction) · HELD-OUT 96.0 vs 73.4
+    (+22.6) (me5-small; `b-multilingual-e5-small-mean.md`, `a-keywords.md`). Hasan's rule, first reading: every (b) model's ALL
+    R@20 is within 2 points of the best (me5-small 99.8; MiniLM 99.1, bge CLS 99.0, me5-base 99.6) and all warm p95 ≤ 50 ms; the
+    smallest is MiniLM (22.6 MB) but me5-small is multilingual and within 3 points (it IS the best, and the only ones that read
+    Arabic are the two e5s) → me5-small, unless the report reads the rule differently.
 
 ## Verified (exact commands + outputs)
 
@@ -210,28 +239,32 @@ Builder #2, 2026-10-29 13:55– (step (b) the embeddings).
   `node_modules\.cache` exists, 0 items, 2026-10-13 11:10:47 · `esbuild` 2026-07-07 10:32:15 · `onnxruntime-node` 2026-07-07
   10:33:53 · `Get-ChildItem node_modules -Recurse -File | ? LastWriteTime -gt '2026-10-29 13:55'` → nothing. Unchanged. (The
   scratch `tf-cache` folder was never even created: with `local_files_only` nothing is cached.)
+- **Final re-check (builder #2, 14:21, after every (b) / (c) / timing run incl. the Electron ones):** `node_modules` 2026-10-16
+  12:57:48 · `@huggingface\transformers` 2026-07-07 10:32:45, 6 children · `node_modules\.cache` 0 items · files under
+  `node_modules` written after 2026-10-29 13:55: **0** · `electron.exe` 0 · `curl.exe` 0 · C: 50.8 GB free.
+- Runs (each `cd K` with `ELECTRON_RUN_AS_NODE` unset): `node run-a-keywords.cjs` (rc 0) · `node run-b-embeddings.cjs <id> <pooling>`
+  for all-MiniLM-L6-v2 mean, bge-small-en-v1.5 mean + cls, multilingual-e5-small mean, multilingual-e5-base mean (rc 0 each; logs
+  `K\reports\b-*.log`) · `node run-c-hybrid.cjs <same>` (rc 0; `K\reports\c-rrf60-*.log`) · `node run-t-timing.cjs <id> <pooling>` and
+  `ELECTRON_RUN_AS_NODE=1 …/electron.exe run-t-timing.cjs <id> <pooling>` → the `t-*.md` rows quoted in Done 15–16. Every (b) report's
+  last line says `load: fallback dtype q8 (app options failed: … not found locally at "…/onnx/model.onnx")`.
+- Model files on C: (bytes = the HEAD sizes in Done 8): `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\{all-MiniLM-L6-v2,
+  bge-small-en-v1.5, multilingual-e5-small, multilingual-e5-base}\` (489.5 MB).
 
 ## Next step (ONE concrete instruction)
 
-Run candidate (b), the embeddings. Do the resource guard first and write the numbers here. Then HEAD-request the four
-catalog files (`model-registry.ts` `getHfFileUrl`) of **all-MiniLM-L6-v2, bge-small-en-v1.5, multilingual-e5-small and
-one more** (suggested: multilingual-e5-base, so a bigger multilingual model is in the race; bge-m3 568 MB only if p95
-allows). Write each model's real bytes here BEFORE downloading. Download into
-`C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\<id>\` (catalog URLs only). Load them with
-`@huggingface/transformers` from the main checkout's node_modules using `env.allowRemoteModels = false`,
-`env.localModelPath` and `env.cacheDir` set to that scratch folder, and the same `pipeline('feature-extraction', …,
-{ local_files_only: true })` options as `src/embedding-engine/worker.ts:45-80` (read it first). Write
-`K\run-b-embeddings.cjs` on `eval-lib.cjs`:
-- item text = id with hyphens as spaces + category + tags + description;
-- the query = the prompt, with each model's prefixes;
-- the pool = `poolOf(row)`, ranked by cosine;
-- mean pooling, plus CLS for the bge models;
-- no pick for (b);
-- one report per model and pooling: `K\reports\b-<id>-<pooling>.md|json`.
-
-**Add a HELD-OUT subtotal** (r5/* + S1-own-*) to `bySource` and re-run (a) so every table has it. Then re-check the
-`node_modules` baseline above. Then the hybrid (c) (RRF over (a)'s list and the best (b)), the timing table, (d), the
-optional (e), and the report.
+Run (d), the LLM pick, exactly as "Plan context" → "(d)" says (build the worktree's `out/`, the `profiles\search-S1` copy
+WITHOUT `settings\settings.db*`, launch on CDP 9290, `studioRootSet` FIRST to `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\studio-root`,
+the "Say OK" probe = call 1 of ≤ 40, then `window.api.llmGenerate({ prompt, providerId: 'claude-subscription' })` from a FILE
+driver), with a fixed stratified sample of ~150–250 scored rows (every source file represented, all ∅-heavy files included,
+the same rows in both conditions, 15–25 rows per call): condition 1 = each row's top-20 from **(c) RRF60 + me5-small**
+(`K\reports\c-rrf60-multilingual-e5-small-mean.json` `perRow[].ranked`, already top-20), condition 2 = the full 51-clip list
+filtered to `poolOf(row)`; each clip shown as id + category + tags + description; the model answers per row one clip id or
+`none`. Score with `eval-lib` (`pick` = first choice, `confident: true` for any id; `none` → `{ id: null }`), write
+`K\reports\d-pick-top20.md|json` and `K\reports\d-pick-full51.md|json`, record the exact prompt template, the call count and
+each call's wall time; stop the app (Name='electron.exe' + the profile path) and re-run the resource guard. Then the optional
+(e) (a reranker repo named here with its size BEFORE any download), then write `docs/studio/search/S1-spike-report.md` from the
+kit's report files (every table: ALL / CORPUS / HELD-OUT + per file, the timing table from `K\reports\t-*.md`, the floors,
+Done 9's worker finding), and only then judge the STOP rule.
 
 ## Open problems
 
@@ -245,6 +278,16 @@ optional (e), and the report.
    `s1-labels.json` `own` and rebuild before ANY candidate runs (the same rows for all candidates). Otherwise leave it.
 3. The labels widened from the broad file's single "right" (sparkle → `sparkle-soft|pop-reveal`, swoosh → the W group)
    and the per-verb `d-stopword` labels are mine (labelledBy `S1 …` in every row). The report must say so.
+4. **For S2/S3, not a stop:** the app's embedding worker cannot load a catalog model as written (Done 9: transformers.js 4.0.1
+   defaults to fp32 `onnx/model.onnx`; the catalog ships `model_quantized.onnx`) — the worker needs `dtype: 'q8'`. The report
+   must carry this. Indexing is the slow part on CPU (2,000 items 22–51 s by model): S2's design needs a background /
+   incremental index, not an index-on-query.
+5. **Floors (S2 needs a "nothing fits" floor):** no score separates ∅ from named rows cleanly in any (b) / (c) run so far (best
+   Youden J ≈ 0.58–0.67: a floor that drops ~85–90 % of ∅ rows also drops ~20–40 % of named rows; see each report's floor
+   section). Read for the report: a retrieval floor alone cannot be the "nothing fits" rule; the LLM pick's "none fits" (d) is
+   the candidate for it. The RRF fused score is rank-based (max 2/61), so its floor is about agreement, not similarity.
+6. **Process slip (builder #2):** one one-line status edit of this file went through `sed` (14:03, the `status:` line; content
+   correct) against the Edit-tool-only rule; every other doc edit used Edit.
 
 ## Do-not-redo
 
@@ -257,3 +300,6 @@ optional (e), and the report.
 
 - 2026-10-29 13:42–13:55 · builder #1 · ~33 calls · the kit bundle, the probe survey, the labelled set (1,565 rows /
   2,899 excluded), candidate (a) and its reports; the `node_modules` baseline; no download, launch or model call (0 / 40 used).
+- 2026-10-29 13:55–14:22 · builder #2 · ~48 calls · held-out subtotals, (a) re-run, model sizes + downloads (4 catalog models,
+  489.5 MB on C:), (b) × 5 runs (4 models, bge mean + CLS), (c) RRF60 × 5, the timing kit (node + Electron), the worker dtype
+  finding, the `node_modules` re-checks; no launch, 0 / 40 model calls used.
