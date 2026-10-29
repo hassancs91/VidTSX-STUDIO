@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **a fix round 4 is PROPOSED in "Next step" (the answer-level recall fill, proposed decision E-d16) and waits for Hasan's go / no-go; the track-E exit is NOT run.** Open problems → "Verifier round 4".
+status: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -1035,8 +1035,9 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**STOPPED 2026-10-29 02:05 (the session-8 rule: a FAIL in verifier round 4 stops the run). PROPOSED fix round 4 — waits for Hasan's
-go / no-go and his design call (proposed decision E-d16; ORCHESTRATOR.md "Stops (session 8)").** Verifier round 4 FAILED on F4
+**FIX ROUND 4 — builder #13 (Hasan's go 2026-10-29 10:07 = decision E-d16, ORCHESTRATOR.md "Stops (session 8)": option 1 below, the
+answer-level recall fill, NO matcher change; then verifier round 5 = E3's LAST under E-d16's bar). Session 8 STOPPED 2026-10-29 02:05
+on verifier round 4's FAIL (the session-8 rule).** Verifier round 4 FAILED on F4
 (Open problems → "Verifier round 4"): the F3a factor (`STEM_STRENGTH = 0.6`, `sound-match-words.ts:35`, `matchStrength` :114-121)
 with the equal-hit head rule (`sound-match.ts:159` `headHit` only on `hit.equal`, the match test :166) makes "a cracked screen" /
 "a glitching screen" / "a shattered screen" / "a scribbled note" / "a typed note" a CONFIDENT match on the clip whose tag or text

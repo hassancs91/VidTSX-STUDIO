@@ -1343,7 +1343,11 @@
   is semantic); showing the closest beside a weak match is the one fix that covers both shapes and matches E-d15's "the model
   picks". No `src/` change after `7967c6f`; nothing pushed; `end-to-end-p0-e` not merged.
 
-### E-d16 (PROPOSED by the orchestrator 2026-10-29 02:05 — NOT decided; Hasan's call in session 9)
+- 2026-10-29 10:07 · **Hasan: "ok, give me a prompt to continue with your recommendation"** → option (A): E3 fix round 4 (the
+  answer-level recall fill, no matcher change) + verifier round 5 under E-d16's bar — E3's LAST, a FAIL stops the run — then the
+  track-E exit, in session 9 (the paste-in in NEXT-SESSION.md is final). **E-d16 DECIDED** (below).
+
+### E-d16 (proposed by the orchestrator 2026-10-29 02:05; **Hasan's go 2026-10-29 10:07**) — E3 fix round 4: the answer-level recall fill, and verifier round 5's bar
 
 - **The answer-level recall fill.** `generate_sfx` / `generate_music` answer up to THREE library sounds whenever any candidate scores:
   the matches first (as now), then the closest other candidates (coverage > 0) to fill the three; each row labelled `matched` (coverage

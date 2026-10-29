@@ -1,4 +1,8 @@
-# Next session — END_TO_END_PLAN.md, session 9 (track E: Hasan's call on E3 — fix round 4 / E-d16 or DONE-PARTIAL — then the track-E exit)
+# Next session — END_TO_END_PLAN.md, session 9 (track E: E3 fix round 4 + verifier round 5 under E-d16, then the track-E exit)
+
+> **Hasan, 2026-10-29 10:07: "ok, give me a prompt to continue with your recommendation"** → option (A): fix round 4 = the
+> answer-level recall fill, then verifier round 5 under E-d16's bar, then the track-E exit (decision **E-d16**, ORCHESTRATOR.md
+> "Stops (session 8)"). The paste-in below is final.
 
 > **This file's current copy lives on branch `end-to-end-p0-e`** (worktree
 > `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`); the main checkout's copy (branch `end-to-end-p0`) is the
@@ -49,41 +53,77 @@ builder and verifier briefs, the stop report, the "things you never do") with th
 first: CLAUDE.md; docs/studio/END_TO_END_PLAN.md (esp. §0 E5, §1.6, T6, §3 Track E, §5); the top of
 Status.md (the E3 entry); docs/studio/end-to-end/NEXT-SESSION.md (state, lessons); docs/studio/end-to-end/
 ORCHESTRATOR.md ("Answers in force", "Session 4 — track E" with E-d1…E-d10 + E-d2a, "Session 6" with
-E-d11…E-d14, "Session 7" with E-d15, "Session 8" with its log, its stop and the PROPOSED E-d16, "For Hasan's
-real-video test"); docs/studio/end-to-end/DRIVING.md (esp. "Track E" incl. E-d13); docs/studio/end-to-end/E3/
-HANDOFF.md (all of it — "Next step" = the proposed fix round 4, "Open problems" → "Verifier round 4" / 3 / 2 / 1);
+E-d11…E-d14, "Session 7" with E-d15, "Session 8" with its log, its stop and E-d16, "For Hasan's real-video
+test"); docs/studio/end-to-end/DRIVING.md (esp. "Track E" incl. E-d13); docs/studio/end-to-end/E3/HANDOFF.md
+(all of it — "Next step" = fix round 4, "Open problems" → "Verifier round 4" / 3 / 2 / 1);
 docs/studio/end-to-end/E-exit/HANDOFF.md; docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
 
 FIRST check the main checkout: if its uncommitted work is gone/committed and Hasan's dev app is not running,
 say so in one line; either way keep working in the worktree (decision E-d1) unless I say to land it.
 
-MY DECISION (E-d16) — [HASAN: keep ONE of (A) / (B), delete the other]:
-  (A) GO: (1) E3 fix round 4 exactly as the E3 HANDOFF "Next step" option 1 says — the ANSWER-level recall fill
-      (the tool answer shows up to three sounds: the matches, then the closest, labelled matched / weak match /
-      closest; NO matcher change; the corpus recall assertion over the answer's three; verifier round 4's F4
-      phrasings (r4\g-probe.txt), its ordinary set (c-ordinary.txt) and f-probe.txt as corpus rows with
-      plain-meaning outcomes; the four (iv) nits and note 1 fixed in the records; regression + broad probes
-      re-run WITH participle + noun frames; gates; rebuild; records); then E3 VERIFIER ROUND 5 — E3's LAST (a
-      FAIL stops the run) under E-d16's bar: (i) a corpus row failing; (ii) an ordinary phrasing where the
-      library clearly has the sound and the right clip is NOT among the answer's three; (iii) a confident
-      (≥ 0.5) match that puts a clearly wrong sound first while the right clip exists; (iv) a false record — a
-      weak match first with the right clip beside it is a note. (2) The track-E exit.
-  (B) NO: E3 is DONE-PARTIAL as it stands (code 7967c6f, records 3cff0be; F4 and round 4's notes stay on my
-      real-video list) — the orchestrator adds a one-paragraph DONE-PARTIAL addendum to the Status.md E3 entry
-      and TESTING §18.17 (no src/ change, no builder), then (2) the track-E exit.
+SCOPE, in order, no stop between parts: (1) E3 — fix round 4 exactly as the E3 HANDOFF "Next step" option 1
+and decision E-d16 say: the ANSWER-level recall fill — generate_sfx / generate_music answer up to THREE
+library sounds whenever any candidate scores: the matches first, then the closest other candidates to fill
+the three, each row labelled matched / weak match / closest; when every match is weak the answer says the
+library "may have" the sound; a pure miss keeps fix round 3's wording; force: true generates as now; a true
+miss (no candidate scores) generates without force as now; NO matcher change (the matcher stays 7967c6f);
+the corpus RECALL assertion runs over the answer's three; verifier round 4's F4 phrasings
+(C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r4\g-probe.txt), its ordinary set (c-ordinary.txt) and
+f-probe.txt become corpus rows with plain-meaning outcomes; the four (iv) nits (Status.md :189 0.41→0.38,
+:213 0.32→0.34, :215 0.46→0.43, :305 "build-up" — and sound-match-corpus-r3-ordinary.test.ts:16's comment)
+and verifier note 1 ("first in the nearest" → second in four of seven) fixed in the records; regression vs
+788c8d2 / 09e81ea / 7967c6f and the broad probe set re-run WITH participle + noun and adjective + verb-form
+frames; gates; rebuild wt/out; records (Status.md E3 entry + TESTING §18.17). Then E3 VERIFIER ROUND 5 —
+E3's LAST (my second extension; a FAIL stops the run), judged by E-d16's bar: it FAILS only for (i) a corpus
+row failing (the 809 rows + round 4's probe files with plain-meaning outcomes), (ii) an ordinary phrasing
+where the library clearly has the sound and the right clip is NOT among the answer's three, (iii) a
+confident (≥ 0.5) match that puts a clearly wrong sound first while the right clip exists, (iv) a false
+record — a weak match first with the right clip beside it, a stranger in the three, or another class is a
+note; its own profile (E3-verify may be reused), the gates, its own negative / mutation cases and its own
+broad probe set (participle + noun frames included), the records. (2) The track-E exit
+(docs/studio/end-to-end/E-exit/HANDOFF.md, already updated for the miss rule — re-read its step 6 against
+the recall-fill wording and adjust what a turn must show if the answer text changed). Stop after the
+track-E exit, on BLOCKED, or on E3's FAIL. Do NOT touch B7's verifier, the track-B exit, or tracks C, D, F.
+Anything that needs my hands, ears or keys: build + verify up to it, mark it DEFERRED-HASAN, add it to
+ORCHESTRATOR's "For Hasan's real-video test" list, continue.
 
-SCOPE, in order, no stop between parts: per my decision above, then the track-E exit
-(docs/studio/end-to-end/E-exit/HANDOFF.md — already updated for the miss rule). Stop after the track-E exit,
-on BLOCKED, or on E3's FAIL. Do NOT touch B7's verifier, the track-B exit, or tracks C, D, F. Anything that
-needs my hands, ears or keys: build + verify up to it, mark it DEFERRED-HASAN, add it to ORCHESTRATOR's "For
-Hasan's real-video test" list, continue.
-
-OVERRIDES for the whole run — the session-8 overrides verbatim (NEXT-SESSION.md "Earlier: session 8's
-paste-in", the OVERRIDES block) with these changes: answers in force are Q1–Q6, E-d1…E-d15 and E-d16 as
-decided above; a builder's BROAD probe set must include participle + noun frames ("a cracked screen", "a
-scribbled note") and adjective + verb-form frames ("a soft knocking") besides the inflections, openers and
-adverbs; verifiers (round 5, the exit) get the range, the exit, DRIVING's rules and verifier round 4's
-findings verbatim — never the builders' conclusions; no model call outside the exit's ≤ 3 turns + 1 retry.
+OVERRIDES for the whole run
+- Answers in force: ORCHESTRATOR.md Q1–Q6 and decisions E-d1…E-d16, E-d2a (rule (a) withdrawn).
+- Paid providers: no call on a paid key. Generation only through E2's dev-only stand-in
+  (VIDTSX_AUDIO_STANDIN_FILE, non-packaged builds only); the one live ElevenLabs call stays on my list.
+- Model calls only through the app's own keyless Claude subscription provider, only as much as a part needs
+  (fix round 4 and verifier round 5: none; the track-E exit: at most 3 turns + 1 retry on an API error);
+  never a paid API key provider; never read, copy or open a credential store (settings.db, ~/.claude, any
+  profile's) — profile copies exclude settings.db*; the app creates its own settings.db in an isolated
+  profile at first launch — leave it unopened.
+- The library: every import and generation runs on an ISOLATED profile; never my %APPDATA%\VidTSX Studio
+  library or my projects. The reference catalogs and the editor repo D:\repos\claude-youtube-editor are
+  read-only (Python there only with -I -B). The builders' E3 profile index now holds 4 generated/ entries —
+  regression drivers exclude generated/ from the pool and never run a generating driver on that profile.
+- Resource guard: before any launch, copy or full test run check C: free AND memory commit headroom; live
+  steps need C: ≥ 3 GB and (C: free + headroom) ≥ 6 GB, with a watchdog that stops only our app if C: < 1.5
+  GB; full vitest with --maxWorkers=2 while headroom < 10 GB; E-d13 under measured external CPU load.
+- Every builder brief adds: "Work only in the worktree (E-d1, E-d2; never npx/npm there, never git stash,
+  never touch the main checkout, its out/ or node_modules). Also read docs/studio/end-to-end/DRIVING.md and
+  the 'Track B decisions' section of ORCHESTRATOR.md. Edit HANDOFF.md, Status.md and TESTING.md with the
+  Edit/Write tools only — no Python, node or sed for doc edits. Never hand back while a job you started is
+  still running. Select your own processes by --remote-debugging-port or profile path plus Name='electron.exe',
+  never a bare number. Set the isolated profile's Studio root in the first CDP call. Never touch Hasan's
+  stations (B1-verify-root + profiles\B1-verify, B5-station-root + profiles\B5-station) or any B6/B7 run
+  scratch. Write HANDOFF.md as you go and commit early (agents can die on API errors). Every git / tree /
+  build statement in the records is written 'as of <hash>' and re-checked after your commit lands. Numbers in
+  prose come from the report files, not from memory of a run. Before claiming 'no regression', run old vs
+  new over a BROAD probe set of your own — every inflection of every catalog tag word, placement openers,
+  leading adverbs, AND participle + noun ('a cracked screen', 'a scribbled note') and adjective + verb-form
+  ('a soft knocking') frames — and list the frames in the record."
+- Verifiers get the exit, DRIVING.md's safety rules, the commit range and earlier findings verbatim — never
+  the builder's conclusions — and build their own negative and control cases; a FAIL must name a false
+  statement or a real defect (taste is a note). The orchestrator commits no docs while a verifier runs (or
+  tells it the HEAD it starts from).
+- The orchestrator writes only under docs/studio/end-to-end/ (in the worktree), commits after each update,
+  and logs times from the real clock (`date`). At the stop, update NEXT-SESSION.md's state so the later
+  B7-verifier → B exit → C → D → F resume stays correct. Never push; landing end-to-end-p0-e on
+  end-to-end-p0, and merging end-to-end-p0 into main, are my calls.
 ```
 
 ## Lessons from session 8 (apply them)
