@@ -18,3 +18,8 @@
   rebuilt at `373125a`; live ping loop on search-S3 / CDP 9292 PASS — max gap 65.1 ms (≤ 250), 152 pings, 0 errors; build 57 / 57 in ~4.5 s; first
   Smart query 40 ms, `ran: smart`, pool 45, crash-tumble 4th; node_modules unchanged, no tf-cache; app stopped. Note for the orchestrator: the
   build counts 6 `presets/` `data` entries (57, not 51). Step d next.
+- 2026-10-29 17:23 · builder #6 · LS-r4 + LS-r5 `5796423` (media kinds only; Basic `'model being removed'` during a delete, new `delete-failed`
+  event; red first); **step d part 1** `eebcaff` — generate_sfx / generate_music answer from the search (§8.1 verbatim header, ≤ 20 E2 rows, place /
+  force lines, no claim), REUSE_NOTE / FORCE_HINT / prompt :31-32 pinned, the §9.1 no-claim + nothing-fits test over all 1,515 rows in both modes
+  green, E3's answer tests rewritten; tsc 26 / 10; matcher diff empty; 3 more LS-r1-class suites seen (`pack-package`, `project-package`,
+  `project-package-import`). Next: `list_assets` §8.2, then step e.

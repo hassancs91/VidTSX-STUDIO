@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (steps a, b, c DONE — step c as of `373125a` (LS-r2, LS-r3) + the live ping loop (design §9.3 1: max gap 65.1 ms); step d next)
+status: IN PROGRESS (steps a, b, c DONE; LS-r4 + LS-r5 DONE `5796423`; step d part 1 — generate_sfx / generate_music on the search, the §9.1 no-claim + nothing-fits test — DONE `eebcaff`; step d part 2 — `list_assets` §8.2 — next)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -237,6 +237,50 @@ ping loop below, step c is DONE.**
 - Tests added: `embedding-handlers.test.ts` 3 (new: hooks finish before the delete, then `deleted`; a failing hook never blocks; a failed
   delete → `{success:false, error}` and no event), `embedding-model-events.test.ts` +2, `search-runtime.test.ts` +1, `search-engine.test.ts` +3.
 
+**LS-r4 + LS-r5 — `5796423`** (as of `5796423`; red first at 17:10: 4 tests failed, each on its assertion — `vitest-red-r4r5.log`).
+
+- **LS-r4:** `search-pool.ts:25-31` — an entry enters the pool only if its kind (`entry.kind ?? mediaKindOf`) is playable
+  (`isPlayableMediaKind` from `shared/media-kinds`: audio / video / image), with or without `kinds`; so `vector-sync.ts` `syncItemsOf` (=
+  `searchPool(entries, {query: ''})`) embeds only media — a `source`-copied profile's 6 `presets/…` (`data`) entries get no vectors and are
+  never returned. Tests: `search-pool.test.ts` +1 (data / `.md` / `.ttf` / `.glb` dropped, `kinds: []` too), `vector-sync.test.ts` +1.
+- **LS-r5:** `search-runtime.ts` — `removing` (set by `beforeModelDelete` for the search model BEFORE `engine.unload()`, cleared by
+  `modelChanged` `deleted` / `delete-failed` for that id); while set, `search()` passes the ranker `MODEL_BEING_REMOVED` (rejects `'model
+  being removed'` → `searchLibrary`'s Basic + `degraded`), starts no build; `status()` starts no build; `smartOn()` is false (the index-write
+  sync is skipped). `embedding-model-events.ts:6-10` — `EmbeddingModelChange.change` gains `'delete-failed'` (optional addition to a
+  union); `embedding-handlers.ts` notifies it in the delete's catch (the hooks ran — they never throw). Tests: `search-runtime.test.ts` +1
+  (Smart → Basic degraded during the removal, 0 rank / 0 sync calls incl. a status + an index write; `delete-failed` → Smart again; `deleted`
+  with the model gone → Basic, no `degraded`), `embedding-handlers.test.ts` 1 rewritten (a failed delete → only `delete-failed`).
+
+**Step d, part 1 — generate_sfx / generate_music on the search: `eebcaff`** (as of `eebcaff`; red first at 17:16 — `vitest-red-d.log`: 16
+tests failed on the old answer text, the no-claim file at its first row "never searched: The library already has 3 sounds matching …";
+the prompt pins in `studio-agent-prompt.test.ts` were edited together with the prompt — NOT shown red).
+
+- `src/main/services/studio/agent-tools/tool-library-search.ts` (23) — `toolLibrarySearch(request, entries)`: `getLibrarySearchRuntime().search`
+  (the step-c runtime: Smart through the engine host, Basic + its own `degraded` when the engine is unavailable); if the runtime itself
+  throws → Basic over the entries the tool already read, `degraded: 'search engine unavailable'`. Main imports `search-app` from the tools now.
+- `sound-reuse.ts` (84, rewritten) — `libraryReuseAnswer(toolName, prompt, {soundClass, minDurationSec?})`: `loadIndex` (a failure → null
+  → generate), then `{query: prompt, kinds: ['audio'], soundClass, minDurationSec?, limit: 20}`; `formatReuseAnswer(result, entries, prompt,
+  tool)` = `reuseHeaderOf(prompt)` (design §8.1 verbatim, ONE line, the same in every mode) · `degradedLineOf` "Searched by words only:
+  <reason>" when `degraded` · E2's `formatLibraryRow(entry, 'audio', 'library:')` per candidate in the search's order · `reusePlaceLineOf`
+  `If one fits, place it with insert_asset(assetId: "library:<path>", lane: "audio", at: …). If none fits, call <tool> again with force: true.`
+  (a literal `<path>` — no row is singled out). No candidate → null → the tool generates (Smart: only `poolSize: 0`; Basic: the true miss).
+  The old E3 wording (`formatLabelledRow`, headers, `selectSoundAnswer` here) is gone; `sound-answer*.ts` / the matcher untouched.
+- `audio-tools.ts:60-64` — `FORCE_HINT` / `REUSE_NOTE` rewritten (no "matching" / labels / "may have" / "up to three"); the call order
+  unchanged (`force` skips the search; the search runs BEFORE `hasAudioProvider()`; a composition plan never searches).
+- `studio-agent-prompt-tools.ts:31-32` — the generate_sfx / generate_music lines say the same (up to 20 refs that may fit, NOT checked, search
+  order ≠ fit, pick by plain meaning, `force: true` only when none fits, generates without force only on no sound of that kind / Basic's no
+  shared word). Lines in OTHER prompt files ("on a miss … the closest library sounds") are untouched (out of scope; still true in spirit).
+- Tests: `audio-tools-reuse.test.ts` (rewritten, 8: header / rows / place line exact, the search request, the degraded line, the runtime-throws
+  fallback, force never searches, music class + length rule + plan, Basic true miss, unreadable index, **REUSE_NOTE / FORCE_HINT pinned verbatim
+  + claim-free**), `audio-tools-fill.test.ts` (rewritten, 8: Basic's first 3 rows == `selectSoundAnswer`'s on 5 E3 prompts, no labels; Smart
+  "things falling over" → `crash-tumble` in the first 8, min(20, pool) rows; Smart "objects toppling over and clattering" → `crash-tumble` in
+  the first 8; music Smart only beds ≥ 60 s), `audio-tools-miss.test.ts` (rewritten, 5: Basic near miss → 1 row, 0 generations; Basic true
+  miss → 1; force → 1 more, no search; Smart non-empty pool "a dog bark" → rows, 0; Smart force → 1; Smart poolSize 0 (no sfx / no bed ≥ 90 s)
+  → generates), **`audio-tools-no-claim.test.ts` (new, 6: all 1,515 scored rows through the REAL handlers in Basic AND Smart (fixture vectors):
+  0 claim strings outside the quoted descriptions, header + force line + rows == the search's candidates in order on every answer; Smart
+  generates iff the pool is empty and shows min(20, pool) rows; Basic generates iff no candidate)**, `audio-tools.test.ts` (a `search-app`
+  mock only), `studio-agent-prompt.test.ts` (the :31-32 pins rewritten + a claim-free check of both lines).
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -369,17 +413,39 @@ As of `373125a` (builder #5, 16:51–17:05; logs in `C:\Users\hasan\AppData\Loca
   (17:01:15–17:01:27, `nm-scan.log`); `node_modules/@huggingface/transformers/` lists `LICENSE README.md dist package.json src types` only;
   `app.log` has "[LibrarySearch] Library search runtime created" and 0 lines containing "error".
 
+As of `eebcaff` (builder #6, 17:06–17:25; logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-d\`; no build, no launch, no model
+load, no full run this session — so no resource guard was needed):
+
+- `node …/vitest.mjs run src/main/services/library-search/search-pool.test.ts …/vector-sync.test.ts …/search-runtime.test.ts
+  src/main/ipc/embedding-handlers.test.ts` → red 17:10 `Test Files 4 failed (4) · Tests 4 failed | 27 passed (31)` (`vitest-red-r4r5.log`);
+  after the code `… run src/main/services/library-search src/library-search-engine src/main/ipc/embedding-handlers.test.ts
+  src/main/ipc/library-search-handlers.test.ts src/main/services/embedding-model-events.test.ts --maxWorkers=2` → `Test Files 16 passed | 1
+  skipped (17) · Tests 131 passed | 2 skipped (133)` (17:11, `vitest-green-r4r5.log`; the benchmark incl.).
+- `… run src/main/services/studio/agent-tools/audio-tools src/main/services/studio/studio-agent-prompt.test.ts --maxWorkers=2` → red 17:16
+  `Tests 16 failed | 31 passed | 6 skipped (53)` (`vitest-red-d.log`); green 17:17 `Test Files 6 passed (6) · Tests 53 passed (53)` (20.7 s,
+  `vitest-green-d1.log` — the no-claim file's 3,030 handler calls incl.).
+- `… run src/main/services/studio src/main/services/library src/main/services/library-search src/library-search-engine
+  src/main/ipc/embedding-handlers.test.ts src/main/ipc/library-search-handlers.test.ts src/main/services/embedding-model-events.test.ts
+  --maxWorkers=2` (17:19–17:21, `vitest-step-d.log`) → `Test Files 5 failed | 149 passed | 3 skipped (157) · Tests 8 failed | 2286 passed | 25
+  skipped (2319)`. The 5: `shot-bundle.test.ts` + `shot-bundle-in-place.test.ts` (E-d2a: `Could not resolve "chroma-js"` / `@remotion/shapes`
+  / … only) and `pack-package.test.ts`, `project-package.test.ts`, `project-package-import.test.ts` (each at import: "Cannot find module
+  '…\search\wt\stream\promises'" / "'…\search\wt\stream'" from vitest's module-evaluator — the LS-r1 class, see Open problems). E3's matcher /
+  corpus / `sound-answer*` tests are inside `src/main/services/library` — green, untouched.
+- tsc web → 26 `error TS` (`tsc-web.log`), node → 10 (`tsc-node.log`); none in a touched file. Matcher diff vs `7967c6f` empty. No `any` in the
+  touched files (grep: one hit = the word in a comment). Largest touched: `audio-tools-reuse.test.ts` 205, `audio-tools.ts` 199,
+  `search-runtime.ts` 180. No new npm package.
+- Post-commit: `git status --short` clean after `eebcaff` (10 files, +470 −398).
+
 ## Next step (ONE concrete instruction)
 
-Build step d (the agent tools, design §8.1 / §8.2 / §9.1 "no claim" + "nothing fits"), red first: make `generate_sfx` / `generate_music`
-(`src/main/services/studio/agent-tools/audio-tools.ts` + `sound-reuse.ts`) ask the library-search runtime (`getLibrarySearchRuntime().search`,
-injected as a seam so tests pass a fake / the benchmark's `searchLibrary` deps) with `{ query: prompt, kinds: ['audio'], soundClass, minDurationSec,
-limit: 20 }` BEFORE `hasAudioProvider()`, answer a non-empty result with the §8.1 text verbatim (`formatLibraryRow` rows in the search's order, the
-`degraded` line, the `force: true` line, no claim string in any mode), generate only on `poolSize: 0`, Basic's true miss, or `force: true`; pin
-`REUSE_NOTE` / `FORCE_HINT` / `studio-agent-prompt-tools.ts:31-32` to the same wording; add the no-claim test over all 1,515 benchmark rows in
-both modes and the nothing-fits tests with E2's stand-in provider counter; then rank `list_assets(scope: "library", query)` per §8.2
-(`agent-tools/project-tools.ts:25-60`, the §8.2 header, ≤ 20 rows, no query → unchanged); rewrite E3's answer-format tests only (the matcher /
-corpus / `sound-answer*` tests untouched); commit; then step e.
+Finish step d with `list_assets(scope: "library", query)` per design §8.2, red first: in `agent-tools/project-tools.ts:53-58`, when the
+trimmed query is non-empty, `loadIndex` then `toolLibrarySearch({ query, ...(kind ? { kinds: [kind] } : {}), limit: 20 }, entries)`
+(`tool-library-search.ts`, the raw query — not lower-cased) and print a new `library-search-listing.ts` formatter: line 1 = `Ranked by search
+(words + meaning) — check the descriptions; the order is not a ranking of fit`, then E2's `formatLibraryRow(entry, kind, 'library:')` per
+candidate in order (≤ 20; Basic lists only keyword hits), an empty result → a plain no-result line without "matching"; no query → today's
+`formatLibraryListing` unchanged; project scope unchanged; update the `query` describe text (library scope: ranked by search, ≤ 20). Tests (new
+`list-assets-library.test.ts`, the `search-app` mock pattern of `audio-tools-reuse.test.ts`): header + order == the search's candidates, kind →
+kinds, Basic drops a no-word item, Smart lists it, no query → the unchanged listing; keep `library-listing.test.ts` green. Commit, then step e.
 
 ## Open problems
 
@@ -418,6 +484,20 @@ corpus / `sound-answer*` tests untouched); commit; then step e.
   (≤ 2 s) before the files are deleted. **A live delete on Windows is a note for S4** (not run here). Remaining edge (note, not tested): a search /
   status call that lands BETWEEN the unload and the `fs.rm` can respawn the child (the files still exist) and race the delete; the delete then
   reports its own error (`{success:false}`), nothing hangs.
+- (note — for the orchestrator / step f's gate) **three more suites fail in THIS worktree with the LS-r1 error class** (`vitest-step-d.log`,
+  17:21): `src/main/services/studio/pack-package.test.ts` ("Cannot find module '…\search\wt\stream\promises'"), `project-package.test.ts` and
+  `project-package-import.test.ts` ("… '…\search\wt\stream'"), all at import from vitest's module-evaluator — package / zip code (`zip-reader.ts`
+  imports `stream/promises`) that step d does not touch. Builder #4's step-c run did not include `src/main/services/studio`, so they were not seen
+  before. LS-r1 names only `studio-cut-plan-run-handler.test.ts`: step f must give each of these the LS-r1 proof (passes in a fresh detached
+  worktree at the gate's HEAD) or the orchestrator must extend LS-r1. Not re-bisected here.
+- (note — for S4) **the §8.1 header is the same in every mode** ("found by search (words + meaning)"), as the design writes it (one neutral
+  header; §9.3 4 "Basic → today's ordering under the neutral header"): an explicit Basic choice therefore prints "(words + meaning)" with no
+  extra line — the design's "Searched by words only: <reason>" line is added only when the search reports `degraded` (a Smart fallback). Built
+  to the letter; if the orchestrator wants Basic-by-choice to say "words only" too, that is a design wording change.
+- (note) the placement line names `library:<path>` literally (design §8.1's text) rather than the first row's ref (E3's old hint did) — so no
+  row is singled out; the rows carry the refs.
+- RESOLVED by LS-r4 (`5796423`): the pool admits only audio / video / image; a `source`-copied profile's build reads 51 / 51. The note below
+  is kept for the record.
 - (note — for the orchestrator before S4; not blocking step c) **the vector build counts every index entry the pool admits, incl. kind `data`.**
   `syncItemsOf(entries)` = `searchPool(entries, {query: ''})` (no `kinds` → no kind filter), so on the search-S3 profile the build is **57 / 57 =
   the 51 clips + 6 `presets/…` files** (`preset.json` / `PRESET.md` × 3, kind `data`, present in every profile copied from `profiles\source`); a
@@ -446,6 +526,9 @@ corpus / `sound-answer*` tests untouched); commit; then step e.
   from S1) and a built vector file (57 items) — step e's download-path check (§9.3 2, "no model" first) needs that model folder AND
   `<profile>\assets\.vidtsx\search\` removed first (or a fresh profile copy). `wt/out` = `373125a`; rebuild after any `src/` change.
   Kit: `S3\guard.ps1` (resources + not-rendering + our instance count), `launch-s3.sh`, `c-ping.mjs` (its clock prints UTC).
+- LS-r4 / LS-r5 (`5796423`) and step d part 1 (`eebcaff`: the generate tools, the 1,515-row no-claim test, E3's answer tests rewritten, the
+  prompt pins) are done — extend, don't redo. `wt/out` is still `373125a` (main changed since: rebuild before step e's live checks; the search-S3
+  profile's vector file holds 57 items from before LS-r4 — the next build prunes it to 51).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -457,3 +540,6 @@ corpus / `sound-answer*` tests untouched); commit; then step e.
 - 2026-10-29 16:51–17:05 · builder #5 · ~55 · LS-r2 (catalog 135,392,016 B / "135 MB" + test) and LS-r3 (before-delete hook → the runtime
   kills + awaits the engine child; 11 tests, red first), `373125a`; `wt/out` rebuilt; the live ping loop PASS (max gap 65.1 ms, build 57 / 57,
   first Smart query 40 ms, crash-tumble 4th); node_modules unchanged; **step c DONE**; the `presets/` (kind `data`) vector-count note raised.
+- 2026-10-29 17:06–17:25 · builder #6 · ~50 · LS-r4 + LS-r5 (`5796423`, red first); step d part 1 — generate_sfx / generate_music on the search
+  (§8.1 answer, the seam `tool-library-search.ts`), REUSE_NOTE / FORCE_HINT / prompt :31-32 pinned, the 1,515-row no-claim + nothing-fits test in
+  both modes, E3's answer tests rewritten (`eebcaff`); found 3 more LS-r1-class suites; `list_assets` §8.2 left as the next step.
