@@ -24,8 +24,9 @@ export function LibrarySearchRow() {
 
   return (
     <div className="bg-app-surface rounded-lg p-3 border border-border" data-library-search-row>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
+      {/* Stacked: the select's long option labels set its width, so beside the text it crushed the text column. */}
+      <div className="flex flex-col gap-2">
+        <div className="min-w-0">
           <div className="text-[11px] text-text-muted mb-1">Library search</div>
           <div className="text-[10px] text-text-dim">
             How the Assets search box and the assistant find library items. Basic matches words; Smart also
@@ -49,14 +50,14 @@ export function LibrarySearchRow() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
           {status && !status.modelDownloaded && (
             <Button variant="secondary" onClick={() => void download()} disabled={downloading} data-library-search-download>
               {downloading ? `Downloading… ${percent}%` : `Download (${size})`}
             </Button>
           )}
           <select
-            className="bg-app-base border border-border rounded px-2 py-1 text-[12px] text-text-secondary outline-none focus:border-accent cursor-pointer"
+            className="min-w-0 flex-1 bg-app-base border border-border rounded px-2 py-1 text-[12px] text-text-secondary outline-none focus:border-accent cursor-pointer"
             value={status?.choice ?? 'auto'}
             onChange={(e) => void setChoice(e.target.value as LibrarySearchChoice)}
             disabled={!status}
