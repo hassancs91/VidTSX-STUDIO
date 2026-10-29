@@ -355,3 +355,17 @@
   file's Log. Profile `profiles\search-S4-verify` (new, from `source` WITHOUT `settings\settings.db*`), CDP 9295, kits / scratch under
   `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S4\r1\`, big outputs under `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S4\r1\`. ≤ 4 keyless
   turns (+1 retry each on an API error). It reports; it fixes nothing and commits nothing.
+- 21:15 · S4 verifier round 1 spawned (HEAD `ab1f439`; report → `.vidtsx-temp\search\S4\r1\REPORT.md`; a run past ~60 calls returns INCOMPLETE
+  and a continuation verifier of the same round reads only that report).
+- 21:29 · **S4 verifier round 1, part 1 — INCOMPLETE** (68 calls, ~16 min; stopped clean at its call limit; nothing failed). CHECKED-PASS:
+  §9.2 (full gate `Test Files 28 failed | 509 passed | 6 skipped (543)` = the 25 LS-r1c + 3 E-d2a, its own fresh-worktree proof 25 / 239
+  passed, its own esbuild-metafile independence proof; tsc 25 / 10; matcher diff empty; house rules), §9.1 (fixture == S1 row for row and
+  table for table; the tests read and found to assert §9.1; **13 / 13 mutants caught** in a scratch worktree; gated live test 2 / 2), §9.3 1
+  (ping loop 478 / 478, **max gap 98.9 ms**, 66.3 ms across spawn + cold load + build + first query, under external `vmmemWSL` load ~11 / 16
+  cores), §9.3 2 (download through the row, 135,392,016 B, smart / auto, 51 / 51; open point: the HF host not shown in the app log), §9.3 4
+  (real handlers with the app stopped, node-hosted embedder: Smart crash-tumble row 4, 0 claims, 0 stand-in calls; Basic = today's three;
+  `force` → 1; music-only pool → generates without force). LEFT: §9.3 3 (the Assets box), §9.3 5 (**0 / 4 keyless turns used**). The
+  harness refused its Write of REPORT.md ("Subagents should return findings as text") → the orchestrator saved its hand-back verbatim as
+  `.vidtsx-temp\search\S4\r1\REPORT.md` (one correction noted in it: 13 mutants, not "14" — `mutations\summary.txt`). Orchestrator check
+  (21:31): 0 `electron.exe`; `git worktree list` = the 3 worktrees; `summary.txt` + the gate log's totals read. Continuation verifier
+  (round 1, part 2) to spawn.
