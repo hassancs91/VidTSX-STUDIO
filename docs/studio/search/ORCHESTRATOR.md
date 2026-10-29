@@ -248,3 +248,22 @@
   tool as "(words + meaning; …)" in general — accepted (they describe the capability; the per-call header says what ran). **Orchestrator
   re-check:** tree clean at `921de81`, matcher diff empty, `list-assets-library` + `audio-tools-no-claim` → 2 files / 16 tests passed
   (17:35). Builder #8 (step e — the UI + the §9.3 2 / 3 click-through) to spawn.
+- 17:37 · S3 builder #8 spawned (HEAD `bab73bf`).
+- 17:48 · S3 builder #8 HANDOFF (62 calls, ~11 min; step e part 1 — code, no build / launch): `4337910` — Settings › General › "Library"
+  `rows/LibrarySearchRow.tsx` + `src/renderer/hooks/useLibrarySearchSettings.ts` (Auto default / Basic / Smart, "Smart + AI rerank" listed
+  DISABLED, "Download (135 MB)" through `embeddingModelDownload` with a progress bar, the state line); the Assets box —
+  `asset-library/hooks/useLibrarySearch.ts` (250 ms debounce, breadcrumb scope, kinds from the category, no IPC call in Basic),
+  pure `services/smart-search-request.ts` + `smart-search-merge.ts` (the service's top 20 then today's `filterAssets` matches; Basic
+  returns the filter's array unchanged), `SmartSearchMarker.tsx`; `AssetLibraryScreen.tsx` 464 → 473 (pre-existing size); NEW
+  `src/shared/library-search-text.ts`; `src/renderer/types/electron.d.ts` gains the `librarySearch*` + embedding download members (one
+  pre-existing web error gone: **tsc web 25** / node 10); red → 7 files / 53 tests green; docs `5fa978e`. Its open problem: **no step built the
+  "Smart + AI rerank" rung** (design §3 `rerank.ts`, §8.3) — the orchestrator's §12 omitted it. **Orchestrator re-check:** tree clean at
+  `5fa978e`, matcher diff empty, 13 files / +602 since `bab73bf`, the new renderer files import no `src/main` / studio code.
+- **Ruling LS-r7 (orchestrator, 17:49):** build the rung now (it is Hasan's ladder): `src/main/services/library-search/rerank.ts` — the
+  app-default text provider through `llmEngine.generate` (`src/engine/llm-engine.ts`) + `aiUsageService.appendEntry` with `featureSource:
+  'library-search-rerank'` (the `llm-handlers.ts:262-281` pattern), the S1 (d) prompt rules adapted to an ORDER of the top 20 (judge by
+  description, by plain meaning), a parse that keeps the Smart order on any bad answer, a cache by query + index version; used ONLY for
+  Assets-box requests (an optional request field set by the renderer hook, only when the choice is `smart-rerank`; the Studio tools never
+  rerank) and only after the query settles (Enter, or 1 s idle); the Settings row's choice enabled; unit tests with an injected generator;
+  NO live call (DEFERRED-HASAN, design §9.4). Design §12 amended (this commit). Builder #9 (LS-r7, rebuild, the §9.3 2 / 3 click-through,
+  then step f) to spawn.

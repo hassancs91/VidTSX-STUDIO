@@ -314,4 +314,8 @@ embeddings (CLIP); a labelled set for images / videos; re-labelling E3's corpus 
 - **S3d — the agent tools:** `generate_sfx` / `generate_music` on the service with the §8.1 answer (E3's answer tests rewritten to the new
   wording; the matcher / corpus tests untouched), `REUSE_NOTE` / `FORCE_HINT` / prompt :31-32 pinned; `list_assets` library query ranked.
 - **S3e — the UI:** the Settings row + download, the Assets box (hook, merge, marker), a CDP click-through on an isolated profile (§9.3 2–3).
+  *(Added by the orchestrator 2026-10-29 17:49, ruling LS-r7 — this list first omitted the third rung:)* **`rerank.ts`** (§3, §8.3) — the
+  app-default text provider through `llmEngine.generate` + the usage log (`featureSource: 'library-search-rerank'`), for Assets-box requests
+  only, behind the explicit Smart + AI rerank choice, the row's choice enabled; unit tests with an injected generator; the live call is
+  DEFERRED-HASAN (§9.4).
 - **Records** (Status.md entry at the top + TESTING.md **§19**) are written after S4's PASS, per Hasan's paste-in.
