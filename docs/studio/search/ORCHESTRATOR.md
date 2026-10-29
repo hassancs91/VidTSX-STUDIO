@@ -76,3 +76,15 @@
   builder #2:** finish every measurement ((b) (c) timings (d) (e), the report) BEFORE judging the STOP rule; report recall@10 on
   ALL, on the corpus files and on the held-out rows (r5 + own); add the top-1 similarity distribution on ∅ vs named rows (S2 needs a
   "nothing fits" floor); then DONE, or BLOCKED with both readings if they disagree.
+- 13:56 · S1 builder #2 spawned (HEAD `5de37df`).
+- 14:22 · S1 builder #2 HANDOFF (59 calls, ~27 min; (b) (c) timings DONE, docs `42f8d43` `3eb1772` `1bacaac`, no `src/` change, 0 model
+  calls, no launch): four catalog models downloaded (489.5 MB, `…\vidtsx-e2e\search\S1\models\`; sizes stated first); CORPUS / HELD-OUT
+  subtotals in every table. R@10 / R@20 — (a) ALL 91.8 / 91.9, CORPUS 100 / 100, HELD-OUT 73.4 / 73.6; **(b) multilingual-e5-small** ALL
+  98.7 / 99.8 (MRR 0.886), HELD-OUT 96.0 / 99.3, Arabic R@10 90; MiniLM ALL 97.7 / 99.1 (Arabic 30); bge-small CLS 97.5 / 99.0; e5-base 97.8
+  / 99.6; **(c) RRF60 + e5-small** ALL 99.3 / 99.9 (MRR 0.917), CORPUS 100, HELD-OUT 97.9 / 99.8. Warm p95 (Electron 41) e5-small 6.33 ms
+  / 51, 15.88 ms / 2,000; cold 1,421 ms; RSS 412.8 MB loaded; indexing 2,000 items 48.6 s (MiniLM 21.2 s). **Findings:** (1) the app's
+  `embedding-engine/worker.ts:57-59` cannot load a catalog model as written (transformers 4.0.1 wants `onnx/model.onnx`; the catalog ships
+  only `model_quantized.onnx` → needs `dtype: 'q8'`); (2) no similarity floor separates ∅ from named rows (best Youden J ≤ 0.67) → "nothing
+  fits" belongs to the pick, not retrieval. Process slip: one HANDOFF status line edited by `sed` (content right; its Open problems 6).
+  Orchestrator re-check: tree clean at `1bacaac`, `5de37df..HEAD -- src/ scripts/` empty, the c / b / t reports read (numbers match), 0
+  `electron.exe`, models 466.9 MiB on disk. Builder #3 ((d) the LLM pick, optional (e), the report, the STOP judgement) to spawn.
