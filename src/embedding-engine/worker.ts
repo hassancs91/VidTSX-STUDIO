@@ -54,8 +54,11 @@ parentPort!.on('message', async (msg: EmbeddingWorkerRequest) => {
           (currentPipeline as { dispose: () => void }).dispose();
         }
 
+        // dtype 'q8': the catalog (model-registry.ts) downloads only onnx/model_quantized.onnx — without it
+        // transformers.js asks for the fp32 onnx/model.onnx and the load fails (S1 spike report §9).
         currentPipeline = await pipeline('feature-extraction', msg.modelPath, {
           local_files_only: true,
+          dtype: 'q8',
         });
         currentModelId = msg.modelId;
 

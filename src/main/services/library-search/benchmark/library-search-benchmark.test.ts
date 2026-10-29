@@ -12,6 +12,7 @@ import {
   ALL, CORPUS, HELD_OUT, benchDeps, clipIdOf, formatRecallTable, isCorpusSource, isScored, pctOf, recallTable, runBenchmark,
   type BenchResult, type RecallCount,
 } from './benchmark-measure';
+import { SMART_BAR } from './benchmark-bar';
 import { fixtureRanker, loadFixtureVectors, loadLabelledSet } from './benchmark-fixture';
 import { asCounts, S1_A_KEYWORDS, S1_C_RRF60_E5_SMALL } from './s1-tables';
 
@@ -76,17 +77,7 @@ describe('Smart (keywords + multilingual-e5-small, RRF60) — §9.1 thresholds',
     expect(smart.filter((r) => r.result.ran !== 'smart' || r.result.degraded).map((r) => r.row.id)).toEqual([]);
   });
 
-  const BAR: Array<[string, number, number]> = [
-    [ALL, 99.5, 98.5],
-    [HELD_OUT, 99.0, 96.5],
-    ['r5/c-ordinary.txt', 99.4, 99.4],
-    ['r5/d-stopword.txt', 97.5, 93.0],
-    ['r5/j-falling.txt', 100.0, 91.6],
-    ['r5/b-broad-flagged.txt', 100.0, 100.0],
-    ['S1-own-en', 100.0, 100.0],
-    ['S1-own-ar', 90.0, 80.0],
-  ];
-  it.each(BAR)('%s: R@20 ≥ %d, R@10 ≥ %d', (name, r20, r10) => {
+  it.each(SMART_BAR)('%s: R@20 ≥ %d, R@10 ≥ %d', (name, r20, r10) => {
     const c = at(smartTable, name);
     expect(pctOf(c, 20), formatRecallTable(smartTable)).toBeGreaterThanOrEqual(r20);
     expect(pctOf(c, 10), formatRecallTable(smartTable)).toBeGreaterThanOrEqual(r10);
