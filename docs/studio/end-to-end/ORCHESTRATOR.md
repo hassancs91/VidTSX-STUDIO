@@ -1407,3 +1407,14 @@
 - 10:10 · start checks (above). Read the run brief, NEXT-SESSION, E3 HANDOFF (Next step + Verifier round 4), ORCHESTRATOR (E-d1…E-d16),
   DRIVING, E-exit HANDOFF.
 - 10:30 · the literal-fill check (E-d16a "Why asked") → the question to Hasan → 10:33 answer "Note-level" = **E-d16a**.
+- 10:40 · E3 builder #13 (fix round 4) spawned.
+- 10:47 · E3 builder #13 HANDOFF (66 calls, ~10 min; step 1 DONE, no launch / model turn): `34feafe` the answer-level recall fill — NEW pure
+  `library/sound-answer.ts` (75; `selectSoundAnswer(ranking)`: confident matches first, then weak + closest by coverage, closest before
+  weak on a 1e-9 tie, ≤ 3 rows, null = a true miss) + `sound-answer.test.ts` (10); `sound-reuse.ts` 95 (rows labelled `[matched]` / `[weak
+  match]` / `[closest]` after E2's "- "; headers: "already has N … N shown: …" / "The library may have a sound for …" / fix round 3's miss
+  wording); `REUSE_NOTE` / `FORCE_HINT` + prompt :31 (pinned); NEW `audio-tools-fill.test.ts` (184, 8 tests on the real handlers over the
+  51-clip fixture: "a breaking screen" → matched power-down + closest break-crash-digital / break-glass-crack, "a cracked screen" → "may
+  have", "a scribbled note" → pencil-scribble first); red 13 failed / 25 → green 26 files / 995 tests (incl. the 809 corpus rows, recall
+  still matches ∪ nearest until step 2). Orchestrator re-check: `git log -1 -- src/` `34feafe`, `git diff 7967c6f --` the three matcher
+  files = 0 bytes, tree clean, 0 `electron.exe`. Stated choice: the answer's kind follows the rows SHOWN; whoosh-wind (weak in the reuse
+  mock) is now labelled weak, not counted as a match. Builder #14 (step 2 the corpus, then 3–7) spawned.
