@@ -1,3 +1,129 @@
+# Next session — library search (Hasan 2026-10-29 13:24: "in a new session, lets work on the search feature, do the tests, and then implement")
+
+> This supersedes the option-(A) paste-in further down: the next session builds **library search** (a spike on E3's labelled corpus,
+> then a shared app-wide search service). E3 is recorded DONE-PARTIAL in that session; the track-E exit runs AFTER the search lands.
+> Paste the block below into a new Claude Code session at `D:\repos\VidTSX-STUDIO`.
+
+```
+You are the ORCHESTRATOR for a new feature: LIBRARY SEARCH — one shared, meaning-aware search service for the
+app (first user: the Studio assistant's sound reuse; then list_assets and the Assets screen search box; later
+b-roll, templates / packs, transcripts). Follow docs/studio/END_TO_END_RUN.md's loop (builders with the 30 %
+hand-off rule, an independent verifier, the stop report, "things you never do") with the overrides below.
+
+WHY (read first): E3 (reuse-before-generate) stopped after five verifier FAILs. Its keyword matcher
+(src/main/services/library/sound-match*.ts) cannot tell which word carries the sound ("a cracked screen" →
+power-down, "a sparkling screen" → power-down) and has no synonyms ("things falling over" can never find
+crash-tumble, "objects toppling over and clattering"). Fix round 4 made the tool show up to three labelled
+candidates (sound-answer.ts, sound-reuse.ts) — recall improved, but retrieval still makes confident wrong
+claims. Decision (Hasan, 2026-10-29): a layered search — keywords + a small LOCAL EMBEDDING model for
+retrieval (wide recall, top ~20), the pick made by the assistant itself where an LLM is already in the loop
+(or an optional fast-model / reranker step), and NEVER a confident claim from retrieval alone; offered as a
+setting ladder (Basic = keywords · Smart = + local embeddings, the default once the model is downloaded ·
+Smart + AI rerank = + the user's own provider, off by default); built as ONE shared service.
+
+WHERE: create a git worktree D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt on a NEW branch library-search cut
+from end-to-end-p0-e (it holds track E: the library index v2, the imported catalog, E3's tools). Work only
+there. The main checkout D:\repos\VidTSX-STUDIO has another session's uncommitted work: never edit, stage,
+build or launch there, never touch its out/ or node_modules, never git stash. The worktree has no
+node_modules: tests `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run …`, types
+`node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` (and
+tsconfig.node.check.json; baseline web 26 / node 10), build per docs/studio/end-to-end/DRIVING.md "Track E";
+never npx / npm there; NO new npm package (the app already has what the spike needs — if something truly
+needs one, stop and ask me). Docs for this feature: docs/studio/LIBRARY_SEARCH_DESIGN.md (new) and
+docs/studio/search/ (ORCHESTRATOR.md, per-part HANDOFF.md + LOG.md).
+
+READ FIRST (from the worktree): CLAUDE.md; docs/studio/ASSET_LIBRARY_DESIGN.md; the top of Status.md (the E3
+entry); docs/studio/end-to-end/E3/HANDOFF.md ("Goal", "Plan context", "Open problems" → "Verifier round 5" /
+"4"); docs/studio/end-to-end/ORCHESTRATOR.md "Session 9" (E-d16…E-d16d) and its last log line;
+docs/studio/end-to-end/DRIVING.md; docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18; UI_SPEC.md
+before any UI. Code: src/embedding-engine/* (transformers.js + ONNX in a worker; 8 catalog models incl.
+all-MiniLM-L6-v2, bge-small-en-v1.5, multilingual-e5-small, bge-m3), src/main/services/embedding-models.ts,
+src/main/ipc/embedding-handlers.ts, its use in src/content-safety-engine/, the llm-engine providers (the keyless
+claude-subscription), src/main/services/library/{sound-match*,sound-answer*}.ts,
+agent-tools/{sound-reuse,audio-tools,library-listing,project-tools}.ts, the LibraryIndexEntry type, the Assets
+screen search (src/features/asset-library/services/asset-search.ts).
+
+FIRST: say in one line whether the main checkout's uncommitted work is still there and whether Hasan's dev app
+runs; then record in docs/studio/end-to-end/ORCHESTRATOR.md (in end-to-end-p0-e's worktree,
+D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt — commit there with explicit paths) that E3 is DONE-PARTIAL
+as of c5a6124 (Hasan's option A; verifier round 5's F5a–F5d and the notes on his real-video list) and that the
+track-E exit waits for library search. Then cut the branch.
+
+PARTS, in order, no stop between them unless a STOP rule below fires:
+S1 — THE SPIKE (no product code). A benchmark kit (scratch, outside the tree) over the labelled set E3 already
+  produced: the corpus rows (src/main/services/library/sound-match-corpus*.test.ts + -rows.ts, 1,073 rows over
+  the 51-clip fixture sound-match-corpus.fixture.ts) and the verifier probe files
+  (C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r3\, r4\, r5\ — incl. j-falling.txt, the "sparkling" /
+  "swooshing" / "quiet" sets), plus ~30 new rows of your own written by plain meaning (synonyms, scene
+  descriptions, and 10 Arabic prompts, e.g. "صوت زجاج يتكسر" → break-glass-crack). Candidates: (a) the
+  keyword fill at c5a6124 (baseline); (b) embeddings with 3–4 catalog models, item text = name + category +
+  tags + description, query = the prompt (use each model's query / passage prefixes if it has them); (c)
+  hybrid keywords + embeddings by reciprocal-rank fusion; (d) the LLM pick: the keyless claude-subscription
+  choosing from the top-20 of the best retrieval AND from the full 51-clip list (≤ 40 model calls in total —
+  batch rows per call); (e) optional: a small cross-encoder reranker if transformers.js runs one from an
+  ONNX repo without a new package (a new catalog entry, first-use download). Measure recall@1/@3/@10/@20,
+  MRR, wrong-confident rate for the picks, cold load and warm query p50 / p95 on THIS laptop, model size,
+  memory, indexing time for the 51 clips and for a synthetic 2,000-item library. Model downloads go to a
+  scratch / isolated-profile folder (state each size first; check disk). Write
+  docs/studio/search/S1-spike-report.md with the tables and a recommendation by this rule: Smart's default
+  model = the smallest whose recall@20 is within 2 points of the best and warm p95 ≤ 50 ms (prefer a
+  multilingual model if within 3 points); the pick = the assistant over the top-N where an LLM is in the loop.
+  STOP and ask me if no embedding model beats the keyword baseline on recall@10 by a clear margin, or if the
+  numbers point to a different design than the one above.
+S2 — THE DESIGN NOTE (docs/studio/LIBRARY_SEARCH_DESIGN.md): the service API (e.g. search({ query, kinds,
+  category?, limit }) → candidates with scores and why), the ladder and its setting, the vector cache (keyed by
+  relPath + text hash + model id, recomputed on change, next to the library index), the worker / lazy-load
+  plan (nothing blocks the main process — node-llama-cpp and model loads are known ~0.5 s blockers), IPC
+  channels + preload, the first users and how each answers (generate_sfx / generate_music: candidates with
+  descriptions, the assistant picks, `force` to generate, no "already has" claim from retrieval alone;
+  list_assets; the Assets search box), what happens with no model downloaded (Basic), and **THE ACCEPTANCE BAR
+  — fixed here, before any verifier**: benchmark thresholds per corpus file (recall@k of what the assistant
+  sees, from S1's numbers), no regression vs the keyword baseline on recall@10, the gates, and what is only a
+  note. Feature isolation, services own logic, IPC-only bridge, ≤ ~300 lines per file, no `any`.
+S3 — BUILD, red-first, in hand-off-sized parts (service + tests with an injected embedder; the vector cache;
+  IPC + preload; the agent tools switched over; list_assets; the Assets search box; the Settings ladder + the
+  model download through the existing AI Models / embedding download path; the keyword path kept as Basic).
+  The benchmark becomes committed tests (thresholds, not exact firsts).
+S4 — VERIFY: an independent verifier (the exit + DRIVING's safety rules + the commit range + the bar,
+  never the builders' conclusions) re-runs the gates and the benchmark, builds its own probes and mutations,
+  drives the Assets search box over CDP on an isolated profile, runs the real tool handlers with the app
+  stopped on its own scratch library, and makes AT MOST 4 keyless assistant turns ("Add a soft whoosh at the
+  first cut.", "Add the sound of things falling over at the first cut.") — FAILS only by the S2 bar.
+  Three FAILs → stop and report. On PASS: Status.md entry at the top, a TESTING.md §19 block (do not take
+  §18.18+ — reserved for tracks C / D / F), STOP with the stop report.
+
+OVERRIDES for the whole run
+- Paid providers: no call on a paid key. Model calls only through the app's own keyless claude-subscription,
+  only S1's ≤ 40 calls and S4's ≤ 4 turns (+1 retry each on an API error); never a paid API-key provider; never
+  read, copy or open a credential store (settings.db*, ~/.claude, any profile's) — profile copies exclude
+  settings.db*.
+- Isolated profiles only (C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\<name>\profile copied from
+  profiles\source\profile WITHOUT settings.db*; library root <profile>\assets; Studio root set in the first CDP
+  call); never my %APPDATA%\VidTSX Studio library or my projects; never my stations (B1-verify-root +
+  profiles\B1-verify, B5-station-root + profiles\B5-station) or B6 / B7 scratch; the builders' E3 profile is
+  read-only (its index holds 4 generated/ entries). The editor repo D:\repos\claude-youtube-editor is
+  read-only. CDP ports 9290–9299.
+- Resource guard: before any launch, copy, download or full test run check C: free AND memory commit
+  headroom; live steps need C: ≥ 3 GB and (C: free + headroom) ≥ 6 GB; full vitest with --maxWorkers=2 while
+  headroom < 10 GB; DRIVING's load rules (E-d13 under measured external CPU load). The worktree vitest gate =
+  green except the three E-d2a package-resolution suites (show they are independent of the diff).
+- Every builder brief adds: "Work only in the worktree; never npx/npm there, never git stash, never touch the
+  main checkout. Read docs/studio/end-to-end/DRIVING.md. Edit HANDOFF.md, Status.md and TESTING.md with the
+  Edit/Write tools only — no Python, node, sed or heredoc for doc edits. Never hand back while a job you started
+  is still running. Select your own processes by --remote-debugging-port or profile path plus
+  Name='electron.exe'. Write HANDOFF.md as you go and commit early (explicit paths). Every git / tree / build
+  statement in the records is 'as of <hash>' and re-checked after the commit. Numbers in prose come from the
+  report files."
+- Anything that needs my hands, ears or keys: build + verify up to it, mark it DEFERRED-HASAN, list it, continue.
+- The orchestrator writes only docs (docs/studio/search/, the design note), commits after each update, logs
+  times from the real clock (`date`), and commits nothing while a builder or verifier runs. Never push; never
+  merge — landing library-search (after end-to-end-p0-e) is my call.
+```
+
+---
+
+## Earlier: session 10's first paste-in (option (A), superseded 13:24 by library search)
+
 # Next session — END_TO_END_PLAN.md, session 10 (track E: Hasan's call on E3 after its fifth verifier FAIL, then the track-E exit)
 
 > **This file's current copy lives on branch `end-to-end-p0-e`** (worktree

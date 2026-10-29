@@ -1558,7 +1558,7 @@
   F3 for F4); (B) a fix round 5 that lifts "no matcher change" for two narrow rules (a lone description-only word is not confident; a
   noun-only confident first yields to a full-strength verb carrier) + F5d's record fix, then a verifier round 6. Code at `c5a6124`;
   nothing pushed; `end-to-end-p0-e` not merged.
-- 2026-10-29 13:40 · **Hasan: "in a new session, lets work on the search feature, do the tests, and then implement"** (after the
+- 2026-10-29 13:24 · **Hasan: "in a new session, lets work on the search feature, do the tests, and then implement"** (after the
   orchestrator's explanation of the keyword matcher and the proposal of a layered search — keywords + a local embedding model for
   retrieval, the assistant / a fast model for the pick, never a confident claim from retrieval; a shared app-wide search service; a
   Basic / Smart / Smart + AI-rerank setting). → **Library search becomes its own item** (spike on E3's labelled corpus, then build),
