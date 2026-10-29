@@ -200,7 +200,10 @@ the §9.1 thresholds on live vectors; skipped otherwise — run it once with the
   the design measures (every table count, all 18 row sets); at the level of single rows, 14 of 1,515 rows' top-20 ORDER differs from this
   run's float32, from 36 clip pairs (over 1,505 queries × 1,275 pairs) whose cosine order flips — every one a float32 gap ≤ 2.22e-6, i.e.
   ties below the stored precision. Same-precision noise is of the same kind: this run's float32 vs S1's own float32 `perRow` differs in 1 row.
-  Recorded in the file's `check` and the report; no bar moves. (Float32 storage would be ≈ 3.3 MB — computed: 1,556 vectors × 384 × 4 B as base64 — over the design's ~3 MB.)
+  Recorded in the file's `check` and the report; no bar moves.
+- (note) **Hasan's dev app is running** since 15:27 (main checkout, `--remote-debugging-port=9222`, his `%APPDATA%\VidTSX Studio` profile,
+  6 `electron.exe` at 15:57) — not ours: never stop it, never run `electron-vite dev`; select our instance only by port 9292 / the search-S3
+  profile path + `Name='electron.exe'` (DRIVING). (Float32 storage would be ≈ 3.3 MB — computed: 1,556 vectors × 384 × 4 B as base64 — over the design's ~3 MB.)
 
 ## Do-not-redo
 
