@@ -303,3 +303,20 @@
   LS-r7 files → 3 / 31 passed (20:33:27); matcher diff vs `7967c6f` empty; `grep rerank` in `agent-tools/*.ts` (non-test) → nothing (the
   Studio tools never rerank); `rerank.ts` read (matches LS-r7); 0 `electron.exe`. Builder #11 (the rebuild, the §9.3 2 / 3 click-through,
   step f) to spawn.
+- 20:34 · S3 builder #11 spawned (HEAD `a8133a0`).
+- 21:00 · S3 builder #11 HANDOFF (81 calls, ~26 min; **step e DONE** — the §9.3 2 / 3 click-through PASS; handed off at the step boundary):
+  `3f08759` (fix, found live: the Settings row's select — sized by its widest option, the new rerank label — crushed the description to one
+  word per line; controls now stacked under the text; display component, stills before / after, not shown red) + docs `2ee0d21`. Guard 20:34:42
+  OK (C: 44.5 GB, D: 41.4 GB, headroom 51.5 GB, 0 `electron.exe`); `wt/out` rebuilt twice, last = the `3f08759` sources. Live (search-S3, CDP
+  9292, Studio root first; our model copy + `assets\.vidtsx\search\` removed first): status Basic / auto / not downloaded, 0 files in the
+  models folder over 30 s; the row's Download → 135,392,016 B in ~16 s → Smart (auto), vectors 0 → 32 → 51 / 51 (26.0 s download + build),
+  51 items in the vector file, 0 `presets/`; Assets box at the root / All: "things falling over" → `crash-tumble` tile 4, "صوت زجاج يتكسر" →
+  `break-glass-crack` tile 1, grid's 20 == the IPC's 20 in order for both (`ran: smart`, pool 51); Basic via the native select → marker gone,
+  tiles == `filterAssets` on 4 queries ("whoosh" 6, "glass" 2, "things falling over" 0, "soft impact" 3); `smart-rerank` read, never chosen;
+  profile set back to Auto; instance stopped 20:46; node_modules scan empty; tsc 25 / 10; UI tests 8 files / 59. Notes (cosmetic): the row
+  reads "vectors no vectors yet" before a build; the first HF progress event comes ~5 s after the click with `percent: -1`. **Orchestrator
+  re-check (21:00):** HEAD `2ee0d21`, tree = only this file; `3f08759` = 1 file +5 −4; 0 `electron.exe`; the profile's model 4 files /
+  135,392,016 B; `step-e2\assets.log` + `basic.log` read (the numbers above match; its clock prints UTC); `nm-scan.log` rc 0, no lines;
+  stills `e2-04-settings-after.png` and `e2-05-assets-smart-falling.png` opened (the row reads "Now: Smart (auto) · vectors 51 / 51 ready";
+  the grid shows crash-tumble 4th, "20 items (filtered)", the Smart marker). C: fell 50.8 → 44.5 GB between 20:23 and 20:34 — not ours (our
+  download is 135 MB; another process). Builder #12 (step f — the exit check) to spawn.
