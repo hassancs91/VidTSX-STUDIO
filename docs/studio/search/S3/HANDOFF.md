@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: NEW
+status: IN PROGRESS (step a part 1 done; the fixture script next)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -80,25 +80,83 @@ written after S4's PASS (Hasan's paste-in).
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+**Step a, part 1 — the pure service + unit tests: `3cb73df`** (as of `3cb73df`; red first: all 7 new test files failed with "Cannot find
+module" before the code existed).
+
+- `src/shared/types/library-search.ts` — design §3 types verbatim + `LibrarySearchChoice` (`mode | 'auto'`) and `LibrarySearchKind`.
+- `src/main/services/library-search/types.ts` — the seams: `SemanticItem {relPath,text,textHash}`, `SemanticRanking {ranked:[{relPath,cosine}],
+  vectors}`, `SemanticRanker.rank(query, items)` (the RAW query — the embedder adds `query: `), `LibraryReranker.rerank(query, items) → relPaths`,
+  `LibrarySearchSettings {choice, modelId, modelDownloaded}`, `LibrarySearchDeps {loadEntries, settings(), semantic?, reranker?}`, `KeywordHit`.
+- `item-text.ts` — `itemText` (S1's rule; `item-text.test.ts` pins it equal to S1's `itemText` on all 51 clips), `textHash` (sha1),
+  `semanticItemOf`.
+- `src/library-search-engine/prefixes.ts` — `queryText` / `passageText` / `PREFIX_VERSION = 1` (pure; step b's worker and the fixture script
+  import it).
+- `search-pool.ts` — kinds / sound class / min length / scope (whole-segment prefix). `isCandidate` is NOT exported by the frozen
+  `sound-match.ts`, so the rule is restated via the exported `soundClassOf`; `search-pool.test.ts` pins pool == the matcher's own candidate set
+  on the corpus (sfx, music, music ≥ 60 s).
+- `keyword-retriever.ts` — `keywordList(pool, request)`: kinds == ['audio'] + soundClass → S1's (a) list (`rankLibrarySounds(pool, …, limit:
+  pool.length)` → `selectSoundAnswer` rows, other confident, rest by coverage), `words` = `wordsCoveredBy`; **anything else** (image / video /
+  mixed / audio without a class) → a coverage ranking over name / tags / category / description with the matcher's field weights via the
+  exported `promptTerms` / `matchStrength` / `soundTokens` (no idf), ties by relPath. (The design names only "audio" and "image / video";
+  audio-without-class going the coverage way is this builder's reading — `list_assets(kind: audio)` / the Assets box have no class.)
+- `fuse.ts` — `fuseRankings(keywordRelPaths, semanticRanked, k = 60)`: union of both lists (an item in one list keeps one term), ties cosine
+  then relPath.
+- `library-search.ts` — `resolveSearchMode(choice, downloaded)` (§4) + `searchLibrary(request, deps)`; `DEFAULT_LIMIT = 20`. Basic → keyword
+  list. Smart: poolSize 0 → `[]` (ran smart); no `deps.semantic` → Basic + `degraded: 'search engine unavailable'`; a rank() rejection →
+  Basic + `degraded: <error message>` (step b's host should reject with `'model loading'` / a timeout reason). smart-rerank applies only when
+  `deps.reranker` is passed (the tools never pass one → `ran: 'smart'`); a failed rerank keeps Smart's order (`ran: 'smart'`, no `degraded`).
+  `why` = `words: a, b · meaning rank N` (`· reranked N`).
+- `search-settings.ts` — KV keys `librarySearchMode` (auto = unset) / `librarySearchModelId` (default = unset); `DEFAULT_SEARCH_MODEL_ID`.
+- **Benchmark harness (committed, its test RED — the fixture files do not exist yet):** `benchmark/fixture-codec.ts` (int8 / int16 per-vector
+  scaled, base64; `cosine` in float64), `benchmark/benchmark-measure.ts` (`BenchRow`, `runBenchmark` = every scored row through the PRODUCT's
+  `searchLibrary` with `{kinds:['audio'], soundClass: row.cls, minDurationSec: row.min, limit: 20}`, `recallTable` → ALL / CORPUS / HELD-OUT /
+  per source at k 1/3/10/20, `benchDeps`), `benchmark/benchmark-fixture.ts` (reads `benchmark/fixtures/labelled-set.json` `{rows:[…]}` and
+  `benchmark/fixtures/vectors-multilingual-e5-small.json`; `fixtureRanker` throws on a stale textHash so a stale fixture shows as `ran:
+  'basic'`), `benchmark/s1-tables.ts` (S1's (a) and (c) tables as hit COUNTS `[named, R@1, R@3, R@10, R@20]` — read from
+  `S1\reports\a-keywords.json` / `c-rrf60-multilingual-e5-small-mean.json` `table` × named), `benchmark/library-search-benchmark.test.ts` (the
+  §9.1 thresholds per row set; CORPUS 7 files at 100; no regression vs Basic on R@10; **the precision check = Smart's counts equal
+  `S1_C_RRF60_E5_SMALL` exactly**; Basic's first 3 == `selectSoundAnswer`'s on every row; **Basic's counts equal `S1_A_KEYWORDS` exactly**;
+  Smart non-empty pool → `min(20, poolSize)` candidates, poolSize 0 → none; Basic answers nothing iff the matcher scores nothing).
+  The vector file shape it expects: `{version:1, modelId:'multilingual-e5-small', dims:384, pooling:'mean', prefixVersion:1, precision:
+  'int8'|'int16', check:{…}, items:{[relPath]:{textHash, s, v}}, queries:{[rawPrompt]:{s, v}}}` (`VectorFixtureFile`).
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+All from the worktree root, as of `3cb73df`:
+
+- `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library-search --exclude '**/benchmark/**'` →
+  `Test Files 6 passed (6) · Tests 42 passed (42)`.
+- `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS` lines (baseline);
+  `-p tsconfig.node.check.json` → 10 (baseline). None in the new files.
+- `git diff 7967c6f --stat -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+  src/main/services/library/sound-match-vocab.ts` → empty.
+- Resources at 15:14: C: 51.3 GB free, D: 41.5 GB, memory commit headroom 30.5 GB.
+- **RED by design at this hand-off:** `src/main/services/library-search/benchmark/library-search-benchmark.test.ts` (ENOENT on
+  `benchmark/fixtures/labelled-set.json` — the fixture + its generator are the next step).
 
 ## Next step (ONE concrete instruction)
 
-Read the design note in full, then step a: write the failing benchmark and unit tests first (the labelled set + vectors fixture and its
-generator script, the §9.1 thresholds, Basic = today), then the pure service files until they pass; commit.
+Write `scripts/library-search-fixture.mjs` (esbuild-bundle an entry exporting `CORPUS_LIBRARY`, `semanticItemOf`, `queryText` /
+`passageText`, `runBenchmark` / `recallTable` / `benchDeps`, `encodeVector` / `decodeVector` / `cosine`, `asCounts` / `S1_C_RRF60_E5_SMALL`
+into a scratch dir — precedent `scripts/import-sfx-library.mjs:135`; load `@huggingface/transformers` with `env.allowRemoteModels = false`,
+`env.localModelPath` = the model's parent, `env.cacheDir` = scratch under `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\`,
+`pipeline('feature-extraction', <S1 model dir>, { local_files_only: true, dtype: 'q8' })`, the onnxruntime DLL PATH prepend as in
+`S1\run-b-embeddings.cjs`; embed `passageText(itemText(e))` for the 51 clips and `queryText(prompt)` for the 1,505 unique scored prompts,
+batches of 32, mean + normalize; run the benchmark on float32, then int8 — keep int8 iff its counts equal `S1_C_RRF60_E5_SMALL`, else int16
+(and check that too); write `benchmark/fixtures/labelled-set.json` (`{rows}` = S1's 1,565 rows, `excluded` dropped) and the vector file with
+`check` = {precision, tableEqualsS1, rowsTop20DifferFromS1 (vs S1's `perRow`), rowsTop20DifferFromFloat32}; a report .md to the scratch dir);
+run it, make the benchmark test green, commit; then step a is DONE.
 
 ## Open problems
 
-(none yet)
+- (note, not blocking) audio requests WITHOUT a sound class use the generic coverage ranking (see `keyword-retriever.ts`); the design names only
+  "audio → E3's matcher" and "image / video → coverage". Step d's `list_assets(kind: audio)` will rank that way unless S4 / Hasan say otherwise.
 
 ## Do-not-redo
 
-(nothing yet)
+- The service files and their 42 unit tests (`3cb73df`) — extend, don't rewrite.
+- S1's tables are already transcribed as counts in `benchmark/s1-tables.ts` (checked against the reports' `table` fields).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-29 15:05–15:20 · builder #1 · ~45 · read the docs; step a part 1 (service + unit tests + benchmark harness), `3cb73df`.
