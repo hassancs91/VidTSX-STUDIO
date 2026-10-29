@@ -1500,3 +1500,11 @@
   `7967c6f`, moves no confident first, and the corpus stays green; otherwise keep `c5a6124` and the 6 F9 "a quiet `<-ing>`" probes ("a quiet
   airing / emphasising / singling / snapping / tailing / warming") are NOTES for verifier round 5. Either way no matcher change.
 - 12:06 · builder #19 (the greedy experiment → implement or fall back; then records) to spawn.
+- 12:11 · E3 builder #19 HANDOFF (44 calls, ~9 min; items 1–2 DONE, docs `940df5f`, no `src/` change): the greedy experiment (kit
+  `sound-answer-greedy.ts`, `variants-fix4c.e3.test.ts`, the corpus under an alias config; `E3\variants-fix4c.txt`, read file
+  `variants-fix4c-read.txt`; index SHA / mtime unchanged): corpus 30 changed / **5 right clips lost vs `c5a6124`** ("a moving whoosh", "a
+  wind blowing softly", …) / 0 confident firsts moved / corpus 7 files / 1,080 green; broad 895 changed / **56 lost vs `c5a6124`** (6 with
+  NO right clip left — incl. "a sparkling screen": pop-reveal's description covers "sparkling", sparkle-soft drops out) / 20 lost vs
+  `7967c6f` / 0 confident firsts moved; the 6 quiet probes all fixed. **E-d16d's rule → greedy NOT kept**; `c5a6124` stays; the 6 F9 "a
+  quiet `<-ing>`" probes are NOTES; builder #18's gates and `wt/out` stand. Orchestrator re-check: `git log -1 -- src/` `c5a6124`, `git diff
+  --stat c5a6124..HEAD -- src/ scripts/` empty, tree clean. Builder #20 (item 3 — the records) spawned.
