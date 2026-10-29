@@ -1360,3 +1360,50 @@
   phrasing where the library clearly has the sound and the right clip is NOT among the answer's three; (iii) a confident (≥ 0.5) match
   that puts a clearly wrong sound first while the right clip exists; (iv) a false record. A weak match first with the right clip beside
   it, a stranger in the three, or another class is a note.
+
+## Session 9 — track E continued (started 2026-10-29 10:10, Hasan's paste-in from NEXT-SESSION.md)
+
+- **Scope (Hasan):** (1) E3 — fix round 4 exactly as E3 HANDOFF "Next step" option 1 and **E-d16** say (the ANSWER-level recall fill,
+  NO matcher change — the matcher stays `7967c6f`; the corpus recall over the answer's three; verifier round 4's `g-probe` / `c-ordinary`
+  / `f-probe` as corpus rows; the four (iv) nits + verifier note 1 in the records; regression vs `788c8d2` / `09e81ea` / `7967c6f` and the
+  broad probe set WITH participle + noun and adjective + verb-form frames; gates; rebuild; records); then E3 **verifier round 5 — E3's
+  LAST** (Hasan's second extension; a FAIL stops the run), bar E-d16 (+ E-d16a below). (2) The track-E exit (`E-exit/HANDOFF.md`; step 6
+  re-read against the recall-fill wording). Stop after the exit, on BLOCKED, or on E3's FAIL. NOT this session: B7's verifier, the
+  track-B exit, tracks C, D, F.
+- **Start state (10:10):** worktree `end-to-end-p0-e` @ `5dd2429`, clean. Main checkout `end-to-end-p0` @ `5d77600`, still NOT clean
+  (the other session's 10 modified + 6 untracked files, unchanged — NOT committed); **Hasan's dev app is NOT running** (0
+  `electron.exe`). E-d1 stands: work continues in the worktree. `git log -1 -- src/` = `7967c6f` (00:30:57); `wt/out/main/index.js`
+  00:54 = its build.
+- **Resources:** 10:10 C: 33.0 GB, headroom 14.2 / 110.8 GB; 10:35 C: 52.5 GB, D: 43.8 GB, headroom 17.1 / 99.7 GB; CPU
+  `LoadPercentage` 90 at one sample (external) — builders measure before a counted run (DRIVING's normal rule or E-d13).
+- **Overrides in force** (the session-9 paste): Q1–Q6, E-d1…E-d16 + E-d16a, E-d2a rule (b) only; no paid-key call (generation only
+  through E2's dev-only stand-in); model calls only via the keyless `claude-subscription` — **fix round 4 and verifier round 5 need
+  NONE**, the exit ≤ 3 turns + 1 retry on an API error; isolated profiles only; the builders' E3 profile index holds 4 `generated/`
+  entries (regression drivers exclude `generated/`, never a generating driver there); the resource guard; the builder-brief additions
+  (as session 8 + numbers in prose from the report files + the broad set's frames incl. participle + noun and adjective + verb-form,
+  listed in the record).
+- **CDP ports / profiles:** E3 builders 9263 (`profiles\E3`; no launch planned — the tool level runs the real handlers with the app
+  stopped); E3 verifier round 5 → 9273 (`profiles\E3-verify`, may be reused); the track-E exit → 9280 (`profiles\E-exit`, new, copied
+  from `source` WITHOUT `settings\settings.db*`).
+
+### E-d16a (Hasan, 2026-10-29 10:33, answering the orchestrator's pre-spawn question) — how verifier round 5 reads E-d16 at the 0.5 line, on ties and on vocabulary gaps
+
+- **Why asked:** the orchestrator ran E-d16's literal fill (matches first, then the closest to fill three) over verifier round 4's printed
+  `7967c6f` rankings (`g-probe.txt` + `c-ordinary.txt`, 261 rows; scratch `fill-check.cjs`): **"a breaking screen"** has THREE matches —
+  `power-down` at exactly **0.50** (two equal-df terms: `screen` equal, `breaking` a 0.6 stem → the right clips 0.30) plus `pop-reveal` /
+  `scan-hum` weak head-rule matches at 0.30 — so `break-glass-crack` / `break-crash-digital` (closest, 0.30) never reach the three ((ii)),
+  and `power-down` is a "confident" first no tool-layer change can demote ((iii)); by the letter of (iii) also **"an F major triad"** →
+  `piano-c-maj` first in a three-way 0.60 tie WITH `piano-f-maj` (same at both olds); and vocabulary gaps ("a river running" → only
+  `dash-zip` scores; "a clicker", "a rewound tape" → nothing scores) by the letter of (ii).
+- **Hasan chose "Note-level":** NO matcher change. **Tool layer:** after the confident matches (coverage ≥ 0.5, the matcher's order), the
+  remaining slots are filled from the below-threshold sounds — weak matches AND closest candidates together — **by coverage, a closest
+  before a weak match on a tie** (compare with a small epsilon), so "a breaking screen" shows `power-down` + both break clips. **Bar
+  clarified for verifier round 5:** a first AT the 0.5 line (coverage = 0.5 within float error), or a first that TIES (equal coverage)
+  with a right clip among the confident matches, with the right clip in the three = a NOTE (like a weak match first); a right clip that
+  shares no word with the prompt (it scores 0 — the matcher has no synonyms) = a vocabulary NOTE. Everything else in E-d16 stands.
+
+### Session 9 log
+
+- 10:10 · start checks (above). Read the run brief, NEXT-SESSION, E3 HANDOFF (Next step + Verifier round 4), ORCHESTRATOR (E-d1…E-d16),
+  DRIVING, E-exit HANDOFF.
+- 10:30 · the literal-fill check (E-d16a "Why asked") → the question to Hasan → 10:33 answer "Note-level" = **E-d16a**.
