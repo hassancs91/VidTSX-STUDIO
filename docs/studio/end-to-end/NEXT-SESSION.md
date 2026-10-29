@@ -1,3 +1,136 @@
+# Next session — END_TO_END_PLAN.md, session 10 (track E: Hasan's call on E3 after its fifth verifier FAIL, then the track-E exit)
+
+> **This file's current copy lives on branch `end-to-end-p0-e`** (worktree
+> `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`); the main checkout's copy (branch `end-to-end-p0`) is the session-3 one.
+> Session 9 (2026-10-29 10:10–13:02, track E only) STOPPED on E3's FIFTH verifier FAIL (Hasan's session-9 rule: a FAIL in round 5
+> stops the run). Written by the session-9 orchestrator. **The paste-in below assumes option (A); Hasan picks (A) or (B) first.**
+
+## State at the end of session 9 (2026-10-29 13:02)
+
+- **Branch / tree:** worktree `end-to-end-p0-e` @ the commit after `001f8d3` (this file's commit), clean; **not merged** into
+  `end-to-end-p0` (main checkout @ `5d77600`, still carrying the other session's 16 uncommitted files incl. `src/main/index.ts`;
+  Hasan's dev app did not run all session). Nothing of this run is running (0 `electron.exe`, no vitest). **`src/` changed this
+  session** — `34feafe` (the answer-level recall fill: NEW `library/sound-answer.ts`, `agent-tools/sound-reuse.ts` 95, `audio-tools.ts`
+  REUSE_NOTE / FORCE_HINT, the prompt :31, NEW `audio-tools-fill.test.ts`), `9a13e3b` (the corpus: `sound-match-corpus-rows.ts` 146 —
+  recall over the ANSWER's three + the E-d16 row convention; NEW `sound-match-corpus-r4-frames.test.ts` 67 rows, `-r4-ordinary.test.ts`
+  197 rows), `d30830a` (one test comment), `c5a6124` (NEW `library/sound-answer-words.ts` + the word-diversity rule); `git log -1 --
+  src/` = `c5a6124`; the matcher (`sound-match.ts`, `-words.ts`, `-vocab.ts`) is byte-identical to `7967c6f`; `wt/out` is the `c5a6124`
+  build (11:54:37; markers "The library may have a sound for", "No library sound matched", "PLACEMENT_BONUS"). Gates at `c5a6124`
+  (builder #18 and verifier round 5 alike): full worktree vitest 3 / 508 / 5 files, 9 / 5,394 / 35 tests — only the 3 E-d2a suites;
+  rule (b) NONE of 106 paths; tsc 26 / 10. Resources at the stop: C: 51.4 GB, D: 41.8 GB free; memory headroom 40.8 / 99.7 GB.
+- **E1, E2, E4 — DONE** (unchanged).
+- **E3 — STOPPED after FIVE verifier FAILs.** Fix round 4 is COMPLETE under E-d16 + E-d16a…d (builders #13–#20; Status.md E3 entry
+  :10-1111, TESTING §18.17 :524-541). The fill works as designed (0 right clips lost vs `7967c6f` over the builders' 15,998 and the
+  verifier's 11,248 probes; thousands gained; the F4 phrasings now show the right clip). **Verifier round 5 FAIL** (E3 HANDOFF → Open
+  problems → "Verifier round 5"): **F5a** "a sparkling screen" → `[matched] power-down 0.53` first, `pop-reveal` was first at `09e81ea`
+  (the F4 class — fix round 3's stem factor; not covered by E-d16b's "already first"); **F5b** "things falling over" / "something
+  falling" → three confident 0.60 wrong matches where `09e81ea` had a true miss (fix round 3's stop words leave one description-only
+  word); F5c weaker ("a door swooshing" …); **F5d (iv)** Status.md Not measured (25) / TESTING :541 call all 2,085 above-line noun-first
+  probes E-d16b notes — 30 were not "already first". Everything else passed.
+- **Hasan's call (E3 HANDOFF "Next step", ORCHESTRATOR "Stops (session 9)"):** **(A) (recommended)** E3 DONE-PARTIAL as it stands →
+  the track-E exit (the E5 exit was met live; F5a–F5d + the notes on his list; F5d's record line fixed in the exit session's records or
+  later); **(B)** a fix round 5 lifting "no matcher change" for two narrow rules (a lone description-only word is not a confident match;
+  a noun-only confident first yields to a full-strength verb carrier) + F5d's record fix, then a verifier round 6.
+- **The track-E exit — not run;** `E-exit/HANDOFF.md` still describes the fix-round-3 answer. Before it runs, the orchestrator updates
+  step 0 (code hash `c5a6124`; markers + "The library may have a sound for"), step 6 (b) (the cuckoo's first ask may answer "No library
+  sound matched …" OR "The library may have a sound for …" — both generate nothing; rows carry `[closest]` / `[weak match]` labels) and
+  (c) (FOUND = "The library already has …", plain or "N shown: 1 matched, …", the chime's row `[matched] library:generated/…`), step 8's
+  miss-rule line. Profile `E-exit`, CDP 9280 — no `E-exit` profile exists yet.
+- **Files E changed that C / D / F also touch:** the session-8 list PLUS NEW `src/main/services/library/sound-answer.ts`,
+  `sound-answer-words.ts` (+ tests), `sound-match-corpus-r4-*.test.ts`, `agent-tools/audio-tools-fill.test.ts`; CHANGED
+  `agent-tools/sound-reuse.ts`, `audio-tools.ts` (REUSE_NOTE / FORCE_HINT), **`studio-agent-prompt-tools.ts` :31 (B and C4 touch this
+  prompt too)**. Before ANY later session works on `end-to-end-p0` (B7 verifier, track-B exit, C, D, F): land `end-to-end-p0-e` first
+  (`git merge end-to-end-p0-e` in the main checkout once its own work is committed) or keep working on `end-to-end-p0-e`.
+- **TESTING §18 numbering (E-d10):** unchanged (E3 18.17; C / D / F from 18.18).
+
+## Session 10 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO` (option (A); for (B) see below)
+
+```
+You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),
+session 10. Track E lives on the local branch end-to-end-p0-e in the git worktree
+D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt — read every doc below FROM THAT WORKTREE. Follow
+docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the builder and verifier briefs, the stop
+report, the "things you never do") with the overrides below. Read first: CLAUDE.md;
+docs/studio/END_TO_END_PLAN.md (§0 E5, §3 Track E); the top of Status.md (the E3 entry);
+docs/studio/end-to-end/NEXT-SESSION.md (state, lessons); docs/studio/end-to-end/ORCHESTRATOR.md ("Answers in
+force", "Track E decisions" E-d1…E-d10 + E-d2a, E-d11…E-d16d, "Session 9" with its log and stop, "For Hasan's
+real-video test"); docs/studio/end-to-end/DRIVING.md (esp. "Track E"); docs/studio/end-to-end/E3/HANDOFF.md
+("Next step", "Open problems" → "Verifier round 5"); docs/studio/end-to-end/E-exit/HANDOFF.md;
+docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
+
+FIRST check the main checkout: if its uncommitted work is gone/committed and Hasan's dev app is not running,
+say so in one line; either way keep working in the worktree (decision E-d1) unless I say to land it.
+
+My call on E3 (option A): E3 is DONE-PARTIAL as it stands (code c5a6124) — record it in ORCHESTRATOR (E3 row
+DONE-PARTIAL, verifier round 5's F5a–F5d + notes on my real-video list). A RECORDS-only builder fixes F5d
+(Status.md Not measured (25), TESTING §18.17 :541 — the 30 of 2,085 that were not "already first") and writes
+DONE-PARTIAL into the Status.md E3 title + TESTING §18.17 (every git / tree statement "as of <hash>", re-checked
+after the commit; Edit / Write only). Then the track-E exit (docs/studio/end-to-end/E-exit/HANDOFF.md — the
+orchestrator first updates its step 0 (code c5a6124, the three markers), step 6 (b)/(c) and step 8 for the
+fill's wording, as NEXT-SESSION "State" says). Stop after the track-E exit or on BLOCKED. Do NOT touch B7's
+verifier, the track-B exit, or tracks C, D, F. Anything that needs my hands, ears or keys: build + verify up to
+it, mark it DEFERRED-HASAN, add it to ORCHESTRATOR's "For Hasan's real-video test" list, continue.
+
+OVERRIDES for the whole run
+- Answers in force: ORCHESTRATOR.md Q1–Q6 and decisions E-d1…E-d16d, E-d2a (rule (a) withdrawn).
+- Paid providers: no call on a paid key. Generation only through E2's dev-only stand-in
+  (VIDTSX_AUDIO_STANDIN_FILE, non-packaged builds only); the one live ElevenLabs call stays on my list.
+- Model calls only through the app's own keyless Claude subscription provider, only as much as a part needs
+  (the records builder: none; the track-E exit: at most 3 turns + 1 retry on an API error); never a paid API
+  key provider; never read, copy or open a credential store (settings.db, ~/.claude, any profile's) — profile
+  copies exclude settings.db*; the app creates its own settings.db in an isolated profile at first launch —
+  leave it unopened.
+- The library: every import and generation runs on an ISOLATED profile; never my %APPDATA%\VidTSX Studio
+  library or my projects. The reference catalogs and the editor repo D:\repos\claude-youtube-editor are
+  read-only (Python there only with -I -B). The builders' E3 profile index holds 4 generated/ entries — never
+  run a generating driver on that profile.
+- Resource guard: before any launch, copy or full test run check C: free AND memory commit headroom; live
+  steps need C: ≥ 3 GB and (C: free + headroom) ≥ 6 GB, with a watchdog that stops only our app if C: < 1.5
+  GB; full vitest with --maxWorkers=2 while headroom < 10 GB; E-d13 under measured external CPU load.
+- Every builder brief adds: "Work only in the worktree (E-d1, E-d2; never npx/npm there, never git stash,
+  never touch the main checkout, its out/ or node_modules). Also read docs/studio/end-to-end/DRIVING.md and
+  the 'Track B decisions' section of ORCHESTRATOR.md. Edit HANDOFF.md, Status.md and TESTING.md with the
+  Edit/Write tools only — no Python, node, sed or heredoc for doc edits. Never hand back while a job you
+  started is still running. Select your own processes by --remote-debugging-port or profile path plus
+  Name='electron.exe', never a bare number. Set the isolated profile's Studio root in the first CDP call.
+  Never touch Hasan's stations (B1-verify-root + profiles\B1-verify, B5-station-root + profiles\B5-station)
+  or any B6/B7 run scratch. Write HANDOFF.md as you go and commit early (agents can die on API errors).
+  Every git / tree / build statement in the records is written 'as of <hash>' and re-checked after your
+  commit lands. Numbers in prose come from the report files, not from memory of a run."
+- The exit checker gets the exit, DRIVING.md's safety rules and the HANDOFF's steps — never the builders'
+  conclusions. The orchestrator commits no docs while a checker or verifier runs (or tells it the HEAD it
+  starts from).
+- The orchestrator writes only under docs/studio/end-to-end/ (in the worktree), commits after each update,
+  and logs times from the real clock (`date`). At the stop, update NEXT-SESSION.md's state so the later
+  B7-verifier → B exit → C → D → F resume stays correct. Never push; landing end-to-end-p0-e on
+  end-to-end-p0, and merging end-to-end-p0 into main, are my calls.
+```
+
+**For option (B)** replace the "My call on E3" paragraph with: "My call on E3 (option B): a fix round 5 — I lift E-d16's 'no matcher
+change' for exactly two rules: (1) a prompt left with a single content word that hits only clip descriptions is not a confident match
+(F5b), (2) a confident first that covers only the noun yields to a verb carrier that ties or beats it at full strength (F5a); plus F5d's
+record fix; regression vs `788c8d2` / `09e81ea` / `7967c6f` / `c5a6124` over the corpus and the 15,998-probe broad set (no right clip
+lost, the F3 / F4 rows unchanged); gates; rebuild; records. Then E3 VERIFIER ROUND 6 — E3's LAST (a FAIL stops the run), bar E-d16 +
+E-d16a…d; then the track-E exit." — and add "fix round 5 and verifier round 6: no model call" to the model-calls override.
+
+## Lessons from session 9 (apply them)
+
+- **Run the bar over the proposed design BEFORE spawning** (the 10:30 literal-fill check found "a breaking screen" against E-d16 in
+  minutes, from the last verifier's printed rankings — one question to Hasan instead of a BLOCKED builder).
+- **A clarification relayed to Hasan is only as true as the count behind it:** the E-d16b question repeated builder #16's "the same
+  first already at `09e81ea`" for ~2,000 probes; 30 were not, and F5a / F5d sit exactly there. Re-derive a builder's classification
+  (one parse of its own report file) before turning it into a question or a bar sentence.
+- **A bar with "note" exceptions keyed to an old version invites edge cases at the seams** ("already first" vs "already a confident
+  match"; a regression from a stop-word list that removes the words that used to dilute a description hit). Name the reading in the bar.
+- **Tool-layer fixes reach recall, never a confident first:** five clarifications in, every remaining FAIL is a matcher behaviour
+  (the stem factor, the stop words). Decide on the matcher, or stop asking the answer layer to fix it.
+- **Variants measured side by side settle a rule fast** (builder #17's three "covers" readings, builder #19's greedy run: 10–15 min each,
+  with "no right clip lost" as the keep rule) — keep that pattern for any heuristic tweak.
+
+---
+
+## Earlier: session 9's header (2026-10-29)
+
 # Next session — END_TO_END_PLAN.md, session 9 (track E: E3 fix round 4 + verifier round 5 under E-d16, then the track-E exit)
 
 > **Hasan, 2026-10-29 10:07: "ok, give me a prompt to continue with your recommendation"** → option (A): fix round 4 = the

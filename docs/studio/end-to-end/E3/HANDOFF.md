@@ -1533,7 +1533,7 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**HASAN'S CALL (orchestrator, 2026-10-29 13:05 — session 9 STOPPED on verifier round 5's FAIL; ORCHESTRATOR.md "Stops (session 9)").**
+**HASAN'S CALL (orchestrator, 2026-10-29 13:02 — session 9 STOPPED on verifier round 5's FAIL; ORCHESTRATOR.md "Stops (session 9)").**
 Both live findings are MATCHER behaviour that E-d16 put out of reach (F5a = the F4 class, fix round 3's `STEM_STRENGTH = 0.6`; F5b = fix
 round 3's stop words `sound-match-vocab.ts:86-87` leaving one description-only word at 0.60); no tool-layer rule demotes a confident
 first. Options: **(A) (recommended) E3 DONE-PARTIAL as it stands → the track-E exit** (`E-exit/HANDOFF.md`, step 0 / 6 / 8 to be updated
