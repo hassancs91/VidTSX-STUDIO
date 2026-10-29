@@ -14,3 +14,7 @@
   `search-runtime.ts` / `search-app.ts`, index-write + embedding-model events, `tsconfig.node` includes the engine folder; 23 new tests green
   (red first); tsc 26 / 10; matcher diff empty; `wt/out` rebuilt; profile search-S3 seeded (51 clips); `studio-cut-plan-run-handler.test.ts`
   fails in this worktree only, independent of the diff (Open problems); the ping loop (§9.3 1) NOT run — next.
+- 2026-10-29 17:05 · builder #5 · **step c DONE**: LS-r2 + LS-r3 `373125a` (11 new tests, red first; tsc 26 / 10; matcher diff empty); `wt/out`
+  rebuilt at `373125a`; live ping loop on search-S3 / CDP 9292 PASS — max gap 65.1 ms (≤ 250), 152 pings, 0 errors; build 57 / 57 in ~4.5 s; first
+  Smart query 40 ms, `ran: smart`, pool 45, crash-tumble 4th; node_modules unchanged, no tf-cache; app stopped. Note for the orchestrator: the
+  build counts 6 `presets/` `data` entries (57, not 51). Step d next.

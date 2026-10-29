@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (steps a, b DONE as of `3c50783`; step c CODE DONE as of `62685e9` — its live ping-loop check (design §9.3 1) is next)
+status: IN PROGRESS (steps a, b, c DONE — step c as of `373125a` (LS-r2, LS-r3) + the live ping loop (design §9.3 1: max gap 65.1 ms); step d next)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -219,6 +219,24 @@ the code existed — run at 16:28). **The ping-loop check (design §9.3 1) is NO
   through the electron-vite entry, not tsc). With the include `tsc --listFiles` lists all 15 files of the folder; node errors stay 10.
 - Tests added: `search-runtime.test.ts` 13, `library-search-handlers.test.ts` 7, `library-index-events.test.ts` 2, `embedding-model-events.test.ts` 1.
 
+**Step c, part 2 — LS-r2 + LS-r3: `373125a`** (as of `373125a`; red first at 16:53: 9 tests failed, each on the missing code —
+`expected 118000000 to be 135392016`, `engine.unload` / `onBeforeEmbeddingModelDelete` / `rt.beforeModelDelete` "is not a function"). **With the
+ping loop below, step c is DONE.**
+
+- **LS-r2:** `src/embedding-engine/model-registry.ts:87-89` — multilingual-e5-small `sizeBytes: 135_392_016`, `sizeLabel: '135 MB'` (the four
+  files: onnx 118,308,185 + tokenizer.json 17,082,730 + config.json 658 + tokenizer_config.json 443 B — S1's copy listed 16:52). New
+  `src/embedding-engine/model-registry.test.ts` (2 tests: the sum, the label, the four files). The two test fakes that said `118_000_000`
+  (`search-runtime.test.ts`, `library-search-handlers.test.ts`) now say `135_392_016`. Live: `library:search:status` → `modelBytes: 135392016`.
+- **LS-r3:** `src/main/services/embedding-model-events.ts:34-56` — `onBeforeEmbeddingModelDelete(hook)` (returns the unregister) +
+  `runBeforeEmbeddingModelDelete(modelId)` (awaits every hook; a throw / rejection is contained, the delete goes ahead);
+  `src/main/ipc/embedding-handlers.ts:182-183` awaits it BEFORE `deleteEmbeddingModel` (the `deleted` event after a successful delete only);
+  `LibrarySearchRuntime.beforeModelDelete(modelId)` (`search-runtime.ts:121-124`) → `engine.unload()` for the search model only (`RuntimeEngine`
+  gains `unload`); `LibrarySearchEngine.unload(waitMs = UNLOAD_WAIT_MS 2,000)` (`search-engine.ts:87-94`) — kills the child via `terminate('library
+  search model deleted')` (pending calls reject) and waits for its exit (a per-child `childExited` promise, `ensureChild` :101-104) at most
+  `waitMs`; no child → nothing. `search-app.ts:77` registers the hook when the runtime is created (no runtime → no child → nothing to unload).
+- Tests added: `embedding-handlers.test.ts` 3 (new: hooks finish before the delete, then `deleted`; a failing hook never blocks; a failed
+  delete → `{success:false, error}` and no event), `embedding-model-events.test.ts` +2, `search-runtime.test.ts` +1, `search-engine.test.ts` +3.
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -314,21 +332,54 @@ As of `62685e9` (builder #4, 16:27–16:50; logs in `C:\Users\hasan\AppData\Loca
   whose files are NOT copied + 6 `presets/`; a reconcile drops the 4 — the driver's `pre` calls `libraryIndexGet`). The model is NOT copied yet.
   Kit: `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S3\launch-s3.sh`, `c-ping.mjs` (`pre` / `run`). No app launched, no model loaded this session.
 
+As of `373125a` (builder #5, 16:51–17:05; logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-c5\` unless named):
+
+- Resources: 16:54:21 C: 50.2 GB free, D: 41.5 GB, memory commit headroom 25.4 GB; 16:57:27 headroom 23.1 GB; 17:00:07 (`guard-prelaunch.log`)
+  C: 50.2 GB, D: 41.5 GB, headroom 25.4 GB.
+- Red (16:53, `vitest-red.log`): `node …/vitest.mjs run src/embedding-engine/model-registry.test.ts src/main/ipc/embedding-handlers.test.ts
+  src/main/services/embedding-model-events.test.ts src/main/services/library-search/search-runtime.test.ts src/library-search-engine/search-engine.test.ts`
+  → `Test Files 5 failed (5) · Tests 9 failed | 24 passed (33)`, each failure on the missing code (see Done).
+- Green (16:54, `vitest-green.log`): `… vitest.mjs run src/embedding-engine src/main/ipc/embedding-handlers.test.ts src/main/ipc/library-search-handlers.test.ts
+  src/main/services/embedding-model-events.test.ts src/main/services/library-search src/library-search-engine --maxWorkers=2` → `Test Files 18 passed
+  | 1 skipped (19) · Tests 131 passed | 2 skipped (133)` (22.3 s; the skipped file = the gated live test without its env var).
+- tsc web → 26 `error TS` (`tsc-web.log`; the embedding lines in it are the baseline's `ElectronAPI` ones, pre-existing), node → 10 (`tsc-node.log`).
+  Matcher diff vs `7967c6f` empty. No `any` in the touched files (grep). Largest touched source `embedding-handlers.ts` 244, `search-engine.ts` 183.
+- **Build** (our app not running): `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+  D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build` → rc 0, 16:56:38–16:59:58 ("built in 3m 3s", `build.log`) —
+  **`wt/out` = the `373125a` sources** (no `src/` edit after the build started). `out/main/library-search-worker.js` 8,684 B.
+- **Not rendering** (17:00:07, kit `S3\guard.ps1`): 6 `electron.exe` (Hasan's), 0 ours; 0 ffmpeg / ffprobe / chrome-headless-shell / remotion /
+  compositor descendants of his PIDs; 0 entries in `%TEMP%\vidtsx-studio` modified in the last 2 min → GUARD OK. `node_modules` marker
+  `step-c5\nm-marker` written 16:57:41.69 (before the app's model load at ~17:00:35).
+- **The live ping loop (design §9.3 1) — PASS: max gap 65.1 ms (bar ≤ 250 ms).** Launch `bash …/S3/launch-s3.sh` (background; `wt/out`, no Vite
+  server, profile search-S3, CDP 9292; app log `…\search\S3\step-c\app.log`). `node …/S3/c-ping.mjs pre` (`pre.log`; its clock prints UTC):
+  studioRootSet → `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\studio-root` (FIRST call, confirmed by `studioRootGet`); library root
+  `<profile>\assets` (default, not an override); AI models folder `<profile>\ai-models`; **status before the model = `{mode:'basic', choice:'auto',
+  modelDownloaded:false, modelBytes:135392016, vectors:{0,0,building:false}}`**; reconcile → 57 entries (the 51 clips + 6 `presets/`; E3's 4
+  `generated/` dropped); no embedding model downloaded. Model copied 17:00:32 (S1's folder, read-only) → `<profile>\ai-models\embeddings\
+  multilingual-e5-small\` (4 files, 135,392,016 B). `node …/c-ping.mjs run` (`run.log`; report `…\search\S3\step-c\ping-report.json`, copy in
+  `step-c5\`): status at +1,514 ms (2 ms) → `mode:'smart'`, `building:true` (spawn + cold load + build kicked); the last vectors event at +6,002 ms
+  = **57 / 57, building false**; **the first Smart query "things falling over" (audio, sfx, limit 20): 40 ms, `ran:'smart'`, `poolSize:45`,
+  `vectors:{45,45}`, no `degraded`**; its first 8: party-popper, break-crash-digital, crunch-bite, **crash-tumble (4th — S1 ranks it 4th)**,
+  break-glass-crack, flame-snuff, chess-piece-capture, impact-deep-soft. **Ping: 152 pings over 7,556 ms, 0 errors, max gap 65.1 ms (at
+  +2,667 ms), max RTT 8.6 ms, p99 RTT 5.9 ms, no gap over 100 ms.** Status after: smart, vectors 57 / 57.
+- After (our instance stopped 17:01:02: 5 `electron.exe` matched by the search-S3 profile / port 9292 stopped, 0 left, Hasan's 6 untouched; the
+  launcher's exit 127 = the killed `exec`, expected): `<profile>\assets\.vidtsx\search\vectors-multilingual-e5-small.json` 121,842 B, header
+  `{version 1, multilingual-e5-small, dims 384, mean, prefixVersion 1}`, 57 items (6 of them `presets/…` — Open problems); **`%TEMP%\vidtsx-studio\
+  library-search` does not exist (no tf-cache)**; **`find D:/repos/VidTSX-STUDIO/node_modules -newer step-c5/nm-marker` → 0 lines, rc 0**
+  (17:01:15–17:01:27, `nm-scan.log`); `node_modules/@huggingface/transformers/` lists `LICENSE README.md dist package.json src types` only;
+  `app.log` has "[LibrarySearch] Library search runtime created" and 0 lines containing "error".
+
 ## Next step (ONE concrete instruction)
 
-Finish step c with its live ping-loop check (design §9.3 1) on the prepared profile, `wt/out` as built at `62685e9` (no rebuild needed unless
-`src/` changed): (1) resource guard + DRIVING's not-rendering check (see the 16:35 line under Verified for the method) and write a marker file
-under `…\search\S3\step-c\` for the `node_modules` proof; (2) launch `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/search/S3/launch-s3.sh` with
-Bash `run_in_background`; (3) `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/search/S3/c-ping.mjs pre` (Studio root FIRST → the scratch
-`…\search\S3\studio-root`, mkdir it first; prints the library root — must be `<profile>\assets` — the AI models folder from `settingsGet`, the
-status before the model — must be Basic / not downloaded / vectors 0 — and reconciles the library); (4) copy S1's model folder
-(`C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\multilingual-e5-small\`, 4 files, 135,392,016 B, read-only) into
-`<that AI models folder>\embeddings\multilingual-e5-small\`; (5) `node …/c-ping.mjs run` (a ping every 50 ms over `libraryRootGet` from the
-renderer through status → spawn + cold load + the 51-clip build → the first Smart query "things falling over"; writes
-`…\search\S3\step-c\ping-report.json`); (6) stop our instance (Name='electron.exe' + the search-S3 profile path), check `<profile>\assets\.vidtsx\
-search\vectors-multilingual-e5-small.json` exists, `%TEMP%\vidtsx-studio\library-search\tf-cache` was not created, and `find
-D:/repos/VidTSX-STUDIO/node_modules -newer <marker>` prints nothing; (7) the max gap (bar ≤ 250 ms) + the first query's `ran` / `poolSize` /
-`vectors` / top candidates into Verified, commit; step c is then DONE — step d (the agent tools) next.
+Build step d (the agent tools, design §8.1 / §8.2 / §9.1 "no claim" + "nothing fits"), red first: make `generate_sfx` / `generate_music`
+(`src/main/services/studio/agent-tools/audio-tools.ts` + `sound-reuse.ts`) ask the library-search runtime (`getLibrarySearchRuntime().search`,
+injected as a seam so tests pass a fake / the benchmark's `searchLibrary` deps) with `{ query: prompt, kinds: ['audio'], soundClass, minDurationSec,
+limit: 20 }` BEFORE `hasAudioProvider()`, answer a non-empty result with the §8.1 text verbatim (`formatLibraryRow` rows in the search's order, the
+`degraded` line, the `force: true` line, no claim string in any mode), generate only on `poolSize: 0`, Basic's true miss, or `force: true`; pin
+`REUSE_NOTE` / `FORCE_HINT` / `studio-agent-prompt-tools.ts:31-32` to the same wording; add the no-claim test over all 1,515 benchmark rows in
+both modes and the nothing-fits tests with E2's stand-in provider counter; then rank `list_assets(scope: "library", query)` per §8.2
+(`agent-tools/project-tools.ts:25-60`, the §8.2 header, ≤ 20 rows, no query → unchanged); rewrite E3's answer-format tests only (the matcher /
+corpus / `sound-answer*` tests untouched); commit; then step e.
 
 ## Open problems
 
@@ -361,12 +412,19 @@ D:/repos/VidTSX-STUDIO/node_modules -newer <marker>` prints nothing; (7) the max
   both without and with all 21 step-c paths copied in (the scratch worktree was removed after). So it is an environment effect of this worktree
   checkout (cause not found — possibly the LF / CRLF difference DRIVING's B5 note describes), like E-d2a's three package-resolution suites; it
   needs the orchestrator's rule for step f's gate (show it independent of `906273c..HEAD`, as E-d2a does).
-- (note — for step e / the orchestrator) **`modelBytes` = the catalog's `sizeBytes` = 118,000,000** for multilingual-e5-small
-  (`src/embedding-engine/model-registry.ts:87`, label "118 MB" — the ONNX file); the design §4 says the Settings row shows "the model's size
-  (135 MB)" — the four files on disk are 135,392,016 B. Step c returns the catalog's number (the HANDOFF instruction); step e must either show
-  118 MB or the catalog entry be corrected (a one-line data change that also changes the AI Models screen's label) — the orchestrator's call.
-- (note) a deleted search model while the engine child has it loaded: the delete handler runs first, then the runtime pushes a Basic status; the
-  child is not told to unload before the delete (on Windows an open handle could make `fs.rm` fail — not seen, not tested). Not in §9.
+- RESOLVED by LS-r2 (`373125a`): the catalog's multilingual-e5-small entry = 135,392,016 B / "135 MB" (was 118,000,000 / "118 MB"); live status
+  `modelBytes: 135392016`. The other catalog entries' undercounts stay a NOTE (LS-r2: not this slice's).
+- RESOLVED by LS-r3 (`373125a`): the delete handler awaits the before-delete hooks; the runtime kills the engine child and waits for its exit
+  (≤ 2 s) before the files are deleted. **A live delete on Windows is a note for S4** (not run here). Remaining edge (note, not tested): a search /
+  status call that lands BETWEEN the unload and the `fs.rm` can respawn the child (the files still exist) and race the delete; the delete then
+  reports its own error (`{success:false}`), nothing hangs.
+- (note — for the orchestrator before S4; not blocking step c) **the vector build counts every index entry the pool admits, incl. kind `data`.**
+  `syncItemsOf(entries)` = `searchPool(entries, {query: ''})` (no `kinds` → no kind filter), so on the search-S3 profile the build is **57 / 57 =
+  the 51 clips + 6 `presets/…` files** (`preset.json` / `PRESET.md` × 3, kind `data`, present in every profile copied from `profiles\source`); a
+  request without `kinds` (the Assets box with no category filter, `list_assets` without `kind`) can rank those `data` entries too. Design §9.3 2
+  reads "the background build reaches 51 / 51" — on such a profile it reads 57 / 57. Either (a) accept (the verifier reads "all entries ready",
+  57 / 57 here), or (b) restrict the pool's default kinds to `audio | video | image` (the request type's own kinds; a step-a `search-pool.ts`
+  change + a test; the vector total would then be 51) — the orchestrator's call. This builder did not change it.
 - (note) **Hasan's dev app is running** since 15:27 (main checkout, `--remote-debugging-port=9222`, his `%APPDATA%\VidTSX Studio` profile,
   6 `electron.exe` at 15:57) — not ours: never stop it, never run `electron-vite dev`; select our instance only by port 9292 / the search-S3
   profile path + `Name='electron.exe'` (DRIVING).
@@ -383,6 +441,11 @@ D:/repos/VidTSX-STUDIO/node_modules -newer <marker>` prints nothing; (7) the max
 - Step c's code (`62685e9`): the 23 new tests are green — extend them. `wt/out` was rebuilt at `62685e9` (16:35–16:39). The search-S3 profile
   is created and seeded (51 clips + E3's index) — do not re-copy it; only the model copy (Next step (4)) is missing. Do not re-bisect the
   studio-cut-plan failure (Open problems).
+- LS-r2 / LS-r3 (`373125a`, 11 new tests) are done; the ping loop (§9.3 1) PASSED at `373125a` (max gap 65.1 ms) — do not re-run it unless
+  main-side search code changes. **The search-S3 profile now HAS the model** (`<profile>\ai-models\embeddings\multilingual-e5-small\`, copied
+  from S1) and a built vector file (57 items) — step e's download-path check (§9.3 2, "no model" first) needs that model folder AND
+  `<profile>\assets\.vidtsx\search\` removed first (or a fresh profile copy). `wt/out` = `373125a`; rebuild after any `src/` change.
+  Kit: `S3\guard.ps1` (resources + not-rendering + our instance count), `launch-s3.sh`, `c-ping.mjs` (its clock prints UTC).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -391,3 +454,6 @@ D:/repos/VidTSX-STUDIO/node_modules -newer <marker>` prints nothing; (7) the max
 - 2026-10-29 16:00–16:25 · builder #3 · ~45 · step b (the engine, vector-sync, the gated live test green, the dtype fix, the build), `3c50783`.
 - 2026-10-29 16:26–16:52 · builder #4 · ~60 · step c's code (IPC + settings + runtime + events, 23 tests), `62685e9`; the build; the profile +
   51-clip seed + ping kit prepared; the studio-cut-plan worktree failure bisected (not ours); the ping loop NOT run (hand-off on the call budget).
+- 2026-10-29 16:51–17:05 · builder #5 · ~55 · LS-r2 (catalog 135,392,016 B / "135 MB" + test) and LS-r3 (before-delete hook → the runtime
+  kills + awaits the engine child; 11 tests, red first), `373125a`; `wt/out` rebuilt; the live ping loop PASS (max gap 65.1 ms, build 57 / 57,
+  first Smart query 40 ms, crash-tumble 4th); node_modules unchanged; **step c DONE**; the `presets/` (kind `data`) vector-count note raised.
