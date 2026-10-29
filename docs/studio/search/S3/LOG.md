@@ -26,3 +26,7 @@
 - 2026-10-29 17:35 · builder #7 · LS-r6 + `list_assets` §8.2 `332ef1b` (red 17 → green 18 files / 115 tests in agent-tools + prompt; headers
   name what ran; library query ranked by the search, ≤ 20 E2 rows, no query unchanged); tsc 26 / 10; matcher diff empty; **step d DONE**. Next:
   step e (the Settings row, then the Assets box, then the §9.3 2 / 3 click-through).
+- 2026-10-29 17:48 · builder #8 · step e part 1 `4337910` (red 2 files → green 7 files / 53 tests): the Settings "Library search" row + hook
+  (choice with Auto default, rerank rung disabled — not built, Open problems; 135 MB; Download via `embedding:model:download` + progress;
+  vector state), the Assets box (`useLibrarySearch` 250 ms, pure `smartSearchRequestOf` / `mergeSmartResults`, the "Smart" marker), shared
+  `library-search-text.ts`, `ElectronAPI` members; tsc 25 / 10; matcher diff empty. Next: rebuild `wt/out` + the §9.3 2 / 3 click-through.

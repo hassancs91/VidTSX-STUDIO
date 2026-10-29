@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (steps a, b, c, d DONE — step d's last part, LS-r6 + `list_assets` §8.2, `332ef1b`; step e — the UI — next)
+status: IN PROGRESS (steps a, b, c, d DONE; step e part 1 — the UI code + unit tests — `4337910`; step e's rebuild + CDP click-through of design §9.3 2 / 3 next, then step f)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -302,6 +302,48 @@ the import worked (the no-query / project-scope tests passed red too, as they pi
   `audio-tools-no-claim.test.ts` (the per-mode header on all 1,515 rows in both modes); `audio-tools-fill.test.ts` (Basic header "(words only)").
   `library-listing.test.ts` unchanged and green.
 
+**Step e, part 1 — the UI code + unit tests: `4337910`** (as of `4337910`; red first at 17:41:22 — `step-e\vitest-red.log`: both new test
+files failed "Cannot find module './library-search-text'" / "'./smart-search-merge'"). **The rebuild + the CDP click-through (§9.3 2 / 3)
+are NOT done** — Next step. The components / hooks have no unit tests (CLAUDE.md: simple display components skipped); their logic is in
+the three pure files below.
+
+- NEW `src/shared/library-search-text.ts` (44) — shared by the Settings row and the Assets marker (two features → `src/shared/`):
+  `SEARCH_MODE_LABELS`, `modelSizeLabel(bytes)` (decimal MB: 135,392,016 → "135 MB"), `vectorStateLabel` ("51 / 51 ready", "building 12 / 51",
+  "no vectors yet"), `effectiveModeLabel(status)` ("Smart (auto)", "Basic (auto — model not downloaded)", "Basic", "Basic (Smart needs the
+  model — not downloaded)"), `searchMarkerTitle(status, result)` ("Library search: Smart (auto) — words + meaning · vectors 51 / 51 ready"
+  [+ " · this search ran words only: <degraded>"]). Test `library-search-text.test.ts` (5).
+- NEW `src/renderer/hooks/useLibrarySearchSettings.ts` (86) — `librarySearchStatus` on mount + `onLibrarySearchEvent` (status → replace;
+  vectors → patch the counts); `onEmbeddingDownloadProgress` filtered to `status.modelId` (percent clamped 0–100); `setChoice` →
+  `librarySearchSettingsSet({mode})`; `download()` → `embeddingModelDownload({modelId})` (the existing AI Models path), then a status refresh.
+- NEW `src/renderer/components/SettingsModal/rows/LibrarySearchRow.tsx` (74) — self-contained like `ProxyGpuEncoderRow`; a `<select>`
+  `[data-library-search-choice]`: `auto` "Auto (default) — Smart once the model is here" · `basic` · `smart` · `smart-rerank` listed
+  **disabled** "— not available yet" (Open problems); the description names the model id + size; `[data-library-search-state]` "Now:
+  <effectiveModeLabel> · vectors <vectorStateLabel>"; `[data-library-search-download]` "Download (135 MB)" only while `!modelDownloaded`,
+  "Downloading… N%" + a 4 px bar `[data-library-search-progress]` (UI_SPEC progress bar, `bg-app-hover` / `bg-accent`); errors
+  `[data-library-search-error]` in `text-accent-red`. Registered in `GeneralSettingsContent.tsx:130-131` under a new "Library" section header.
+- NEW `src/features/asset-library/services/smart-search-request.ts` (31) — `SMART_LIMIT` 20, `SMART_DEBOUNCE_MS` 250,
+  `smartSearchRequestOf(query, scopeRelPath, category)` → `{query: trimmed, scope?, kinds?, limit: 20}` (`''` scope = root → omitted; All →
+  no kinds; audio / video / image → that kind; **Other or an empty query → null, no call** — the search covers playable media only, LS-r4),
+  `requestKeyOf` (query + scope + kinds).
+- NEW `src/features/asset-library/services/smart-search-merge.ts` (46) — `mergeSmartResults({flat, filtered, smart, relPathOf, category,
+  chip, metaOf})`: `smart === null` → **`filtered` itself (the same array — Basic = today's `filterAssets`)**; else the service's first 20
+  relPaths that are in the listed subtree and pass the category + the chip, in its order, then every `filtered` entry not already shown.
+  Test `smart-search.test.ts` (10: request shape / scope / kinds / Other / key; merge Basic identity, order, first N = the service's N, top-20
+  cap, chip + category narrowing, outside-subtree drop + no repeats).
+- NEW `src/features/asset-library/hooks/useLibrarySearch.ts` (87) — status + pushes; only while `status.mode !== 'basic'` it builds the
+  request and calls `librarySearch` 250 ms after the last change (a `setTimeout`, cleared on change); an answer is kept with its key and used
+  only while the current key matches (a stale answer is never merged; until the new one arrives the grid is Basic's filter); `relPaths`
+  memoised. In Basic **no IPC search call is made at all**.
+- NEW `src/features/asset-library/components/SmartSearchMarker.tsx` (21) — `[data-library-search-marker=<mode>]` "Smart" badge (UI_SPEC
+  badge: 9 px, 1 px 5 px, 4 px radius; `bg-app-active` / `text-accent-light` / a 0.5 px `--color-accent` border), hidden in Basic, `title` =
+  `searchMarkerTitle`.
+- `AssetSearchBar.tsx` (+4) — an optional `adornment` prop rendered right after the input. `AssetLibraryScreen.tsx` (464 → 473, pre-existing
+  over 300): the 3 imports (:32-34), the hook call (:97, scope = `toLibraryRelPath(rootPath, currentPath)`), the memo now `flat` →
+  `filterAssets` → `mergeSmartResults` (:98-104), `adornment={<SmartSearchMarker …/>}` (:297) — nothing else.
+- `src/renderer/types/electron.d.ts:642-649` — `ElectronAPI` lacked the step-c preload members: added `librarySearch`, `librarySearchStatus`,
+  `librarySearchSettingsSet`, `onLibrarySearchEvent`, and `embeddingModelDownload` / `onEmbeddingDownloadProgress` (the preload already had
+  them, `api/embedding.ts`) — **tsc web 26 → 25** (the baseline's `use-embedding-models.ts(131)` `embeddingModelDownload` error is gone).
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -471,21 +513,52 @@ load, no full run — no resource guard needed):
   `audio-tools-reuse.test.ts` 218, `list-assets-library.test.ts` 195, `project-tools.ts` 92. No new npm package.
 - Post-commit: `git status --short` clean after `332ef1b` (7 files, +278 −15).
 
+As of `4337910` (builder #8, 17:37–17:47; logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-e\`; no build, no launch, no model
+load, no download, no full run — no resource guard needed):
+
+- Red 17:41:22 (`vitest-red.log`): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/shared/library-search-text.test.ts
+  src/features/asset-library/services/smart-search.test.ts` → `Test Files 2 failed (2) · Tests no tests` (each "Cannot find module").
+- Green 17:45:46 (`vitest-green.log`): `… vitest.mjs run src/shared/library-search-text.test.ts src/features/asset-library
+  src/renderer/components/SettingsModal --maxWorkers=2` → `Test Files 7 passed (7) · Tests 53 passed (53)` (the 2 new files' 15 + the 5
+  existing asset-library service files, `asset-search.test.ts` incl. — `filterAssets` untouched).
+- tsc 17:44 web → **25** `error TS` (`tsc-web.log`; vs `step-d2\tsc-web.log` the only difference is `use-embedding-models.ts(131)` gone),
+  node → 10 (`tsc-node.log`); none in a new / touched file. Matcher diff vs `7967c6f` empty. `any` grep over the 9 new files + the 2 touched
+  components: one hit = the word in a comment (`smart-search-merge.ts:21`); no `@main` / `@features/studio` / `electron` / `fs` / `path` /
+  `require(` import in them. Largest new file `smart-search.test.ts` 119, largest new source `useLibrarySearch.ts` 87. No new npm package.
+- Post-commit: `4337910` = 13 paths; `git status --short` clean after it.
+
 ## Next step (ONE concrete instruction)
 
-Start step e with the Settings row, red first: read DRIVING.md, `docs/ui-automation-cdp.md` and UI_SPEC.md first (none was read by builder #7);
-add `src/renderer/components/SettingsModal/rows/LibrarySearchRow.tsx` + its hook (pattern: `RenderTimeoutRow.tsx` 70 lines, registered in
-`GeneralSettingsContent.tsx` 147 lines) through the preload API only — `librarySearchStatus` / `librarySearchSettingsSet` /
-`onLibrarySearchEvent` (`src/preload/api/library-search.ts`) and `embeddingModelDownload` / `onEmbeddingDownloadProgress`
-(`src/preload/api/embedding.ts:22,26`): the three choices (Auto shown as the default), the size from `status.modelBytes` ("135 MB"), a Download
-button (only while `!modelDownloaded`) with its progress, the vector state ("51 / 51 ready", "building 12 / 51"); then the Assets box per design
-§8.3 as `src/features/asset-library/hooks/useLibrarySearch.ts` (debounced 250 ms `librarySearch`, scope = the breadcrumb's relPath, kinds from the
-category filter) + a pure merge in `src/features/asset-library/services/` (top 20 in the service's order, then the other `filterAssets` hits;
-chips still narrow; Basic = `filterAssets` unchanged) with unit tests, and the "Smart" marker with a tooltip — **`AssetLibraryScreen.tsx` is
-already 464 lines (pre-existing): add only the hook call + the merge call + the marker there, nothing else**; then rebuild `wt/out` and run the
-§9.3 2 / 3 click-through (HANDOFF Plan context + the task text: the profile's model folder and `<profile>\assets\.vidtsx\search\` removed first).
+Rebuild `wt/out` and run the §9.3 2 / 3 click-through: (0) read `docs/ui-automation-cdp.md` (builder #8 did not — it read DRIVING, UI_SPEC
+§colour / components, and the design); (1) `S3\guard.ps1` (resources + Hasan not rendering + 0 of ours), write the numbers here, then build
+(DRIVING Track E step 1; `wt/out` is still `373125a` — main changed in step d, the renderer in step e); (2) prepare the search-S3 profile for
+the no-model start: remove `<profile>\ai-models\embeddings\multilingual-e5-small\` (our copy of S1's model, made 17:00) and
+`<profile>\assets\.vidtsx\search\`; state the download size (135,392,016 B) and C: / headroom here; (3) guard again, `launch-s3.sh`, Studio
+root first (`c-ping.mjs pre` does it), then a new driver: status = Basic / not downloaded and NO download starts by itself (watch the models
+folder for ~30 s); open Settings › General, still of the row (`[data-library-search-row]`, before); click `[data-library-search-download]`,
+stills during (`[data-library-search-progress]`, "Downloading… N%") and after; status flips to `smart` / `auto`; the build's events reach
+51 / 51 (LS-r4: the 6 `presets/` are no longer embedded); (4) Assets screen at the root, category All: type "things falling over" →
+`crash-tumble` in the first 8 tiles, "صوت زجاج يتكسر" → `break-glass-crack` in the first 8; compare the grid's first 20 with
+`window.api.librarySearch({query, limit: 20})` (no scope at the root, no kinds for All) in order; still of the box with the marker; (5) set
+Basic through `[data-library-search-choice]` (native select: prototype value setter + bubbling `change`), the marker disappears, and for 3
+queries the tiles equal today's `filterAssets` (every query word in name / description / tags / sound category, over the reconciled index);
+still; (6) stop our instance, `find D:/repos/VidTSX-STUDIO/node_modules -newer <marker>` empty; then step f. **Risk to check first in (4):**
+the Assets box at All sends NO `kinds` / `soundClass`, so the keyword half is the generic coverage ranking (not E3's matcher, see the first
+Open problem) — the ping check's "crash-tumble 4th" was with `kinds:['audio'], soundClass:'sfx'`. If `crash-tumble` misses the first 8,
+read the IPC's own order for the same request before suspecting the merge (`mergeSmartResults` keeps the service's order — unit-tested).
 
 ## Open problems
+
+- (note — for the orchestrator; not blocking §9) **the "Smart + AI rerank" rung has no implementation.** Design §3 lists `rerank.ts` and §8.3
+  describes the Assets box's rerank (one provider call per settled query, cached by query + index version), but no S3 step builds it (§12's
+  S3a–S3e do not name it; §9.4 makes the live rerank DEFERRED-HASAN, "unit-tested with an injected reranker" — `library-search.ts`'s
+  injected-reranker tests exist; the runtime passes none). The KV accepts `smart-rerank` (`search-settings.ts:11`), and with no reranker it
+  runs Smart (`ran: 'smart'`). The Settings row therefore lists the rung **disabled** ("Smart + AI rerank — not available yet") rather than
+  offering a choice that does nothing; Auto / Basic / Smart are selectable. If the orchestrator wants `rerank.ts` + the box's rerank in S3,
+  that is a ruling (it needs the app-default provider path; no model call may run in S3).
+- (note) `ElectronAPI` (`src/renderer/types/electron.d.ts`) is hand-written and had none of step c's `librarySearch*` members; step e added
+  them + `embeddingModelDownload` / `onEmbeddingDownloadProgress`, which also clears one baseline web error (26 → 25). The other baseline
+  `ElectronAPI` gaps (`embeddingModelsList`, `embeddingModelDelete`, …) are untouched (not this slice's).
 
 - (note, not blocking) audio requests WITHOUT a sound class use the generic coverage ranking (see `keyword-retriever.ts`); the design names only
   "audio → E3's matcher" and "image / video → coverage". Step d's `list_assets(kind: audio)` will rank that way unless S4 / Hasan say otherwise.
@@ -572,6 +645,10 @@ already 464 lines (pre-existing): add only the hook call + the merge call + the 
 - LS-r6 + `list_assets` §8.2 (`332ef1b`, 10 new tests + the per-mode header pins) — **step d is DONE**; extend, don't redo. `REUSE_NOTE` /
   `FORCE_HINT` / the prompt lines still say "(words + meaning; …)" about the tool in general — LS-r6 names only the headers; left as they are.
   `wt/out` is still `373125a`: rebuild before step e's live checks.
+- Step e part 1 (`4337910`: the Settings row + hook, the Assets box hook / request / merge / marker, `library-search-text.ts`, the
+  `ElectronAPI` members; 15 new unit tests) — extend, don't redo. **`wt/out` is still `373125a`** — rebuild before the click-through. The CDP
+  hooks: `[data-library-search-row]`, `[data-library-search-choice]` (a native `<select>`), `[data-library-search-download]`,
+  `[data-library-search-progress]`, `[data-library-search-state]`, `[data-library-search-error]`, `[data-library-search-marker]`.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -589,3 +666,7 @@ already 464 lines (pre-existing): add only the hook call + the merge call + the 
 - 2026-10-29 17:27–17:35 · builder #7 · ~30 · LS-r6 (headers name what ran) + `list_assets(scope "library", query)` §8.2 (new
   `library-search-listing.ts`, `list-assets-library.test.ts`), red first, `332ef1b` — **step d DONE**; scouted step e's files (Next step);
   handed off at the step boundary (no build / launch; DRIVING, ui-automation-cdp and UI_SPEC not read).
+- 2026-10-29 17:37–17:48 · builder #8 · ~45 · read the design in full, DRIVING, UI_SPEC (colour / components); step e part 1 — the Settings
+  "Library search" row + download hook, the Assets box Smart search (hook, pure request + merge, marker), shared labels, `ElectronAPI`
+  members; red first, `4337910`; tsc 25 / 10; handed off on the call budget before the rebuild + §9.3 2 / 3 click-through (ui-automation-cdp
+  not read).
