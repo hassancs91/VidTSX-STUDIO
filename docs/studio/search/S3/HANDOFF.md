@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (step a DONE as of `2ffcc27`; step b — the engine — next)
+status: IN PROGRESS (steps a, b DONE as of `3c50783`; step c — IPC + settings — next)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -140,6 +140,48 @@ module" before the code existed).
   timed out at 5 s recomputing 1,515 full rankings each (~7–8 s); the row-field check accepts E3's empty-prompt corpus row `#48` (`∅`, a real
   corpus case) and pins it; a new assertion on the file's recorded `check` (`tableEqualsS1`, `float32TableEqualsS1`, `scoredRows: 1515`).
 
+**Step b — the engine: `3c50783`** (as of `3c50783`; red first: the 5 new test files failed "Cannot find module", the dtype test failed on its
+assertion — pipeline called without `dtype`). **Step b is DONE.** All under `src/library-search-engine/` unless named:
+
+- `types.ts` (49) — the protocol: `rank {requestId, model:{modelId, modelDir, cacheDir}, vectorFile, query, items}` → `rankResult {ranked, vectors}`;
+  `sync {…, items, prune}` → `syncProgress` … `syncResult {ready, total}`; `unload`; `modelLoaded {modelId, loadMs}`; `error {requestId?, error}`;
+  `EngineChild {postMessage, onMessage, onExit, kill}`.
+- `embedder.ts` (66) — `loadEmbedder({modelDir, cacheDir})` → `{embedQueries, embedPassages, dispose}`: `allowRemoteModels = false`,
+  `localModelPath` = the model's parent, `cacheDir` = scratch (**a cacheDir inside `node_modules` is refused**, :38), `pipeline('feature-extraction',
+  dir, {local_files_only: true, dtype: 'q8'})`, mean + normalise, `queryText` / `passageText`, `EMBED_BATCH = 32`. Node-importable.
+- `vector-store.ts` (180) — `vectorFilePath(root, id)` = `<root>/.vidtsx/search/vectors-<id>.json`; the design §5 file shape (`v` = base64 Float32);
+  `open` → `rebuiltBecause` `missing` / `corrupt` / `header mismatch` (version, modelId, pooling, prefixVersion, dims) → starts empty; `adopt(dims)`
+  (another length clears); `missing` / `has` by relPath + textHash; `prune`; `rank` (cosine over items with a vector, best first, `{ready, total}`);
+  `save` atomic `.tmp` + rename, serialised, only when dirty.
+- `model-lock.ts` (30) — one model call at a time; `'high'` (a query) goes before every waiting `'low'` (a build batch).
+- `engine-core.ts` (155) — `SearchCore.handle(msg)`: the model loads once per (id, dir) (load failure → `error` for that request, next one
+  retries); **rank** embeds the query, embeds the pool's diff first only when it is ≤ 32 items AND no build of that file runs (never index on
+  query — a bigger diff ranks the ready ones, `ready < total`), then ranks; **sync** prunes (when asked), embeds the missing in batches of 32 with
+  `syncProgress` (first at the starting `ready`), saves every 8 batches + at the end, one sync per file at a time; **unload** saves + disposes.
+- `worker.ts` (30) — the utilityProcess child: ORT DLL PATH (`ort-dll-path.ts`, the same three candidates as the other workers), `SearchCore` on
+  `process.parentPort`. `ort-dll-path.ts` (31) — `ortDllDirsBeside(dir)`, `prependOrtDllPath(candidates)`.
+- `search-engine.ts` (166) — `LibrarySearchEngine implements SemanticRanker`: lazy fork (injected `fork`, so no electron import), request ids
+  `ls-N`, `rank` timeout `COLD_TIMEOUT_MS` 5,000 → `'model loading'` before `modelLoaded`, `WARM_TIMEOUT_MS` 2,000 → `'search timed out (2 s)'`
+  after; late answers ignored; `error` rejects with the child's message; child exit → every pending rejects `library search engine exited (code N)`,
+  respawn on the next call; idle unload `IDLE_UNLOAD_MS` 10 min after the last settled call (never while a sync is pending); `sync(items, prune)`
+  (no short timeout; `onVectors({ready, total, building})`); `model()` null → `'model not downloaded'` without a spawn; `terminate()`.
+- `electron-fork.ts` (24) — `forkLibrarySearchWorker()`: `utilityProcess.fork(<__dirname>/library-search-worker.js, [], {serviceName:
+  'vidtsx-library-search'})` adapted to `EngineChild` (main imports it in step c).
+- `electron.vite.config.mjs:33` — the `library-search-worker` entry beside `content-safety-worker`.
+- `src/main/services/library-search/vector-sync.ts` (88) — `syncItemsOf(entries)` = every entry (`searchPool(entries, {query: ''})` →
+  `semanticItemOf`); `VectorSync` `{engine.sync, loadEntries, enabled, debounceMs = 2000, onError}`: `schedule()` debounced (index writes),
+  `buildNow()` (after a download; a call during a run → one more pass after it), skipped while `enabled()` is false, errors → `onError` + null.
+- `src/main/services/library-search/benchmark/benchmark-bar.ts` — `SMART_BAR` (the §9.1 table) moved out of the benchmark test, now shared by
+  it and the gated live test (the benchmark test's assertions unchanged).
+- `embedder.live.test.ts` — **the gated live-model test**: skipped unless `VIDTSX_SEARCH_MODEL_DIR` is set; (1) the 51 clips and 1,505 prompts
+  re-embedded through `embedder.ts` — prompts both in batches of 32 and one at a time (the engine's way) — each cosine vs the fixture ≥ 0.99;
+  (2) the §9.1 benchmark through `SearchCore` (a scratch vector file, the 51-clip build, every query a `rank` message): `SMART_BAR`, CORPUS +
+  its 7 files at 100 / 100, no regression vs Basic on R@10; the file's header checked (dims 384).
+- `src/embedding-engine/worker.ts:57-62` — `dtype: 'q8'` (+ comment); `src/embedding-engine/worker.test.ts` pins `pipeline(…, {local_files_only:
+  true, dtype: 'q8'})`.
+- Tests added: `vector-store.test.ts` 12, `embedder.test.ts` 5, `engine-core.test.ts` 8, `search-engine.test.ts` 8, `vector-sync.test.ts` 5,
+  `embedding-engine/worker.test.ts` 1 (= the 39 of the first green run), + the 2 gated.
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -176,19 +218,50 @@ As of `2ffcc27` (builder #2, 15:23–15:40):
   the scan ran 15:25:40–15:56).
 - Post-commit: `git status --short` clean; `git show --stat HEAD` = the 4 paths (3,377 insertions, 5 deletions).
 
+As of `3c50783` (builder #3, 16:00–16:25; logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-b\`):
+
+- Resources at 16:11:43: C: 51.4 GB free, D: 41.5 GB, memory commit headroom 29.4 GB; 6 `electron.exe` (Hasan's), 0 with
+  `--remote-debugging-port=9292`. S1's model dir: 4 files, 135,392,016 B (read-only, nothing downloaded).
+- `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/library-search-engine src/main/services/library-search/vector-sync.test.ts
+  src/embedding-engine/worker.test.ts` → red first (5 × "Cannot find module", the dtype assertion), then `Test Files 6 passed (6) · Tests 39 passed (39)`.
+- `… vitest.mjs run src/library-search-engine src/main/services/library-search src/embedding-engine src/main/services/library/sound-answer
+  src/main/services/library/sound-match` → `Test Files 26 passed | 1 skipped (27) · Tests 1274 passed | 2 skipped (1276)` (27.9 s;
+  `vitest-step-b.log`; the skipped file = the gated test without its env var; the benchmark incl. its `SMART_BAR` import green).
+- **The gated live-model test, run green against S1's model** (`VIDTSX_SEARCH_MODEL_DIR=C:/Users/hasan/AppData/Local/vidtsx-e2e/search/S1/models/multilingual-e5-small
+  node …/vitest.mjs run src/library-search-engine/embedder.live.test.ts --reporter=verbose --silent=false`) → rc 0, `Tests 2 passed (2)`, 61.4 s
+  (`live-test-verbose-2.log`; two earlier green runs, `live-test.log` / `live-test-verbose.log`, before the one-at-a-time measure was added):
+  model loaded 2,966 ms; **51 clips min cosine 1.000000; 1,505 prompts min cosine 1.000000 in batches of 32, 0.991872 one at a time**; the
+  51-clip build through `SearchCore` 1,765 ms; 1,515 rows through the core 32.9 s (incl. Basic). The live table (same log): ALL 1375 named —
+  R@1 1206 (87.7) · R@3 1304 (94.8) · **R@10 1366 (99.3) · R@20 1374 (99.9)**; CORPUS 950 / 950 / 950 at R@3 / 10 / 20, each of the 7 files
+  100.0; HELD-OUT 425 — 266 · 354 · **416 (97.9) · 424 (99.8)**; `c-ordinary` 171 / 171 at R@10; `d-stopword` 166 (95.4) / 173 (99.4); `j-falling`
+  12 / 12; `b-broad-flagged` 26 / 26; `S1-own-en` 24 / 24; `S1-own-ar` 9 (90.0) / 10 (100.0) — every R@10 / R@20 equals S1's (c) table.
+  The test's scratch folder held only `.vidtsx` (the vector file) — no `tf-cache` was created.
+- **`node_modules` unchanged:** marker `step-b\nm-marker` written 16:11:44.549, before all three model loads (16:11:55, 16:13:04, 16:14:30);
+  `find D:/repos/VidTSX-STUDIO/node_modules -newer <marker>` (16:15:58–16:16:12, `nm-scan.log`) → **no output**, rc 0;
+  `node_modules/@huggingface/transformers/` lists only `LICENSE README.md dist package.json src types` (no `.cache`).
+- tsc web → 26 `error TS` (baseline), node → 10 (baseline) (`tsc-web.log` / `tsc-node.log`); the engine folder + `embedding-engine` +
+  `library-search` via the scratch `tsconfig.engine-check.json` → 0 (`tsc-engine.log`).
+- `git diff 7967c6f --stat -- src/main/services/library/sound-match.ts …-words.ts …-vocab.ts` → empty. No `any` in the new files (grep);
+  the largest new file is `vector-store.ts`, 180 lines. No new npm package.
+- **Build** (DRIVING Track E step 1, our app not running): `unset ELECTRON_RUN_AS_NODE; NODE_OPTIONS=--max-old-space-size=8192 node
+  D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build` → rc 0, 16:16:48–16:20:51 (`build.log`, "built in 3m 45s");
+  `out/main/library-search-worker.js` 13,294 B beside `content-safety-worker.js`; transformers.js stays an external `import("@huggingface/transformers")`.
+  The worker has NOT run in a utilityProcess yet (main does not import the engine until step c) — step c's ping loop is its first live run.
+- Post-commit: `git status --short` clean after `3c50783` (21 paths).
+
 ## Next step (ONE concrete instruction)
 
-Step b, red first: write the failing tests, then `src/library-search-engine/` per design §3 / §5 / §7 — `types.ts` (the host ↔ child messages),
-an `embedder.ts` (the transformers.js core: `allowRemoteModels = false`, `localModelPath` / `cacheDir` off node_modules, `local_files_only`,
-`dtype: 'q8'`, mean + normalise, `queryText` / `passageText` from `prefixes.ts`, batches of 32 — node-importable so the gated test can use it
-without a utilityProcess), `vector-store.ts` (the `<library root>/.vidtsx/search/vectors-<modelId>.json` file: header check → rebuild,
-relPath + textHash keys, atomic `.tmp` + rename, cosine ranking), `worker.ts` (the utilityProcess child over both) and `search-engine.ts` (the
-host as `src/content-safety-engine/safety-engine.ts`: lazy spawn, request ids, 5 s cold / 2 s warm timeouts rejecting with `'model loading'` /
-a timeout reason, death → reject pending + respawn, 10 min idle unload) implementing `SemanticRanker`; the `library-search-worker` entry
-beside `embedding-worker` in `electron.vite.config.mjs:31-32`; `src/main/services/library-search/vector-sync.ts`; the gated live test
-(`VIDTSX_SEARCH_MODEL_DIR` set → re-embed the 51 clips + 1,505 prompts through `embedder.ts`, every vector's cosine vs the fixture ≥ 0.99,
-the §9.1 thresholds on live vectors; skipped otherwise — run it once with the S1 model dir, then prove `node_modules` unchanged); and the
-`src/embedding-engine/worker.ts:57-59` `dtype: 'q8'` fix + its test. Commit; then step b is DONE.
+Step c, red first (design §10 / §4 / §5 / §7): `library:search` / `library:search:status` / `library:search:settings:set` / `library:search:event`
+in `src/shared/ipc/channels.ts` + `src/shared/ipc/types/library-search.ts`; `src/main/ipc/library-search-handlers.ts` (every body in try/catch,
+typed errors) registered with `lazily` (`src/main/ipc/registrations/lazy.ts`); one main-side wiring module that builds the singletons — a
+`LibrarySearchEngine` (`fork: forkLibrarySearchWorker`, `model()` = `isEmbeddingModelDownloaded(id) ? {modelId, modelDir:
+getEmbeddingModelDir(id), cacheDir: path.join(getTempDir(), 'library-search', 'tf-cache')} : null`, `vectorFile = vectorFilePath(getLibraryRoot(),
+id)`, `onVectors` → `library:search:event`), the `searchLibrary` deps (`settings()` from `search-settings.ts` + `isEmbeddingModelDownloaded`,
+`semantic` = the engine) and a `VectorSync` (`buildNow()` after `embedding:model:download` completes for the search model; `schedule()` after
+index writes; and when a Smart result reports `vectors.ready < total`); status (`LibrarySearchStatus`, `modelBytes` from the catalog);
+preload `src/preload/api/library-search.ts`; nothing spawns at startup. Then build `wt/out`, launch our own instance (profile `search-S3`, CDP
+9292 — after DRIVING's not-rendering check) and run the ping loop (design §9.3 1: an IPC ping every 50 ms over CDP during spawn + cold load + the
+51-clip build + the first Smart query; max gap ≤ 250 ms); numbers into Verified. Commit; then step c is DONE.
 
 ## Open problems
 
@@ -202,6 +275,17 @@ the §9.1 thresholds on live vectors; skipped otherwise — run it once with the
   ties below the stored precision. Same-precision noise is of the same kind: this run's float32 vs S1's own float32 `perRow` differs in 1 row.
   Recorded in the file's `check` and the report; no bar moves. (Float32 storage would be ≈ 3.3 MB — computed: 1,556 vectors × 384 × 4 B
   as base64 — over the design's ~3 MB.)
+- (note, not blocking — for S4 / the orchestrator) **the query batch effect.** The fixture script embedded the 1,505 prompts 32 at a time; the
+  engine embeds each query ALONE (one search = one query). With the q8 model the two differ: in the gated test (`live-test-verbose-2.log`) the
+  batched prompts match the fixture at min cosine 1.000000, the one-at-a-time ones at **min 0.991872** — above the design's 0.99, but close
+  (likely q8's dynamic activation quantization seeing the batch's padding). Through the product path (`SearchCore`, one query per rank) the live
+  table equals S1's (c) at R@10 / R@20 on every row set (ALL 1,366 / 1,374, HELD-OUT 416 / 424), and every §9.1 bar holds; R@1 / R@3 drift
+  by a few rows (ALL R@1 1,206 vs S1's 87.4 % = 1,202; HELD-OUT R@1 266 vs 61.4 % = 261; `d-stopword` R@1 72 vs 67, R@3 117 vs 118) — R@1 is only
+  a note (§9.4). The committed fixture stays batched: one-at-a-time vectors would break the design's precision check (the fixture's table equals
+  S1's float32 table). If the orchestrator wants the benchmark to measure the engine's own query vectors, that is a design change (§9.1).
+- (note) the electron-vite node check config (`tsconfig.node.json` include) does not cover `src/library-search-engine/` (nor the other
+  `*-engine/` folders) — they are checked only through main's imports, and main imports the engine from step c on. Until then this builder
+  checked them with a scratch config that extends `tsconfig.node.check.json` (`.vidtsx-temp\search\S3\tsconfig.engine-check.json`): 0 errors.
 - (note) **Hasan's dev app is running** since 15:27 (main checkout, `--remote-debugging-port=9222`, his `%APPDATA%\VidTSX Studio` profile,
   6 `electron.exe` at 15:57) — not ours: never stop it, never run `electron-vite dev`; select our instance only by port 9292 / the search-S3
   profile path + `Name='electron.exe'` (DRIVING).
@@ -212,8 +296,12 @@ the §9.1 thresholds on live vectors; skipped otherwise — run it once with the
 - S1's tables are already transcribed as counts in `benchmark/s1-tables.ts` (checked against the reports' `table` fields).
 - The fixture (`2ffcc27`): don't regenerate it unless item text / prefixes change (a changed textHash makes the benchmark run Basic and fail
   loudly). Regenerating needs only the command under "Verified"; it never downloads (S1's model dir, read-only).
+- The engine (`3c50783`): the 39 unit tests + the gated test are green — extend them. The gated test needs only the command under "Verified"
+  (≈ 1 min, ~1 GB RAM; it never downloads); re-run it only after an engine / embedder / item-text change. `wt/out` was built at `3c50783` —
+  rebuild after any `src/` change before a live check.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-29 15:05–15:20 · builder #1 · ~45 · read the docs; step a part 1 (service + unit tests + benchmark harness), `3cb73df`.
 - 2026-10-29 15:21–15:45 · builder #2 · ~35 · the fixture script + fixture (int16), benchmark test fixes, step a DONE, `2ffcc27`.
+- 2026-10-29 16:00–16:25 · builder #3 · ~45 · step b (the engine, vector-sync, the gated live test green, the dtype fix, the build), `3c50783`.
