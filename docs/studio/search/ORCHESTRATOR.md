@@ -290,3 +290,16 @@
   D: 41.4 GB, memory commit headroom 29.4 GB. The builder brief's full text was not kept in this file; builder #10 gets builder #9's brief
   rebuilt from END_TO_END_RUN's builder brief + the paste-in's "every builder brief adds" + LS-r7 + "continue from HANDOFF Next step".
   S3 builder #10 (LS-r7 red → code, then the rebuild, the §9.3 2 / 3 click-through, step f) to spawn.
+- 20:25 · S3 builder #10 spawned (HEAD `e751691`).
+- 20:33 · S3 builder #10 HANDOFF (61 calls, ~8 min; **LS-r7 DONE**, handed off at the step boundary): `d3b1108` (14 paths, +611 −36; builder
+  #9's three test files committed unchanged with the code) — NEW `rerank-prompt.ts` 75 (`RERANK_TOP` 20, S1 (d) rules adapted to an order, strict
+  parse → null on any bad answer) + `rerank.ts` 76 (`createLibraryReranker`: one call with no providerId, the usage row `library-search-rerank` in
+  the `llm-handlers` shape also on an unreadable answer, cache by index version + query + relPath:textHash, shared in-flight call, failures not
+  cached); `AiFeatureSource` + `LibrarySearchRequest.rerank?`; the runtime passes the reranker only for `rerank: true` (not while removing), an
+  index write bumps the version; `search-app.ts` wires `llmEngine.generate` / `aiUsageService.appendEntry` by dynamic import; the Assets hook asks
+  once more after 1 s idle or Enter (`keepAnswer`); the row's `smart-rerank` option enabled. Red 20:25 (8 failed / 3 passed) → green; folders 23
+  files / 202 tests; agent-tools + handlers 103 / 103; tsc 25 / 10; docs `53ee4e6`. Its HANDOFF rule: never CHOOSE `smart-rerank` in the live app
+  (a provider call — DEFERRED-HASAN). **Orchestrator re-check (20:33):** HEAD `53ee4e6`, tree = only this file's uncommitted line; the three
+  LS-r7 files → 3 / 31 passed (20:33:27); matcher diff vs `7967c6f` empty; `grep rerank` in `agent-tools/*.ts` (non-test) → nothing (the
+  Studio tools never rerank); `rerank.ts` read (matches LS-r7); 0 `electron.exe`. Builder #11 (the rebuild, the §9.3 2 / 3 click-through,
+  step f) to spawn.
