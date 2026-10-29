@@ -18,9 +18,9 @@
 
 | Part | Status | Builders spawned | Verifier result | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| S1 — the spike (no product code) | BUILDING | 0 | — (the spike's report is read by the orchestrator against S1's rule; S4 verifies the whole) | | | 2026-10-29 13:41 / |
-| S2 — the design note + THE ACCEPTANCE BAR | TODO | | | | | |
-| S3 — build (red-first, hand-off-sized parts) | TODO | | | | | |
+| S1 — the spike (no product code) | **DONE** (STOP not fired) | 4 | — (the report read by the orchestrator against S1's rule; S4 verifies the whole) | docs `5c5bd09` `42f8d43` `3eb1772` `1bacaac` `ee2b78b` `edf531c` `040717f`; report `docs/studio/search/S1-spike-report.md` | R@10 / R@20 ALL: keywords 91.8 / 91.9 → (c) RRF60 + multilingual-e5-small 99.3 / 99.9; HELD-OUT 73.4 / 73.6 → 97.9 / 99.8; CORPUS 100 → 100; pick over top-20 wrong-confident 6.3 % vs keywords 25.4 % (240 rows); warm p95 6.33 / 15.88 ms (51 / 2,000, Electron); no ∅ floor; 25 / 40 model calls | 2026-10-29 13:41 / 14:57 |
+| S2 — the design note + THE ACCEPTANCE BAR | **DONE** (orchestrator) | — | — | `docs/studio/LIBRARY_SEARCH_DESIGN.md` (commit: see Log 15:05) | the bar = design §9 (benchmark thresholds per file, no R@10 regression vs keywords, Basic = today, no claim, nothing fits, gates, five live checks, notes) | 2026-10-29 14:58 / 15:05 |
+| S3 — build (red-first, hand-off-sized parts) | BUILDING | 0 | | | | 2026-10-29 15:05 / |
 | S4 — verify (independent; ≤ 3 FAILs) | TODO | | | | | |
 
 ## Answers in force (Hasan's paste-in, 2026-10-29)
@@ -100,3 +100,22 @@
   English-only. **Orchestrator re-check:** tree clean at `ee2b78b`, `89343e6..HEAD -- src/ scripts/` empty, 0 `electron.exe`,
   `d-calls.jsonl` 25 lines; the report's generic table reads R@1 80.7 on ALL where the pick table reads 90.9 % — the pick table counts a
   "none" on an `x|∅` row as right → builder #4 must define both in the report. Builder #4 ((e), the report, the STOP judgement) to spawn.
+- 14:39 · S1 builder #4 spawned (HEAD `c642c2a`).
+- 14:57 · **S1 builder #4 DONE** (55 calls, ~18 min; docs `edf531c` `040717f`; no model call, no launch): (e) `ms-marco-MiniLM-L-6-v2`
+  no gain (ALL R@1 86.6 vs 87.4, Arabic 10 vs 50, 243.7 ms / request) → not recommended; the report §0–§15 (both pick measures defined,
+  `d-measures-diff.md`); recommendation by Hasan's rule = **multilingual-e5-small** (all five runs within 2 points of the best R@20 99.8,
+  every warm p95 ≤ 50 ms; the multilingual preference) in an RRF60 hybrid, the pick = the assistant over the top-20; **N = 20** (the
+  measured pick condition; (c) R@3 / 5 / 8 / 10 / 20 ALL 94.8 / 97.7 / 99.1 / 99.3 / 99.9, HELD-OUT 83.3 / 92.7 / 97.2 / 97.9 / 99.8).
+  **STOP judged NOT fired:** R@10 beats keywords on ALL by +5.7…+6.9 and on HELD-OUT by +19.8…+22.6 for every model; the numbers support
+  the decided design (no ∅ floor → "nothing fits" = the pick's "none"). Orchestrator re-check: tree clean at `040717f`, `906273c..HEAD --
+  src/ scripts/` empty, 0 `electron.exe`, the report read in full (§0–§10, §14–§15). → **S1 DONE; S2 (the orchestrator's own) next.**
+- 14:58–15:05 · **S2 — the design note** `docs/studio/LIBRARY_SEARCH_DESIGN.md` written by the orchestrator: the service layout
+  (`src/main/services/library-search/` + a utilityProcess engine `src/library-search-engine/` — the content-safety DLL precedent), the
+  ladder (auto = Smart when the model is on disk), the vector cache (`<root>/.vidtsx/search/vectors-<modelId>.json`, relPath + textHash +
+  modelId), processes (nothing on main; 5 s cold / 2 s warm timeouts → Basic + `degraded`), the first users (the neutral 20-row answer,
+  NO claim in any mode; Smart always answers a non-empty pool, `force` to generate; `list_assets` ranked; the Assets box), **§9 THE
+  ACCEPTANCE BAR** (the committed benchmark with per-file R@20 / R@10 thresholds from S1 — R@10 taking the larger of the threshold and
+  keywords' own (no regression); Basic = today exactly; no-claim strings on all 1,515 rows; nothing-fits; the gates; five live checks —
+  the ping loop ≤ 250 ms, the download path, the Assets box ("things falling over" → `crash-tumble` in the first 8: S1 ranks it 4th;
+  "صوت زجاج يتكسر" → `break-glass-crack`, S1 2nd), the real handlers app-stopped, ≤ 4 keyless turns; and the notes), IPC, the S3 steps.
+  `S3/HANDOFF.md` + `LOG.md` created. S3 builder #1 (step a) to spawn.
