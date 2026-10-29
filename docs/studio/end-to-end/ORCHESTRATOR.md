@@ -1458,3 +1458,17 @@
   the three, is a NOTE (the matcher's long-standing noun weighting — "a zapped device" → power-down, glitch-zap shown). Everything else in
   E-d16 / E-d16a stands.
 - 11:23 · builder #17 (the E-d16b rule, re-runs, then steps 5–7) to spawn.
+- 11:40 · E3 builder #17 HANDOFF (49 calls, ~17 min; item 1 DONE): `c5a6124` the E-d16b rule — `sound-answer.ts` 96 (`selectSoundAnswer(ranking,
+  prompt)`; `newWordsFirst` regroups the below-threshold rows: those covering a prompt word no shown CONFIDENT row covers first, each group in
+  E-d16a's order; no confident row or three → unchanged) + NEW `sound-answer-words.ts` 39 ("covers" = `matchStrength(term, token) > 0` for any
+  token of tags / file name / category / description over `promptTerms(prompt).terms` — placement words out; the duplicated field reading
+  pinned against the matcher by a test); red 6 failed / 27 → green 17 files / 99 (answer + agent-tools), 37 / 1,386 (library incl. the 7
+  corpus files); no pinned order changed. **Definition experiment** over the 15,998 probes (`E3\variants-fix4b.txt`, index SHA / mtime
+  unchanged): "any field" 63 answers changed vs `34feafe`, 0 right clips lost vs `7967c6f` AND `34feafe`, 0 confident firsts moved,
+  no-right-clip 51 → **9**; "strong fields only" → 0 left but 6 right clips lost vs `34feafe` ("a soft failing": the "-soft" names jump
+  ahead); asymmetric → 35 lost. The 9 left: "a clicked / clicking screen", "a screen clicking", "a softed / softing / warmed / warming
+  screen", "a screen softing / warming" — a shown confident row's own description already carries the word (power-down "one soft click",
+  pop-reveal "warm … soft … on screen"); each first already first at `09e81ea`. Side effect seen: "a soft crunching" → whoosh-soft (covers
+  "soft") shown before break-crash-digital (a stranger in the three; crunch-bite stays first). Orchestrator re-check: `git log -1 -- src/`
+  `c5a6124`, matcher diff 0 bytes, tree clean. Builder #18 (items 2–5: the fix4b drivers, gates, rebuild, records) spawned; the 9 → question
+  to Hasan in parallel.
