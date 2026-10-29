@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF (builder #17, 2026-10-29 11:37) — **Hasan answered builder #16 with E-d16b (the word-diversity rule + a long-standing confident first is a note). Builder #17 item 1 DONE `c5a6124`: the E-d16b rule in `sound-answer.ts` + NEW `sound-answer-words.ts` (red → green; "covers" = any matcher field, any strength — the definition experiment in Built "builder #17"); items 2–5 (re-run the corpus + both step-4 drivers → `*-fix4b` reports, gates, rebuild, records) are next — Next step.** Before: BLOCKED (builder #16, 2026-10-29 11:15) — **step 4 (regression + broad probes) DONE: the fill regresses nothing vs `7967c6f`; a question E-d16 / E-d16a do not settle (confident noun-carrier firsts ABOVE the 0.5 line on participle + noun phrasings, pre-existing at `09e81ea`; 51 probes with the verb carrier not in the three) — Open problems "builder #16", Next step; steps 5–7 wait for Hasan's answer.** Earlier: **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) DONE by builder #15 `d30830a`; step 4 (regression + broad probes) is next, then 5–7 — builder #16** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
+status: HANDOFF (builder #18, 2026-10-29 11:58) — **items 2–4 DONE (no `src/` change; `src/` = `c5a6124`): item 2 the fix4b re-run (catalog + broad — every number builder #17's experiment predicted holds; 9 left = E-d16c's NOTES), item 3 the gates (vitest 3 / 508 / 5 — the E-d2a suites only, first default run; tsc 26 / 10; rule (b) NONE), item 4 `wt/out` rebuilt 11:54. Item 5 (the records, incl. E-d16c) is next — builder #19, Next step.** Before: HANDOFF (builder #17, 2026-10-29 11:37) — **Hasan answered builder #16 with E-d16b (the word-diversity rule + a long-standing confident first is a note). Builder #17 item 1 DONE `c5a6124`: the E-d16b rule in `sound-answer.ts` + NEW `sound-answer-words.ts` (red → green; "covers" = any matcher field, any strength — the definition experiment in Built "builder #17"); items 2–5 (re-run the corpus + both step-4 drivers → `*-fix4b` reports, gates, rebuild, records) are next — Next step.** Before: BLOCKED (builder #16, 2026-10-29 11:15) — **step 4 (regression + broad probes) DONE: the fill regresses nothing vs `7967c6f`; a question E-d16 / E-d16a do not settle (confident noun-carrier firsts ABOVE the 0.5 line on participle + noun phrasings, pre-existing at `09e81ea`; 51 probes with the verb carrier not in the three) — Open problems "builder #16", Next step; steps 5–7 wait for Hasan's answer.** Earlier: **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) DONE by builder #15 `d30830a`; step 4 (regression + broad probes) is next, then 5–7 — builder #16** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -844,6 +844,44 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   → `Tests 2 passed`. Numbers in Built "builder #18" are the report lines cited there.
 - Resources before (11:41): C: 51.9 GB free, memory commit headroom 29.1 GB, `electron.exe` 0.
 
+### builder #18 (item 3, the gates, 2026-10-29 11:50–11:54) — no app running, `src/` = `c5a6124` (docs HEAD `1535ba7`)
+
+- **CPU first** (`powershell -File E3\cpu-fix4.ps1` → `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\cpu-fix4.txt`, 11:50:57): 16
+  logical cores; `Win32_Processor LoadPercentage` 32 / 39 (before / after the 5 s window); per-process CPU over 5 s, sum **48.22 %** of
+  all cores — `brave` 20.04 %, `MsMpEng` 6.97 %, `chrome` 3.61 %, `vmmemWSL` 2.58 %, `WmiPrvSE` 2.42 %, `System` 1.7 %, the rest ≤ 1.23 %.
+  **Guard:** C: 51.8 GB free, D: 43 GB, memory commit limit 99.7 GB / headroom 25.8 GB (C: + headroom 77.6 GB ≥ 6; headroom ≥ 10 →
+  default workers); `electron.exe` 0; `%TEMP%\vidtsx-studio\export` absent. Moderate external load (a browser) → DRIVING's NORMAL
+  load rule first (default workers), E-d13 only if it could not be met — it was met on the first run.
+- **Full worktree vitest** (`bash E3\vitest-full-fix4.sh C:\…\vidtsx-e2e\E3\vitest-full-fix4.log` in the background — `cd <wt>; unset
+  ELECTRON_RUN_AS_NODE; node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run`): **run 1 = the COUNTED run** (start 11:51:34
+  HEAD `1535ba7` / `Start at` 11:51:35, end 11:52:39 rc=1) → **`Test Files 3 failed | 508 passed | 5 skipped (516)` · `Tests 9 failed |
+  5394 passed | 35 skipped (5438)` · 63.53 s, 0 "timed out"**; the 3 files / 9 tests = `builder-libraries` 1 (`@remotion/paths
+  (builder-libraries.ts) is not installed`), `shot-bundle` 5 (`Could not resolve` roughjs / @remotion/shapes / @react-three/fiber /
+  chroma-js / @remotion/google-fonts/SpaceGrotesk), `shot-bundle-in-place` 3 (`Could not resolve "chroma-js"` + the assertions quoting
+  it) — the three E-d2a suites, resolution only; no other FAIL line. **Gate MET under DRIVING's normal rule (default workers, first
+  try) — not E-d13.** (Totals vs fix round 3's 511 / 5,141: + the r4 corpus files and the answer / words / fill tests.)
+- **Rule (b)** at `src/` = `c5a6124`: `git diff --name-only 5d77600..HEAD -- src/ scripts/ > E3\diff-list-fix4.txt` → **106 paths (105
+  `src/`, 1 `scripts/`)**; the unfiltered `git diff --name-only 5d77600..HEAD` = 122; `node
+  C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs <wt> E3\diff-list-fix4.txt > E3\import-graph-fix4.txt` → rc 0:
+  `builder-libraries.test.ts: 2 local modules … NONE` · `shot-bundle.test.ts: 15 … NONE` · `shot-bundle-in-place.test.ts: 23 …
+  (vi.mock'd, not loaded: shot-generator.ts, shot-import-land.ts, media-import.ts) … NONE` · `scripts/builder-unpack.mjs: 1 … NONE`.
+- **Types** at `c5a6124`: `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit >
+  C:\…\vidtsx-e2e\E3\tsc-web-fix4.log` → rc 2, **26** `error TS`; `-p tsconfig.node.check.json` → `tsc-node-fix4.log` rc 2, **10**; 0
+  lines name `sound-` / `audio-tools` / `library-listing` (11:53:00 → 11:54:02).
+- **NO matcher change:** `git diff 7967c6f -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+  src/main/services/library/sound-match-vocab.ts | wc -c` → `0`; `git diff --name-only c5a6124..HEAD -- src/ scripts/` → empty (as of
+  `1535ba7`). The last `src/` commit: `c5a6124` 2026-10-29 11:36:59 +0200.
+
+### builder #18 (item 4, the rebuild, 2026-10-29 11:54–11:57) — `wt/out` at `src/` = `c5a6124`
+
+- 0 `electron.exe`, C: 51.8 GB free first; from the worktree root: `unset ELECTRON_RUN_AS_NODE; export
+  NODE_OPTIONS=--max-old-space-size=8192; node D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build >
+  D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\build-fix4.log 2>&1` (11:54:14 → 11:57:38) → **rc 0**, main "✓ built in 12.69s",
+  preload "245ms", renderer "✓ built in 2m 59s"; `grep -i "warn\|error" | grep -v "use client"` → nothing. `out/main/index.js`
+  **2026-10-29 11:54:37** (3,067,635 bytes), `out/renderer/index.html` 11:57:36 — both AFTER `c5a6124` (11:36:59). In
+  `out/main/index.js`: `The library may have a sound for` **1**, "No library sound matched" **1**, "PLACEMENT_BONUS" **3**. Tree after:
+  only `HANDOFF.md` (mine) and `ORCHESTRATOR.md` (the orchestrator's uncommitted E-d16c edit — never staged) modified.
+
 ### builder #17 (item 1, 2026-10-29 11:25–11:37) — no launch, no model call
 
 - RED (the new tests on `acb7ce8`'s code): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
@@ -1385,7 +1423,33 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**(builder #18, 11:52) Item 2 is DONE (Built / Verified "builder #18" — do not redo it); builder #18 continues with item 3 (gates),
+**FIX ROUND 4, continued — builder #19: item 5, the records (items 1–4 are DONE: #17 `c5a6124` the rule; #18 the fix4b re-run, the
+gates, the rebuild — Built / Verified "builder #18"; do not redo them; no code change, no launch, no model call).** Write, with the
+Edit tool, (a) the Status.md E3 entry: title :10 → "…; fix round 4 after verifier round 4 FAIL on F4 (builders #13–#19, decisions
+E-d16 + E-d16a + E-d16b + E-d16c: the answer-level recall fill with the word-diversity rule, no matcher change); the E3 verifier round
+5 — E3's last — is next" (and DONE stays); a NEW bullet "**Verifier round 4 FAIL (F4 …) → fix round 4 `34feafe` `9a13e3b` `d30830a`
+`c5a6124`.**" after the round-3 bullet (:137 to :424 as of `1535ba7` — re-grep) carrying builders #13–#18 in substance: F4 in one
+sentence; E-d16 / E-d16a / E-d16b / E-d16c in one line each (E-d16c from ORCHESTRATOR.md "Session 9" — read the "### E-d16c" block
+:1476, never stage that file); the fill + labels + wording (Built "#13"); how "covers" is decided (Built "#17": `sound-answer-words.ts`
+any field, any strength = the matcher's `hitOf` weight > 0) and the definition experiment's three-way table (`E3\variants-fix4b.txt:2-4`);
+the corpus (Built "#14"); the record fixes (Built "#15"); builder #16's step-4 numbers (`E3\catalog-order-fix4.txt`,
+`E3\broad-probes-fix4-summary.txt`) AND the fix4b numbers (`E3\catalog-order-fix4b.txt:4-7`, `E3\broad-probes-fix4b-summary.txt:3-7`)
+with the frames F1–F9 listed; the 63 changed vs `34feafe` read (48 "… screen" + 15 "a soft `<form>`"); the noun-first class 5,709 /
+9 left; the `git diff 7967c6f` proof (0 bytes); E-d16's bar for verifier round 5 in one sentence + the E-d16a / E-d16b / E-d16c notes;
+the code list + line counts (`wc -l` at HEAD: `sound-answer.ts`, `sound-answer-words.ts`, `sound-reuse.ts`, the corpus rows / r4 files,
+the three test files). (b) The Status.md "The code" bullet (:425) if it lists the answer files; the Gates bullet (:648) → a NEW
+"Gates (fix round 4, builder #18 …)" bullet from Verified "builder #18" items 3–4, the round-3 one marked history; the `wt/out` line
+(:561) → built at `c5a6124` 11:54:37; "Not measured / open" (:739) + verifier round 4's notes 1–10 (Open problems "Verifier round 4"),
+the 9 (E-d16c), "a sucking whoosh before the reveal", the "a soft crunching" side effect, "a moving transition", the F9 "a quiet
+`<-ing>`" six (Open problems "builder #18" item 4 — the risk sentence verbatim). (c) TESTING §18.17 (:524-543): a NEW `- [x]
+**Verifier round 4 FAIL (F4 …) → fix round 4 …**` line after :533, the Gates line :539 → fix round 4's, the Not-measured line :540 +
+the same notes. Numbers only from the report files (re-open each one you cite). Commit `docs(studio): E3 fix round 4 — the records`
+(explicit paths: Status.md docs/studio/TESTING.md docs/studio/end-to-end/E3/HANDOFF.md docs/studio/end-to-end/E3/LOG.md); every git /
+tree / build statement "as of `<hash>`", re-checked AFTER the commit; HANDOFF `status: DONE`, Next step = "E3 verifier round 5 — E3's
+LAST; bar E-d16 + E-d16a + E-d16b + E-d16c (CDP 9273, `profiles\E3-verify` may be reused; range `74b29e0..HEAD`; the records to check:
+Status.md E3 entry :<first>-<last>, TESTING §18.17 :<first>-<last>)"; the LOG line; commit.
+
+(Builder #18's own start note, 11:52 — kept:) **Item 2 is DONE (Built / Verified "builder #18" — do not redo it); builder #18 continues with item 3 (gates),
 item 4 (rebuild), item 5 (records) as worded below. E-d16c (Hasan 11:46, ORCHESTRATOR.md "Session 9" — the orchestrator's
 uncommitted edit; never stage ORCHESTRATOR.md) joins the bar: a shown CONFIDENT clip whose own text already carries the prompt word
 (so E-d16b cannot fire), first already at `09e81ea`, right clip not in the three = a NOTE (the 9). The records carry E-d16c and the
@@ -1794,6 +1858,25 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Open problems
 
+### Fix round 4 (builder #18, items 2–4) — notes for the records, none blocking (E-d16c settles the 9)
+
+1. **The 9 (E-d16c NOTES, Hasan 11:46):** "a clicked / clicking screen", "a screen clicking" (power-down's description "one soft
+   click" carries the verb word), "a softed / softing screen", "a screen softing", "a warmed / warming screen", "a screen warming" —
+   a shown CONFIDENT clip's own text carries the prompt word, so the E-d16b rule cannot fire; each first was already first at
+   `09e81ea`. `E3\broad-probes-fix4b-summary.txt` "right in the three: false" = 9.
+2. **"a sucking whoosh before the reveal"** (catalog, -r4-ordinary): whoosh-soft / whoosh-wind replaced by pop-reveal / impact-deep-soft
+   (they cover `reveal`, which whoosh-reverse does not); whoosh-reverse stays first and confident — a "stranger in the three" NOTE.
+   The catalog's LOST vs `7967c6f` is 2 (this + "a moving transition"), vs `34feafe` 1 (this); none-left 0 everywhere.
+3. **"a soft crunching" side effect** (15 F4 probes): when the confident clip covers the verb but not `soft`, a "-soft" FILE NAME
+   (whoosh-soft / impact-soft 0.16–0.18) takes the slot of a second verb clip (break-crash-digital 0.30, chess-piece-thock 0.49,
+   crunch-bite 0.49 …); the right clip stays first — a NOTE (a stranger in the three).
+4. **F9 "a quiet `<-ing>`" — 6 probes with no carrier in the three, at `7967c6f` already (fix round 3's matcher, not the fill):** "a
+   quiet airing / emphasising / singling / snapping / tailing / warming" → three `quiet` clips at 0.31–0.36 (clock-tick-soft,
+   keys-typing-soft, scan-hum; flame-snuff, owl-hoot tie), the verb's carrier 6th (0.25–0.29). No confident row → E-d16b does not
+   apply; NO matcher change (E-d16 / E-d16c "no more code"). **Risk for verifier round 5: "a quiet snapping" / "a quiet warming" read as
+   ordinary phrasings could be called bar (ii)** — the orchestrator may want Hasan's word before round 5 (they were in builder #16's
+   22, so they are not new).
+
 ### Fix round 4 (builder #17, item 1) — notes for the records, none blocking
 
 - **What the E-d16b rule leaves (the experiment, `E3\variants-fix4b.txt` section "any — noun-first, no right clip: 9"; to be
@@ -2187,6 +2270,11 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Do-not-redo
 
+- Fix round 4 items 2–4 (builder #18, docs commits only, `src/` = `c5a6124`): the fix4b re-run (`E3\catalog-order-fix4b.txt`,
+  `…\vidtsx-e2e\E3\broad-probes-fix4b.txt`, `E3\broad-probes-fix4b-summary.txt`, the 63-row read `E3\broad34-read.txt`,
+  `E3\why-fix4b.txt`), the gates (`…\E3\cpu-fix4.txt`, `vitest-full-fix4.log`, `tsc-web-fix4.log` / `tsc-node-fix4.log`,
+  `E3\diff-list-fix4.txt`, `E3\import-graph-fix4.txt`) and the `wt/out` rebuild (`E3\build-fix4.log`) — re-run them only if `src/`
+  changes.
 - Fix round 4 item 1 (builder #17, `c5a6124`): the E-d16b rule (`sound-answer.ts` + `sound-answer-words.ts`, red → green, the
   fill / unit / cover tests) and the "covers" definition experiment (`E3\variants-fix4b.txt`) — settled; do not re-open the
   definition unless Hasan says so.
@@ -2329,3 +2417,11 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   `34feafe`, 9 of the 51 left; strong 0 / 6, 0 left; asym 0 / 35, 0 left); tests (unit 7 new, cover 3 new, fill 2 new; RED 6 failed /
   27 + the cover file unloadable → GREEN 17 files / 99 + library 37 files / 1,386); tsc node 10; matcher diff 0 bytes. The fix4b
   drivers prepared, not run. No gate run, no rebuild, no records, no launch, no model call.
+- 2026-10-29 · builder #18 (fix round 4 items 2–4) · ~55 tool calls · the fix4b re-run (catalog 1,073 rows: vs `7967c6f` 329 changed,
+  2 LOST with a right clip left — "a moving transition" + "a sucking whoosh before the reveal" (justified: E-d16b's group A covers
+  `reveal`), 0 confident first moved; vs `34feafe` 10 / 1 / 0; broad 15,998 probes: vs `7967c6f` 8,196 / 0 LOST / 0 conf; vs `34feafe`
+  63 changed (all read: 48 "… screen" + 15 "a soft `<form>`"), 0 LOST, 0 conf; noun-first 5,709, 9 left = E-d16c's list — every
+  number builder #17's experiment predicted); the 8 no-carrier-left vs `09e81ea` classified (2 E-d16c + 6 F9 "a quiet `<-ing>`" from
+  fix round 3's matcher — a verifier risk noted); gates (CPU 48 % external, normal rule met on run 1: 3 / 508 / 5, 9 / 5,394 / 35, the
+  E-d2a suites only; rule (b) 106 paths, NONE; tsc 26 / 10); `wt/out` rebuilt 11:54:37 (markers 1 / 1 / 3). E-d16c (orchestrator
+  message 11:46) taken into the Next step. No records (item 5 → builder #19), no launch, no model call.
