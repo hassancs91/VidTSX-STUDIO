@@ -1035,6 +1035,13 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
+**Session 9 (orchestrator, 2026-10-29 10:40) — E-d16a binds fix round 4 (ORCHESTRATOR.md "Session 9"):** E-d16's literal fill fails its
+own bar on "a breaking screen" (`power-down` exactly 0.50 + two weak head-rule matches fill the three; the break clips 0.30 unseen).
+Hasan (10:33): NO matcher change; **the fill = the confident matches (≥ 0.5, matcher order) first, then the below-threshold sounds —
+weak matches AND closest together — by coverage, a closest before a weak match on a tie (epsilon compare)**; for verifier round 5 a
+first AT the 0.5 line or TIED with a right clip among the confident matches, with the right clip in the three, is a NOTE, and a right
+clip that shares no word with the prompt (scores 0) is a vocabulary NOTE. The brief below is otherwise unchanged.
+
 **FIX ROUND 4 — builder #13 (Hasan's go 2026-10-29 10:07 = decision E-d16, ORCHESTRATOR.md "Stops (session 8)": option 1 below, the
 answer-level recall fill, NO matcher change; then verifier round 5 = E3's LAST under E-d16's bar). Session 8 STOPPED 2026-10-29 02:05
 on verifier round 4's FAIL (the session-8 rule).** Verifier round 4 FAILED on F4
