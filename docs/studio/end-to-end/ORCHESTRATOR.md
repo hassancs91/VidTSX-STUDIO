@@ -1445,3 +1445,16 @@
   not say whether long-standing behaviour counts for (ii) / (iii). Builder's options: (A) notes (+ a bar sentence), (B) a tool-layer
   word-diversity rule, (C) DONE-PARTIAL. Orchestrator re-check: tree clean, `git log -1 -- src/` `d30830a` (a test comment), the
   summary lists exactly 51 "right in the three: false" rows, all "… screen". → question to Hasan.
+
+### E-d16b (Hasan, 2026-10-29 11:22, answering builder #16's BLOCKED question) — the word-diversity rule, and long-standing confident firsts
+
+- **Hasan chose "Diversity rule + note".** One more TOOL-LAYER rule in `sound-answer.ts` (red first; NO matcher change — the three matcher
+  files stay byte-identical to `7967c6f`; reuse the exported `promptTerms` / `soundTokens` / `matchStrength` rather than touching
+  `sound-match*.ts`): **after the confident rows, a below-threshold sound (weak or closest) that covers a prompt word no already-shown row
+  covers goes ahead of rows that only repeat covered words** (within each group E-d16a's order: coverage, a closest before a weak match on
+  a tie). Target: the 51 "… screen" probes (e.g. "a whooshing screen" shows a whoosh, "a sparkling screen" sparkle-soft). Re-run the corpus
+  and both step-4 drivers (`catalog-fix4`, `broad-fix4`) — the LESS check vs `7967c6f` must stay 0 — then steps 5–7.
+- **Bar sentence added for verifier round 5:** a confident first (> 0.5) that was ALREADY the first at `09e81ea`, with the right clip in
+  the three, is a NOTE (the matcher's long-standing noun weighting — "a zapped device" → power-down, glitch-zap shown). Everything else in
+  E-d16 / E-d16a stands.
+- 11:23 · builder #17 (the E-d16b rule, re-runs, then steps 5–7) to spawn.
