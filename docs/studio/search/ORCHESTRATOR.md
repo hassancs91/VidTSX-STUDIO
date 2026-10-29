@@ -20,8 +20,8 @@
 |---|---|---|---|---|---|---|
 | S1 — the spike (no product code) | **DONE** (STOP not fired) | 4 | — (the report read by the orchestrator against S1's rule; S4 verifies the whole) | docs `5c5bd09` `42f8d43` `3eb1772` `1bacaac` `ee2b78b` `edf531c` `040717f`; report `docs/studio/search/S1-spike-report.md` | R@10 / R@20 ALL: keywords 91.8 / 91.9 → (c) RRF60 + multilingual-e5-small 99.3 / 99.9; HELD-OUT 73.4 / 73.6 → 97.9 / 99.8; CORPUS 100 → 100; pick over top-20 wrong-confident 6.3 % vs keywords 25.4 % (240 rows); warm p95 6.33 / 15.88 ms (51 / 2,000, Electron); no ∅ floor; 25 / 40 model calls | 2026-10-29 13:41 / 14:57 |
 | S2 — the design note + THE ACCEPTANCE BAR | **DONE** (orchestrator) | — | — | `docs/studio/LIBRARY_SEARCH_DESIGN.md` (commit: see Log 15:05) | the bar = design §9 (benchmark thresholds per file, no R@10 regression vs keywords, Basic = today, no claim, nothing fits, gates, five live checks, notes) | 2026-10-29 14:58 / 15:05 |
-| S3 — build (red-first, hand-off-sized parts) | **BUILDING** (resumed 20:24 after Hasan's 17:51 pause) — steps a–d DONE, step e part 1 DONE; LS-r7 (the rerank rung) started: 3 red test files on disk, UNCOMMITTED; then the rebuild, the §9.3 2 / 3 click-through, step f | 9 | | code `3cb73df` `2ffcc27` `3c50783` `62685e9` `373125a` `5796423` `eebcaff` `332ef1b` `4337910` | benchmark = S1's (c) table exactly (int16 fixture); gated live test green; ping loop max gap 65.1 ms; 1,515-row no-claim test both modes; tsc 25 / 10 | 2026-10-29 15:05 / (paused 17:55) |
-| S4 — verify (independent; ≤ 3 FAILs) | TODO | | | | | |
+| S3 — build (red-first, hand-off-sized parts) | **DONE** (orchestrator re-check 21:12; paused 17:51–20:24 for Hasan's shutdown) | 12 | — (S4 verifies) | code `3cb73df` `2ffcc27` `3c50783` `62685e9` `373125a` `5796423` `eebcaff` `332ef1b` `4337910` `d3b1108` `3f08759`; exit record `7944e57` | benchmark = S1's (c) table exactly (int16 fixture); gated live test green at `65cbef0` (R@10 / R@20 ALL 99.3 / 99.9, HELD-OUT 97.9 / 99.8, CORPUS 100); ping loop max gap 65.1 ms; download path + Assets box PASS (crash-tumble tile 4, break-glass-crack tile 1, grid 20 == IPC 20); 1,515-row no-claim test both modes; full gate 509 passed / 28 failed files = 3 E-d2a + 25 LS-r1b (all 25 green in a fresh worktree, 239 tests); tsc 25 / 10 | 2026-10-29 15:05 / 21:09 |
+| S4 — verify (independent; ≤ 3 FAILs) | VERIFY | | | | | 2026-10-29 21:13 / |
 
 ## Answers in force (Hasan's paste-in, 2026-10-29)
 
@@ -320,3 +320,38 @@
   stills `e2-04-settings-after.png` and `e2-05-assets-smart-falling.png` opened (the row reads "Now: Smart (auto) · vectors 51 / 51 ready";
   the grid shows crash-tumble 4th, "20 items (filtered)", the Smart marker). C: fell 50.8 → 44.5 GB between 20:23 and 20:34 — not ours (our
   download is 135 MB; another process). Builder #12 (step f — the exit check) to spawn.
+- 21:01 · S3 builder #12 spawned (HEAD `65cbef0`).
+- 21:11 · **S3 builder #12 DONE** (62 calls, ~10 min; step f — the exit check at `65cbef0`; docs `7944e57`, no `src/` change; logs
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-f\`): guard 21:01:52 OK (C: 45.0 GB, D: 41.4 GB, headroom 79.0 GB), CPU 11.7 % of 16
+  cores (no load rule needed); **full worktree gate** (default workers, 21:02:26–21:03:04, `vitest-gate-1.log`) `Test Files 28 failed | 509
+  passed | 6 skipped (543) · Tests 9 failed | 5354 passed | 37 skipped (5400)` — the 9 failed tests are all in the three E-d2a suites
+  (`builder-libraries` 1, `shot-bundle` 5, `shot-bundle-in-place` 3; package resolution only), shown independent of the 107 paths of
+  `906273c..HEAD` by an esbuild metafile of each test's runtime graph (2 / 12 / 20 inputs, 0 in the diff; positive control
+  `audio-tools-reuse` 52 inputs, 13 in the diff); the other **25** failed files fail at import ONLY with "Cannot find module '<wt>\stream'"
+  (15) / "'<wt>\stream\promises'" (10), 0 tests run — LS-r1b's four + 21 under `services/agents/`, `agents/tools/`, `flows/`,
+  `templates/template-install` (the worktree's first full run; no step run reached them) — and **all 25 pass in a fresh `git worktree add
+  --detach …\S3\f-head-wt HEAD`: 25 files / 239 tests, rc 0** (`ls-r1b-fresh-wt.log`; the same 25 here → 25 failed, `ls-r1b-this-wt.log`;
+  the scratch worktree removed, rc 0); tsc web 25 / node 10; matcher diff vs `7967c6f` 0 bytes; house rules over 97 `src/` + `scripts/` paths
+  (73 created): largest created code file 286 lines (`search-runtime.test.ts`; the two JSON fixtures 1,570 / 1,569 lines), pre-existing
+  over 300: `electron.d.ts` 648 → 656, `channels.ts` 647 → 654, `AssetLibraryScreen.tsx` 464 → 474; 0 `any` types (16 word hits: comments,
+  titles, `'any'`, `expect.any`); `package.json` / lock diff 0 bytes; asset-library ↔ studio imports 0 both ways; no Node API / `electron` /
+  `@main` import added to renderer / feature / shared code; **the gated live-model test** (21:07:52–21:08:14, `live-test.log`) 2 / 2 passed —
+  min cosine 51 clips 1.000000, prompts 1.000000 batched / 0.991872 one at a time; R@10 / R@20 ALL 1366 (99.3) / 1374 (99.9), CORPUS 950 / 950,
+  HELD-OUT 416 (97.9) / 424 (99.8), `c-ordinary` 171 / 171, `d-stopword` 166 (95.4) / 173 (99.4), `j-falling` 12 / 12, `b-broad-flagged`
+  26 / 26, `S1-own-en` 24 / 24, `S1-own-ar` 9 / 10 — every §9.1 bar holds; `node_modules` scan after the marker empty (with controls).
+  **Orchestrator re-check (21:11):** HEAD `7944e57` (`65cbef0..HEAD` = HANDOFF + LOG only), `git log -1 -- src/` = `3f08759`; tree = only
+  this file; the gate log's 28 FAIL lines read (3 + 25, the names above); its error lines = the package-resolution set + the two `<wt>\stream`
+  messages only; `ls-r1b-this-wt.log` errors = only the `stream` pair; `ls-r1b-fresh-wt.log` "25 passed (25) · 239 passed", rc 0;
+  `live-test.log` cosine line read; 0 `electron.exe`. → **S3 DONE.**
+- **Ruling LS-r1c (orchestrator, 21:12) — the LS-r1b list, by name:** LS-r1b's text already covers every suite that fails in THIS worktree
+  ONLY with the `<wt>\stream` / `<wt>\stream\promises` resolution error and passes in a fresh detached worktree at the gate's HEAD ("today:"
+  named the four then seen). The full run at `65cbef0` shows 25 such suites (the list in `…\S3\step-f\ls-r1b-files.tsv`: the four +
+  `agents/{agent-pack-script,agent-package,agent-store,agent-runner-builder,agent-runner,agent-service-typed,web-page-export}`,
+  `agents/tools/{flow-listing,propose-flow,registry,run-flow,save-flow,tool-server}`, `flows/{flow-catalog,flow-export-import,flow-package,
+  flow-store,flow-render,flows-builtins,freeze-session}`, `templates/template-install`) — all counted under LS-r1b, each with the
+  fresh-worktree proof; the verifier repeats the proof for all of them at its own HEAD. A 26th suite, or any other error in these, is real.
+- **21:13 · S4 starts.** The verifier gets the part's bar (design §9 + the rulings that shape it: LS-r1 / LS-r1b / LS-r1c, LS-r2 … LS-r7),
+  the commit range `906273c..HEAD`, DRIVING's safety rules and the run's overrides — NOT the builders' reports, S3 HANDOFF / LOG, or this
+  file's Log. Profile `profiles\search-S4-verify` (new, from `source` WITHOUT `settings\settings.db*`), CDP 9295, kits / scratch under
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S4\r1\`, big outputs under `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S4\r1\`. ≤ 4 keyless
+  turns (+1 retry each on an API error). It reports; it fixes nothing and commits nothing.
