@@ -1,5 +1,5 @@
 # S1 — the spike: keywords vs local embeddings vs hybrid vs the LLM pick, on E3's labelled set (no product code)
-status: IN PROGRESS — builder #1 handed off after step 1 (the labelled set + candidate (a)); next: (b) the embeddings
+status: IN PROGRESS — builder #2 on (b) the embeddings (MiniLM + (c) RRF done; bge-small, me5-small, me5-base downloading)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/search/ORCHESTRATOR.md` ("Answers in force" binds this part).
@@ -162,6 +162,36 @@ no `src/` change. The tree was clean at `3c0d213` before this hand-off's commit,
 Resources at 13:44: C: 51.3 GB free, D: 41.8 GB, memory commit headroom 42.4 / 99.7 GB. No download, copy or launch
 was made yet.
 
+Builder #2, 2026-10-29 13:55– (step (b) the embeddings).
+
+7. **Resource guard 13:55 (before the downloads):** C: 51.3 GB free, D: 41.7 GB, memory commit 60.1 / 99.7 GB → headroom
+   39.6 GB (C: + headroom 90.9 ≥ 6); 0 `electron.exe` running.
+8. **Model sizes, stated BEFORE downloading** (HEAD requests on the catalog URLs `https://huggingface.co/{repo}/resolve/main/{file}`,
+   `x-linked-size` / `content-length`; the four catalog files each): `Xenova/all-MiniLM-L6-v2` 23,685,047 B (onnx 22,972,370) ·
+   `Xenova/bge-small-en-v1.5` 34,726,871 B (onnx 34,014,426) · `Xenova/multilingual-e5-small` 135,392,016 B (onnx 118,308,185 +
+   tokenizer.json 17,082,730) · `Xenova/multilingual-e5-base` 295,731,426 B (onnx 278,647,662 + tokenizer.json 17,082,660). Total
+   489.5 MB, into `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\<id>\` (same file layout as the catalog).
+   Downloads: curl from the catalog URLs only (~0.3 MB/s per stream; four files failed once on a DNS error for
+   `us.aws.cdn.hf.co` and were re-fetched with `--retry`).
+9. **FINDING — the app's worker options cannot load a catalog model.** `pipeline('feature-extraction', <dir>, { local_files_only:
+   true })` (worker.ts:57-59) under transformers.js 4.0.1 asks for the fp32 `onnx/model.onnx`; the catalog downloads only
+   `onnx/model_quantized.onnx` → "file was not found locally at …/onnx/model.onnx". The kit loads with `dtype: 'q8'` added
+   (= `model_quantized.onnx`) and says so in every (b) report (`loadMode`). S2/S3 must add `dtype: 'q8'` to the worker (or
+   download the file the default asks for). Everything else is the app's way (absolute model dir, `local_files_only`,
+   `allowRemoteModels = false`, the onnxruntime DLL PATH prepend).
+10. **Kit additions:** `K\eval-lib.cjs` now has the subtotals **CORPUS (7 files)** and **HELD-OUT (r5 + S1-own)** right under
+    ALL in every table, `itemText(e)` (id with hyphens as spaces + category + tags + description, joined by ". "), and
+    `floorStudy` / `floorMd` (top-1 score distribution on ∅ vs named rows, named split top-1 right / wrong, the Youden floor,
+    the floor at named p05 and at ∅ p90; rows with no top-1 are left out and counted). `K\run-b-embeddings.cjs <id> <mean|cls>`
+    → `K\reports\b-<id>-<pooling>.md|json` + on C: `out\b-<id>-<pooling>-full.json` (full rankings) and `out\emb-<id>-<pooling>.json`
+    (vectors). `K\run-c-hybrid.cjs <id> <pooling> [K]` → `K\reports\c-rrf<K>-<id>-<pooling>.md|json` (RRF K = 60 over (a)'s list
+    recomputed + (b)'s full ranking; floors on the fused top-1 score AND the fused top-1's cosine).
+11. **(a) re-run with the subtotals** (`K\reports\a-keywords.md`): CORPUS R@10 100.0 · **HELD-OUT R@1 51.3 · R@10 73.4 · R@20 73.6 ·
+    MRR 0.612 · wrong-confident 96 / 492 (19.5 %)**. Its top-1 coverage on ∅ vs named rows is in the same file.
+12. **(b) all-MiniLM-L6-v2 mean** (`K\reports\b-all-MiniLM-L6-v2-mean.md`): ALL R@10 97.7 · R@20 99.1 · MRR 0.874; CORPUS R@10 99.8;
+    HELD-OUT R@10 93.2; Arabic R@10 30.0. **(c) RRF60 + MiniLM** (`K\reports\c-rrf60-all-MiniLM-L6-v2-mean.md`): ALL R@10 99.3,
+    HELD-OUT R@10 97.9.
+
 ## Verified (exact commands + outputs)
 
 - `cd K; node build-kit.cjs` → seven lines + `TOTAL 1073 rows in 7 files; library 51 clips` (`K\build-kit.log`).
@@ -175,6 +205,11 @@ was made yet.
   package.json / README.md, all 2026-07-07, no `.cache`). `node_modules\.cache` EXISTS, is EMPTY, LastWrite
   2026-10-13 11:10:47 (it predates S1). `esbuild` 2026-07-07. Re-check these after (b) and compare.
 - Worktree `git status --short` empty at `3c0d213` before this commit.
+- **`node_modules` re-check after transformers.js ran (builder #2, 14:03, after the MiniLM (b) runs):** `node_modules`
+  2026-10-16 12:57:48 · `@huggingface\transformers` 2026-07-07 10:32:45 with the same six children and dates (no `.cache`) ·
+  `node_modules\.cache` exists, 0 items, 2026-10-13 11:10:47 · `esbuild` 2026-07-07 10:32:15 · `onnxruntime-node` 2026-07-07
+  10:33:53 · `Get-ChildItem node_modules -Recurse -File | ? LastWriteTime -gt '2026-10-29 13:55'` → nothing. Unchanged. (The
+  scratch `tf-cache` folder was never even created: with `local_files_only` nothing is cached.)
 
 ## Next step (ONE concrete instruction)
 
