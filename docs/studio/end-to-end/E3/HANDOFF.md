@@ -780,7 +780,69 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   `E3\broad-fix4b.e3.test.ts` (= builder #16's drivers with `VERSIONS` / `answers` from `fix4b-lib` — four old columns incl.
   `34feafe` — writing `E3\catalog-order-fix4b.txt`, `…\vidtsx-e2e\E3\broad-probes-fix4b.txt`, `E3\broad-probes-fix4b-summary.txt`).
 
+### Built (builder #18, fix round 4, 2026-10-29) — item 2: the fix4b re-run (catalog + broad) at `c5a6124`; NO `src/` change
+
+- **Both drivers green, the E3 index untouched** (each report's lines 1-2: 61 entries, the pool 57 without `generated/`, 51 audio =
+  the fixture verbatim; SHA-256 `876f9f61…6c95` / mtime `2026-10-28T22:31:02.584Z` before = after — UNCHANGED).
+- **Catalog — `E3\catalog-order-fix4b.txt`** (1,073 rows, per-file 150 / 194 / 204 / 129 / 132 / 67 / 197; :4-7): **vs `788c8d2`**
+  580 changed · 283 first · 4 LOST · 0 none left · 186 GAINED · 161 confident first changed · 2 WORSE; **vs `09e81ea`** 487 · 208 · 4 ·
+  0 · 120 · 100 · 3; **vs `7967c6f`** 329 · 7 · **2 LOST · 0 none left** · 15 · **0** · 0; **vs `34feafe`** 10 · 0 · **1 LOST · 0
+  none left** · 0 · **0** · 0. The edge rows hold (the "worse" list vs `7967c6f` is empty; "a breaking screen" → `[matched]
+  power-down 0.50 | [closest] break-crash-digital 0.30 | [closest] break-glass-crack 0.30`; "a glitched photo" → glitch-zap 2nd; "a
+  typed message" → keys-typing-soft 2nd). **The 2 LOST vs `7967c6f`** (builder #16 had 1): "a moving transition" (whoosh-wind out,
+  whoosh-soft first — the recorded note) and NEW **"a sucking whoosh before the reveal"** (= the 1 LOST vs `34feafe`): `[matched]
+  whoosh-reverse 0.60 | [closest] pop-reveal 0.21 | [closest] impact-deep-soft 0.21` (was `whoosh-reverse | whoosh-soft 0.30 |
+  whoosh-wind 0.30`). **Justified by the rule, not a regression:** `E3\why-fix4b.txt` (scratch `why-fix4b.e3.test.ts`, the HEAD helpers
+  on the fixture) — prompt words `[sucking, whoosh, reveal]` ("before the reveal" is not a placement opener here, so `reveal` is a
+  word); whoosh-reverse covers `sucking + whoosh`, pop-reveal / impact-deep-soft cover `reveal`, whoosh-soft / whoosh-wind only
+  `whoosh` → E-d16b's group A = the two `reveal` clips. A right clip (whoosh-reverse) stays FIRST and confident; under the bar = a
+  "stranger in the three" NOTE. **The brief's "LOST must be 0 vs `7967c6f`" holds for the BROAD set (below) — not for the catalog,
+  where it was already 1 at builder #16 and is 2 now, both with a right clip left (none-left 0).** The other 9 rows changed vs
+  `34feafe` (:4880-4923, all read): the below rows reorder only — a clip covering a word the confident first misses moves up ("a knock
+  before the door opens" → ui-click-soft 0.10 covers `opens`; "wind blowing through the trees" → flame-snuff covers `blowing`; "a
+  gentle stream of running water" → dash-zip `running`; "a soft knocking at the door" → whoosh-soft / impact-soft `soft`; …); no
+  first moved, no right clip lost.
+- **Broad — `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\broad-probes-fix4b.txt`** (4,812,692 bytes; summary
+  `E3\broad-probes-fix4b-summary.txt` 2,430,651 bytes; :3-7): builder #16's frames verbatim (F1 bare · F2 "a w" · F3 "a w sound" · F4
+  "a soft w" — 1,281 each · F5 the 7 placement openers 1,701 · F6 leading adverbs / wrappers 729 · F7 participle + noun 5,064 · F8 noun +
+  participle 2,532 · F9 "a gentle / loud / slow / quiet `<-ing>`" 848); 243 base words, 12 nouns, **15,998 probes**. **vs `788c8d2`**
+  10,350 changed · 6,769 first · 941 LOST · 866 none left · 4,718 GAINED · 4,667 conf · 1,976 WORSE; **vs `09e81ea`** 8,218 · 4,988 ·
+  73 · 8 · 3,200 · 3,471 · 1,678; **vs `7967c6f`** 8,196 · 10 · **0 · 0** · 6,524 · **0** · 0; **vs `34feafe`** **63** · 0 · **0 ·
+  0** · 42 · **0** · 0. **Every number builder #17's experiment predicted holds** (`E3\variants-fix4b.txt:2` "any": 63 changed vs
+  `34feafe`, 0 LOST vs either, 0 confident first moved, 9 left). The noun-first class (summary :56): **5,709** probes, "right in the
+  three: true" 5,700 / **false 9** = exactly E-d16c's list ("a clicked / clicking screen", "a screen clicking", "a softed / softing
+  screen", "a screen softing", "a warmed / warming screen", "a screen warming" — power-down's own text carries the verb word, so the
+  rule cannot fire). Vs builder #16's step 4 (`34feafe`): `7967c6f` GAINED 6,482 → 6,524; `09e81ea` none-left 22 → 8; `788c8d2`
+  none-left 880 → 866.
+- **The 63 changed vs `34feafe`, all read** (scratch `E3\broad34-fix4b.e3.test.ts` = the broad driver listing every probe changed
+  vs `34feafe` → `E3\broad-probes-fix4b-34f-summary.txt`, extracted to `E3\broad34-read.txt`): **48 = 16 bases × "a `<-ed>` screen" /
+  "a `<-ing>` screen" / "a screen `<-ing>`"** (air, fast, foley, motion, out, paper, piano, reward, single, snap, solid, sparkle, tail,
+  texture, tick, whoosh) — the E-d16b fix: the verb's carrier now in the three after the confident power-down (e.g. "a whooshing
+  screen" → `power-down 0.55 | whoosh-soft 0.27 | whoosh-reverse 0.27`, was `| pop-reveal | scan-hum`); 42 GAINED a carrier, the 6
+  "reward" / "solid" ones already showed it and only reorder. **15 = F4 "a soft `<form>`"** (break ×3, comic ×2, crunch ×2, electric ×2,
+  knock ×3, solid ×3): the confident clip covers the verb but not `soft`, so a "-soft" file (whoosh-soft / impact-soft 0.16–0.18) takes
+  the slot a second verb clip had — e.g. **"a soft crunching" → `crunch-bite 0.50 | whoosh-soft 0.16 | impact-soft 0.16`** (was `|
+  break-crash-digital 0.30 | whoosh-soft`), "a soft knock" → chess-piece-thock 0.49 replaced by whoosh-soft 0.18. The right clip stays
+  first in all 15 (the "a soft crunching" side effect — a NOTE: a stranger in the three).
+- **The 8 vs `09e81ea` with no carrier left (summary :8367-8392), classified:** 2 are E-d16c's ("a screen clicking", "a screen
+  warming"); **6 are F9 "a quiet `<-ing>`"** ("a quiet airing / emphasising / singling / snapping / tailing / warming") — NONE is lost vs
+  `7967c6f` (fix round 3's matcher, not the fill): `quiet` is a word five clips' text carries (clock-tick-soft, keys-typing-soft,
+  scan-hum, flame-snuff, owl-hoot — all nearest at 0.31–0.36), the verb's carrier 6th at 0.25–0.29 (`E3\why-fix4b.txt` "RANK" lines:
+  "a quiet snapping" → `clock-tick-soft 0.31 | keys-typing-soft 0.31 | scan-hum 0.31 | flame-snuff 0.31 | owl-hoot 0.31 | ui-click-soft
+  0.29 | ui-send 0.29 | trap-snap 0.29`; "a quiet warming" → warm-shimmer 0.25 6th). No confident row is shown, so E-d16b does not apply;
+  NO matcher change (E-d16 / E-d16c) → recorded as an open note: **"a quiet snapping" / "a quiet warming" are plausible phrasings — a
+  verifier could read them as bar (ii)** (they were in builder #16's 22 too, at `34feafe`; the fill did not cause them).
+
 ## Verified (exact commands + outputs)
+
+### builder #18 (item 2, 2026-10-29 11:41–11:50) — no launch, no model call, no `src/` change (HEAD `bedcff8`, `src/` = `c5a6124`)
+
+- From the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config
+  D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E3/vitest.e3.config.ts catalog-fix4b > E3\catalog-fix4b.log` → `1 passed`, 8.30 s
+  (Start 11:41:51), exit 0; `… broad-fix4b > E3\broad-fix4b.log` → `1 passed`, 146.43 s (Start 11:42:06), exit 0; `… broad34-fix4b >
+  E3\broad34-fix4b.log` → `1 passed` (11:47–11:49); `… why-fix4b --silent=false --reporter=verbose | grep WHY\|RANK > E3\why-fix4b.txt`
+  → `Tests 2 passed`. Numbers in Built "builder #18" are the report lines cited there.
+- Resources before (11:41): C: 51.9 GB free, memory commit headroom 29.1 GB, `electron.exe` 0.
 
 ### builder #17 (item 1, 2026-10-29 11:25–11:37) — no launch, no model call
 
@@ -1322,6 +1384,12 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
   new file `generated/sfx-soft-whoosh.mp3` (generated although 3 library whooshes match).
 
 ## Next step (ONE concrete instruction)
+
+**(builder #18, 11:52) Item 2 is DONE (Built / Verified "builder #18" — do not redo it); builder #18 continues with item 3 (gates),
+item 4 (rebuild), item 5 (records) as worded below. E-d16c (Hasan 11:46, ORCHESTRATOR.md "Session 9" — the orchestrator's
+uncommitted edit; never stage ORCHESTRATOR.md) joins the bar: a shown CONFIDENT clip whose own text already carries the prompt word
+(so E-d16b cannot fire), first already at `09e81ea`, right clip not in the three = a NOTE (the 9). The records carry E-d16c and the
+verifier-round-5 Next step says "bar E-d16 + E-d16a + E-d16b + E-d16c".**
 
 **FIX ROUND 4, continued — builder #18: items 2–5 of builder #17's brief (item 1 the E-d16b rule is DONE, `c5a6124` — Built /
 Verified "builder #17"; do not redo it; NO matcher change — `git diff 7967c6f --` the three matcher files must stay empty).** Item 2:
