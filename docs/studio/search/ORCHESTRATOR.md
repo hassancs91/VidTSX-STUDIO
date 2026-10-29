@@ -63,3 +63,16 @@
   library search (`docs/studio/end-to-end/ORCHESTRATOR.md` table row + "Library search (session 10)").
 - 13:39 · branch `library-search` + worktree `.vidtsx-temp\search\wt` @ `906273c`.
 - 13:41 · this file + `S1/HANDOFF.md` + `S1/LOG.md`; S1 builder #1 to spawn.
+- 13:42 · S1 builder #1 spawned (HEAD `3c0d213`).
+- 13:54 · S1 builder #1 HANDOFF (34 calls, ~11 min; step 1 DONE, docs `5c5bd09`, no `src/` change, 0 model calls, no download / launch):
+  the labelled set `.vidtsx-temp\search\S1\labelled-set.json` — 1,565 rows (1,375 named / 140 ∅ / 50 `*`), 2,899 excluded with
+  reasons; the corpus recounted at 1,073 rows (150 / 194 / 132 / 129 / 204 / 67 / 197); r3 / r4 probe files add no row (every prompt
+  already a corpus row); r5 adds c-ordinary (verifier's verdict), j-falling / i-nine / e-realindex / d-stopword / the named broad sets
+  (S1 labels); 35 own rows (25 en + 10 ar). **(a) keywords** (`S1\reports\a-keywords.md`): ALL R@1 83.9 / R@3 90.8 / R@10 91.8 /
+  R@20 91.9 / MRR 0.874, wrong-confident 100 / 1,515 (6.6 %); the seven corpus files 100 at R@10; weak: d-stopword R@10 46.0,
+  j-falling 33.3, the broad named sets R@1 3.8 (25 / 26 confidently wrong), Arabic 0. Orchestrator re-check: tree clean at
+  `5c5bd09`, `906273c..HEAD -- src/ scripts/` empty, reports on disk, 0 `electron.exe`. **Its heads-up:** the corpus files ARE the
+  keyword matcher's bar (100 by construction) → the comparison must be read on the held-out rows too. **Orchestrator ruling for
+  builder #2:** finish every measurement ((b) (c) timings (d) (e), the report) BEFORE judging the STOP rule; report recall@10 on
+  ALL, on the corpus files and on the held-out rows (r5 + own); add the top-1 similarity distribution on ∅ vs named rows (S2 needs a
+  "nothing fits" floor); then DONE, or BLOCKED with both readings if they disagree.
