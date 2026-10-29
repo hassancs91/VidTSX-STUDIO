@@ -3,12 +3,12 @@ import { effectiveModeLabel, modelSizeLabel, vectorStateLabel } from '@shared/li
 import type { LibrarySearchChoice } from '@shared/types/library-search';
 import { useLibrarySearchSettings } from '../../../hooks/useLibrarySearchSettings';
 
-/** The ladder (design §4). Auto is the default (unset); the rerank rung is not built in this slice. */
-const CHOICES: { value: LibrarySearchChoice; label: string; disabled?: boolean }[] = [
+/** The ladder (design §4). Auto is the default (unset); the rerank rung is only ever an explicit choice (LS-r7). */
+const CHOICES: { value: LibrarySearchChoice; label: string }[] = [
   { value: 'auto', label: 'Auto (default) — Smart once the model is here' },
   { value: 'basic', label: 'Basic — words' },
   { value: 'smart', label: 'Smart — words + meaning' },
-  { value: 'smart-rerank', label: 'Smart + AI rerank — not available yet', disabled: true },
+  { value: 'smart-rerank', label: 'Smart + AI rerank — your AI provider orders the top 20' },
 ];
 
 /**
@@ -30,7 +30,8 @@ export function LibrarySearchRow() {
           <div className="text-[10px] text-text-dim">
             How the Assets search box and the assistant find library items. Basic matches words; Smart also
             matches meaning with a small local model ({status?.modelId ?? 'multilingual-e5-small'}, {size}),
-            downloaded only when you click.
+            downloaded only when you click. Smart + AI rerank also lets your default AI provider reorder the Assets
+            search's top 20 once you stop typing (one logged call per search); the assistant never reranks.
           </div>
           {status && (
             <div className="text-[10px] text-text-secondary mt-1" data-library-search-state>
@@ -62,7 +63,7 @@ export function LibrarySearchRow() {
             data-library-search-choice
           >
             {CHOICES.map((opt) => (
-              <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+              <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}

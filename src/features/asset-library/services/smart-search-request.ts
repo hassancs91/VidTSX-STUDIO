@@ -1,4 +1,9 @@
-import type { LibrarySearchKind, LibrarySearchRequest } from '@shared/types/library-search';
+import type {
+  LibrarySearchKind,
+  LibrarySearchMode,
+  LibrarySearchRequest,
+  LibrarySearchResult,
+} from '@shared/types/library-search';
 import type { CategoryFilter } from './asset-search';
 
 /** The Assets box asks the service for its top 20 (LIBRARY_SEARCH_DESIGN.md §8.3). */
@@ -28,4 +33,30 @@ export function smartSearchRequestOf(query: string, scopeRelPath: string, catego
 /** One key per (query, scope, kinds) — an answer is shown only for the request it was asked for. */
 export function requestKeyOf(request: LibrarySearchRequest): string {
   return JSON.stringify([request.query, request.scope ?? '', request.kinds ?? []]);
+}
+
+/** Smart + AI rerank (design §8.3, LS-r7): the query counts as settled after 1 s without a change (or on Enter). */
+export const RERANK_SETTLE_MS = 1000;
+
+/** The settled query's request: the same box state (the same key), asking the service to rerank. */
+export function rerankRequestOf(request: LibrarySearchRequest): LibrarySearchRequest {
+  return { ...request, rerank: true };
+}
+
+/** Only the explicit Smart + AI rerank choice reranks (auto never resolves to it). */
+export function shouldRerank(status: { mode: LibrarySearchMode } | null): boolean {
+  return status?.mode === 'smart-rerank';
+}
+
+/** One answer the box holds: the key it was asked for, the result, and whether it came from a rerank request. */
+export interface HeldAnswer {
+  key: string;
+  result: LibrarySearchResult;
+  reranked: boolean;
+}
+
+/** The answer to keep: a new key always wins; for the same key a late plain Smart answer never replaces a reranked one. */
+export function keepAnswer(prev: HeldAnswer | null, next: HeldAnswer): HeldAnswer {
+  if (prev && prev.key === next.key && prev.reranked && !next.reranked) return prev;
+  return next;
 }

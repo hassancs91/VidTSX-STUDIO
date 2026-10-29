@@ -18,7 +18,7 @@ import type {
 import type { EmbeddingModelChange } from '../embedding-model-events';
 import { resolveSearchMode, searchLibrary } from './library-search';
 import type { StoredSearchSettings } from './search-settings';
-import type { SemanticItem, SemanticRanker } from './types';
+import type { LibraryReranker, SemanticItem, SemanticRanker } from './types';
 import { VectorSync } from './vector-sync';
 
 export interface RuntimeVectors {
@@ -51,6 +51,11 @@ export interface LibrarySearchRuntimeDeps {
   /** The catalog's size for a model, or null for an id the catalog does not know. */
   modelBytes: (modelId: string) => number | null;
   emit: (event: LibrarySearchEvent) => void;
+  /**
+   * Smart + AI rerank (LS-r7): builds the reranker once; `indexVersion` changes on every index write of the current
+   * library (the reranker's cache key). Used only for requests with `rerank: true` (the Assets box's settled query).
+   */
+  createReranker?: (indexVersion: () => string) => LibraryReranker;
   syncDebounceMs?: number;
   onError?: (err: unknown) => void;
 }
@@ -69,9 +74,13 @@ export class LibrarySearchRuntime {
   private vectors: { key: string; ready: number; total: number } | null = null;
   /** The model whose before-delete hook ran and whose delete outcome (deleted / delete-failed) has not arrived (LS-r5). */
   private removing: string | null = null;
+  private readonly reranker: LibraryReranker | null;
+  /** Bumped by every index write of the current library — part of the rerank cache key (LS-r7). */
+  private indexGeneration = 0;
 
   constructor(private readonly deps: LibrarySearchRuntimeDeps) {
     this.engine = deps.createEngine((state) => this.vectorsChanged(state));
+    this.reranker = deps.createReranker?.(() => `${deps.libraryRoot()}#${this.indexGeneration}`) ?? null;
     this.sync = new VectorSync({
       engine: this.engine,
       loadEntries: deps.loadEntries,
@@ -106,6 +115,8 @@ export class LibrarySearchRuntime {
         return { choice: s.choice, modelId: s.modelId, modelDownloaded: this.deps.isModelDownloaded(s.modelId) };
       },
       semantic: removing ? MODEL_BEING_REMOVED : this.engine,
+      // only the Assets box's settled query asks; `searchLibrary` applies it only under the smart-rerank choice
+      ...(request.rerank === true && !removing && this.reranker ? { reranker: this.reranker } : {}),
     });
     if (!removing && result.vectors && result.vectors.ready < result.vectors.total && !this.isBuilding()) this.buildInBackground();
     return result;
@@ -137,7 +148,9 @@ export class LibrarySearchRuntime {
 
   /** `library-index-events.ts`: a write in the current library → a debounced sync (skipped while Smart is off). */
   indexWritten(root: string): void {
-    if (root === this.deps.libraryRoot()) this.sync.schedule();
+    if (root !== this.deps.libraryRoot()) return;
+    this.indexGeneration += 1;
+    this.sync.schedule();
   }
 
   private pushStatus(): LibrarySearchStatus {

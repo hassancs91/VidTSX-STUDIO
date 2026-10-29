@@ -17,8 +17,10 @@ import { getEmbeddingModelDir, isEmbeddingModelDownloaded } from '../embedding-m
 import { onLibraryIndexWritten } from '../library/library-index-events';
 import { getLibraryRoot } from '../library/library-paths';
 import { loadIndex } from '../library/library-store';
+import { createLibraryReranker } from './rerank';
 import { LibrarySearchRuntime } from './search-runtime';
 import { getLibrarySearchSettings, setLibrarySearchSettings } from './search-settings';
+import type { LibraryReranker } from './types';
 
 const log = logEngine.createLogger('LibrarySearch');
 
@@ -57,6 +59,19 @@ function createEngine(onVectors: (state: { ready: number; total: number; buildin
   });
 }
 
+/**
+ * Smart + AI rerank (LS-r7): the app-default text provider (`llmEngine.generate`, no providerId) and the usage log.
+ * Both are imported on the first rerank only, so the search's import graph — and every test that loads it — stays
+ * free of the provider chain; nothing is called until a settled Assets-box query asks under the smart-rerank choice.
+ */
+function createReranker(indexVersion: () => string): LibraryReranker {
+  return createLibraryReranker({
+    generate: async (request) => (await import('../../../engine/llm-engine')).llmEngine.generate(request),
+    logUsage: async (entry) => (await import('../ai-usage')).aiUsageService.appendEntry(entry),
+    indexVersion,
+  });
+}
+
 /** The one runtime; the first call builds it (no spawn) and starts listening to index writes / model downloads. */
 export function getLibrarySearchRuntime(): LibrarySearchRuntime {
   if (runtime) return runtime;
@@ -69,6 +84,7 @@ export function getLibrarySearchRuntime(): LibrarySearchRuntime {
     isModelDownloaded: isEmbeddingModelDownloaded,
     modelBytes: (modelId) => EMBEDDING_MODEL_CATALOG.find((m) => m.id === modelId)?.sizeBytes ?? null,
     emit,
+    createReranker,
     onError: (err) => log.warn('Library search vector sync failed', { error: err instanceof Error ? err.message : String(err) }),
   });
   runtime = created;

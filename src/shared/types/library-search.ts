@@ -19,6 +19,11 @@ export interface LibrarySearchRequest {
   scope?: string;
   /** Default 20. */
   limit?: number;
+  /**
+   * Smart + AI rerank (§8.3, ruling LS-r7): set only by the Assets box for a SETTLED query (Enter, or 1 s idle);
+   * it takes effect only under the explicit `smart-rerank` choice. The Studio tools never set it.
+   */
+  rerank?: boolean;
 }
 
 export interface LibrarySearchCandidate {

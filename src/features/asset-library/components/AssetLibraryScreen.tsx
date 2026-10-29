@@ -298,6 +298,7 @@ export function AssetLibraryScreen() {
           chip={chip}
           onClearChip={() => setChip(null)}
           adornment={<SmartSearchMarker status={smart.status} result={smart.result} />}
+          onSubmit={smart.settle}
         />
         <AssetBreadcrumb rootPath={rootPath} currentPath={currentPath} onNavigate={navigate} />
       </header>
