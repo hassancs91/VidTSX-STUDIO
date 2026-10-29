@@ -164,3 +164,32 @@
   the product worker's code path", which is what :102 / :105-139 measure; the committed benchmark stays on the batched fixture (= S1). Open
   problem 2 (tsconfig include) → step c must make main import the engine so `tsconfig.node.check.json` covers it; the verifier checks.
   Builder #4 (step c — IPC + settings + the ping loop) to spawn.
+- 16:24 · S3 builder #4 spawned (HEAD `0b50a75`).
+- 16:47 · S3 builder #4 HANDOFF (93 calls, ~23 min; step c CODE done, the ping loop NOT run): `62685e9` — channels `library:search`,
+  `:status`, `:settings:set`, push `library:search:event` (`channels.ts:604-609`), wire types `src/shared/ipc/types/library-search.ts`,
+  handlers `src/main/ipc/library-search-handlers.ts` (try/catch, typed errors) registered with `lazily` (`registrations/library-search.ts`,
+  `register.ts:96`), preload `src/preload/api/library-search.ts`; `search-runtime.ts` (status, ladder, the background build after a download /
+  index write / first status / a short Smart result, events) + `search-app.ts` (the one instance; the real fork); `library-index-events.ts`
+  (writeIndex notifies, `library-index-io.ts:113`) + `embedding-model-events.ts`; `tsconfig.node.json` includes `src/library-search-engine/**/*`
+  (15 / 15 files listed). tsc 26 / 10; 23 new tests (red first); largest new file 242; `wt/out` rebuilt; the `search-S3` profile + the 51
+  clips + E3's index seeded, kit `S3\launch-s3.sh` + `c-ping.mjs`; docs `2639b2a`. Three questions (below).
+- 16:47–16:55 · **Orchestrator check of question 1:** `studio-cut-plan-run-handler.test.ts` in THIS worktree → "Cannot find module
+  '…\search\wt\stream\promises' imported from …\vitest\dist\module-evaluator.js" (16:48, reproduced); the same file in the track-E worktree
+  @ `906273c` → 5 / 5 passed (16:50); the main `node_modules` vite / vitest unchanged since July; `vitest.config.ts` unchanged; the
+  worktree's only ignored paths are `out/` and `node_modules/.vite/vitest` (one 6.8 KB results file, from our first run 15:12 — the track-E
+  worktree has the same folder); no stray `package.json` / `node_modules` in `.vidtsx-temp\search\`. Builder #4: it fails here with step c's
+  tracked edits reverted, `out/` moved and the vitest cache moved, and PASSES in a fresh detached worktree of `0b50a75` with and without
+  step c's 21 paths. Cause not found (time-boxed).
+- **Rulings (orchestrator, 16:55):**
+  - **LS-r1 (question 1) — the worktree-only `studio-cut-plan-run-handler.test.ts` failure:** counted like the E-d2a suites — the full gate
+    may show it red in THIS worktree ONLY with the `stream\promises` resolution error, and only if the same file passes in a fresh detached
+    worktree at the gate's HEAD (`git worktree add --detach <scratch> HEAD`, run the file there, remove the worktree; never `npx`; record
+    the commands + both outputs). Any other error in it, or a failure in the fresh worktree, is real. The verifier repeats the proof.
+  - **LS-r2 (question 2) — the model's size:** correct the catalog entry for `multilingual-e5-small` in `src/embedding-engine/model-registry.ts`
+    to the measured download (`sizeBytes: 135_392_016`, `sizeLabel: '135 MB'`; report §7: onnx 118,308,185 + tokenizer.json 17,082,730 + the
+    two small JSONs) with a test; the AI Models screen's label becomes the truth. The other catalog entries' undercounts are a NOTE (not
+    this slice's).
+  - **LS-r3 (question 3) — delete while the engine holds the model:** in scope, small: a before-delete hook in `embedding-model-events.ts`
+    that the runtime uses to unload the child before `deleteEmbeddingModel` runs for the search model (unit test); a live delete on Windows
+    is a note for S4.
+  Builder #5 (finish step c: LS-r2, LS-r3, the ping loop) to spawn.
