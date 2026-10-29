@@ -1,5 +1,5 @@
 # S1 — the spike: keywords vs local embeddings vs hybrid vs the LLM pick, on E3's labelled set (no product code)
-status: IN PROGRESS — builder #3 handed off after (d) the LLM pick (25 / 40 model calls used); next: optional (e) the reranker (repo + size named in Done 21), then the report, then the STOP judgement
+status: DONE — builder #4, 2026-10-29: (e) run, the report `docs/studio/search/S1-spike-report.md` written, STOP judged NOT fired (R@10 beats (a) clearly on ALL +5.7…+6.9 and HELD-OUT +19.8…+22.6); recommendation = multilingual-e5-small in an RRF60 hybrid with keywords + the assistant's pick over the top-20 (25 / 40 model calls used in all)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/search/ORCHESTRATOR.md` ("Answers in force" binds this part).
@@ -270,6 +270,31 @@ Builder #3, 2026-10-29 14:24–14:40 (step (d) the LLM pick). Docs commit: see "
     through `@huggingface/transformers` 4.0.1's `AutoTokenizer` + `AutoModelForSequenceClassification` (already installed; no new
     package). English-only: expect it to fail the 10 Arabic rows. Target folder `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\ms-marco-MiniLM-L-6-v2\`.
 
+Builder #4, 2026-10-29 14:39–14:58 ((e), recall@5 / @8, the report, the STOP judgement). Docs only; no `src/` change, no model call, no
+app launch.
+
+22. **(e) the reranker — run.** Resource guard 14:39:52 (C: 51.5 GB, D: 41.6 GB, commit 67.1 / 99.7 GB → headroom 32.6 GB; C: + headroom
+    84.1 ≥ 6; 0 `electron.exe`) → the four files of `Xenova/ms-marco-MiniLM-L-6-v2` curl'd 14:40:01–14:40:27 into
+    `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\ms-marco-MiniLM-L-6-v2\` (824 · 711,396 · 1,242 · 23,143,499 B = the HEAD sizes
+    of Done 21). Driver `K\run-e-rerank.cjs` (transformers.js 4.0.1 `AutoTokenizer` + `AutoModelForSequenceClassification`, absolute dir,
+    `local_files_only`, `allowRemoteModels = false`, `dtype: 'q8'`, cache dirs on scratch; no new package) re-orders each row's top-20 of
+    `K\reports\c-rrf60-multilingual-e5-small-mean.json` by the logit (query = prompt, passage = `itemText(e)`). **`K\reports\e-rerank-ms-marco-MiniLM-L-6-v2.md`:
+    ALL R@1 86.6 · R@3 94.5 · R@10 98.8 · R@20 99.9 · MRR 0.911 (vs (c) 87.4 · 94.8 · 99.3 · 99.9 · 0.917); HELD-OUT R@1 65.4 (vs 61.4); CORPUS R@1
+    96.1 (vs 99.1); Arabic R@1 10.0 (vs 50.0)**; Youden J on the top-1 logit 0.655. Timing (`…-timing-node.md`, node 22.14.0, under external load —
+    vmmemWSL ≈ 26.6 CPU-s / 5 s at 14:46): load 759 ms, per request (20 pairs) p50 243.7 ms / p95 404.01 ms, RSS 127 MB loaded. Verdict: no gain,
+    too slow → not in Smart's default. Its Electron timing run was not made (~9 min of full CPU, could not change the verdict; report §11).
+23. **The two (d) measures, row by row:** `K\d-diff.cjs` → `K\reports\d-measures-diff.md|json`. Generic R@1 = pick ∈ allowed (151 / 187 =
+    80.7 % in BOTH conditions); "pick acc (named)" adds a "none" on an `'x|∅'` row (31 such rows): +19 in top20 → 170 / 187 = 90.9 %, +13 in
+    full51 → 164 / 187 = 87.7 %; the rows are listed, and every pick on a `∅` row (11 top20 / 10 full51, 14 distinct rows).
+24. **recall@5 / @8 and the matrices:** `K\build-tables.cjs` → `K\reports\z-matrix.md|json` — R@1 / 3 / 10 / 20 / MRR × 18 sources × 12
+    candidates from each report's `table`, plus recall@k (1, 3, 5, 8, 10, 20) from `perRow[].ranked` for (a), (b) me5-small, (c) MiniLM, (c)
+    me5-small, (e) (0 mismatches against the tables). **(c) RRF60 + me5-small: ALL R@5 97.7 · R@8 99.1; HELD-OUT 92.7 · 97.2; CORPUS 100 · 100.**
+25. **The report** `docs/studio/search/S1-spike-report.md` (§0–§15; every number names its `K\reports\` file): composition, measures, every
+    candidate on ALL / CORPUS / HELD-OUT and per file, wrong-confident rates, the timing table, the floors + the `∅`-pick caveat row by row, the
+    worker `dtype` finding, (d) with the template verbatim and both measures, (e), Hasan's rule model by model (→ multilingual-e5-small), the
+    STOP judgement (not fired: R@10 ALL 91.8 → 97.5–98.7, HELD-OUT 73.4 → 93.2–96.0; the design is supported), "What S2 needs" (N = 20, K = 60,
+    prefixes / pooling / `dtype: 'q8'`, no floor, abstention, indexing in the background, memory).
+
 ## Verified (exact commands + outputs)
 
 - `cd K; node build-kit.cjs` → seven lines + `TOTAL 1073 rows in 7 files; library 51 clips` (`K\build-kit.log`).
@@ -308,19 +333,22 @@ Builder #3, 2026-10-29 14:24–14:40 (step (d) the LLM pick). Docs commit: see "
 - Model files on C: (bytes = the HEAD sizes in Done 8): `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\{all-MiniLM-L6-v2,
   bge-small-en-v1.5, multilingual-e5-small, multilingual-e5-base}\` (489.5 MB).
 
+- **Builder #4 (e) + the report, 14:39–14:58:** guard 14:39:52 (Done 22) → `curl -sSL --retry 5` × 4 → `ls -l` = 824 / 711396 / 1242 /
+  23143499 B. `cd K; node run-e-rerank.cjs > reports/e-rerank.log` rc 0 (14:41:30 start; done before 14:50:37) → `e-rerank-ms-marco-MiniLM-L-6-v2.md|json`
+  + `…-timing-node.md|json`. `node d-diff.cjs` rc 0 → `top20 … 151 → generic R@1 80.7 %; + "none" on an 'x|∅' row 19 → pick acc 170 / 187 = 90.9 %`
+  and `full51 … 151 …; + 13 → 164 / 187 = 87.7 %`. `node build-tables.cjs` rc 0 → `z-matrix written; 18 sources × 12 candidates; recall@k for 5;
+  mismatches 0`. CPU over 5 s at 14:46: the rerank node 32.1 CPU-s, vmmemWSL 26.6, python 4.0.
+- **`node_modules` re-check after (e), 14:50:37:** `node_modules` 2026-10-16 12:57:48 · `@huggingface\transformers` 2026-07-07 10:32:45, 6
+  children (dist, src, types, LICENSE, package.json, README.md) · `node_modules\.cache` 0 items · files under `node_modules` written after
+  2026-10-29 14:39: **0** · scratch `tf-cache` does not exist · 0 `electron.exe`, 0 rerank node left · C: 51.3 GB, commit headroom 32.3 / 99.7 GB ·
+  models folder on C: 489.6 MiB (5 models).
+- **Tree as of `c642c2a` (before this hand-off's commit):** `git status --short` empty, `git log -1 --format=%h -- src/` = `c5a6124`, `git diff
+  --stat 906273c..HEAD -- src/ scripts/` empty. The post-commit re-check is the last bullet below.
+
 ## Next step (ONE concrete instruction)
 
-Run the optional (e) in the kit (resource guard first, numbers here): curl the four files of `Xenova/ms-marco-MiniLM-L-6-v2`
-named in Done 21 (23,856,961 B) into `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\ms-marco-MiniLM-L-6-v2\`, write
-`K\run-e-rerank.cjs` (transformers.js 4.0.1 `AutoTokenizer` + `AutoModelForSequenceClassification` from the absolute model dir,
-`local_files_only`, `allowRemoteModels = false`, `dtype: 'q8'`, cache dirs on scratch) that re-orders each row's top-20 from
-`K\reports\c-rrf60-multilingual-e5-small-mean.json` by the cross-encoder's logit (query = prompt, passage = `itemText(e)`) and writes
-`K\reports\e-rerank-ms-marco-MiniLM-L-6-v2.md|json` with `writeReport` + `floorStudy` on the top-1 logit + its timing per row (20 pairs);
-re-check `node_modules` (Verified baseline). THEN write `docs/studio/search/S1-spike-report.md` from the kit's report files (every
-table: ALL / CORPUS / HELD-OUT + per file for (a) (b)×5 (c)×5 (e); the timing table from `K\reports\t-*.md`; the floors; Done 9's
-worker finding; the (d) table + `K\d-prompt-template.txt` verbatim + the strata + the row-by-row ∅ picks of Done 20; Hasan's rule; "what
-S2 needs" with recall@3/5/8/10 of (c) RRF60 + me5-small — compute k = 5 and 8 from that report's `perRow[].ranked` in a small kit
-script, they are not in any report yet), and only then judge the STOP rule.
+None for S1 — the exit is met (status DONE). Orchestrator: read `docs/studio/search/S1-spike-report.md` against S1's rule, then start S2 (the
+design note + THE ACCEPTANCE BAR) from its §12–§14.
 
 ## Open problems
 
@@ -351,7 +379,12 @@ script, they are not in any report yet), and only then judge the STOP rule.
    held-out false nones are S1's widened broad-set labels on odd phrasings ("a door sparkling" → none). The report states the rates
    as measured AND lists those rows; whether S2's bar re-labels the corpus ∅ rows for the pick is S2's (or Hasan's) call — not a
    stop for S1.
-8. **(d) budget left:** 15 of 40 model calls (+ the retry allowance) remain unused; nothing in S1 needs them now.
+8. **(d) budget left:** 15 of 40 model calls (+ the retry allowance) remain unused; nothing in S1 needs them now (builder #4 made none).
+9. **For S2, not a stop (builder #4):** (i) N for the tool answer — the report recommends 20 (the measured condition); a smaller N is
+   unmeasured for the pick (report §14). (ii) Whether S2's bar re-labels the corpus `∅` rows that the pick fills by plain meaning (report §8,
+   14 rows listed). (iii) The (c) hybrid's R@1 on `r5/j-falling` is 33.3 (the keyword list's confident wrong matches fuse in on top) — fine for
+   recall at N ≥ 8, but the tool must not present the fused order as confidence. (iv) The worker `dtype: 'q8'` fix (Open problems 4). None of
+   these is Hasan's call unless S2 says so.
 
 ## Do-not-redo
 
@@ -362,6 +395,9 @@ script, they are not in any report yet), and only then judge the STOP rule.
 - (d) is DONE: do not launch the app or make model calls again for S1 (25 / 40 used; replies on disk in `K\d-responses\`). Re-score
   with `node run-d-pick.cjs <cond>` if the scorer changes; never re-ask the model. The worktree's `out/` (built 14:28) and the
   `profiles\search-S1` profile stay as they are.
+- (e) is DONE (`K\reports\e-rerank-ms-marco-MiniLM-L-6-v2*.md`); its Electron timing was skipped on purpose (report §11). The report is
+  written from `K\reports\z-matrix.md` + the per-candidate reports; if a scorer changes, re-run `node build-tables.cjs` and `node d-diff.cjs`
+  and update the report's tables from them.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -373,3 +409,6 @@ script, they are not in any report yet), and only then judge the STOP rule.
 - 2026-10-29 14:24–14:40 · builder #3 · ~45 calls · (d) the LLM pick: worktree build, the search-S1 profile + launch on 9290 (stopped),
   the stratified 240-row sample, 25 / 40 model calls (0 errors), the two pick reports; (e)'s reranker named with its size (not
   downloaded); the report and the STOP judgement not started. Hand-off commit: the one that adds this line (hash in LOG.md's next line / `git log`).
+- 2026-10-29 14:39–14:58 · builder #4 · ~50 calls · (e) the reranker (download 23.9 MB, run, timing on node), the two (d) measures row by row
+  (`d-diff.cjs`), the matrices + recall@5 / @8 (`build-tables.cjs`), the report, the STOP judgement (not fired) → status DONE; 0 model calls, no
+  launch. Commits: the report commit + a post-commit re-check commit (hashes in LOG.md / `git log`).
