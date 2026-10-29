@@ -1,3 +1,113 @@
+# Next session — END_TO_END_PLAN.md, session 9 (track E: Hasan's call on E3 — fix round 4 / E-d16 or DONE-PARTIAL — then the track-E exit)
+
+> **This file's current copy lives on branch `end-to-end-p0-e`** (worktree
+> `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`); the main checkout's copy (branch `end-to-end-p0`) is the
+> session-3 one. Session 8 (2026-10-28 23:36 – 2026-10-29 02:10, track E only) STOPPED on E3's FOURTH verifier FAIL (the
+> session-8 rule: a FAIL in round 4 stops the run). Written by the session-8 orchestrator.
+
+## State at the end of session 8 (2026-10-29 02:10)
+
+- **Branch / tree:** worktree `end-to-end-p0-e` @ the commit after `59502ab` (this file's commit), clean; **not merged** into
+  `end-to-end-p0` (main checkout @ `5d77600`, still carrying the other session's 16 uncommitted files incl. `src/main/index.ts`;
+  Hasan's dev app did not run all session). Nothing of this run is running (0 `electron.exe`, no vitest). **`src/` changed this
+  session** — `574edbc` (the corpus +659 rows), `02e2a10` (the matcher: F3a / F3b / F3c), `7967c6f` (the miss rule); `git log -1 --
+  src/` = `7967c6f` and `wt/out` is its build (00:54:49, markers `No library sound matched` + `PLACEMENT_BONUS`). Resources at the
+  stop: C: 44.6 GB, D: 43.8 GB free; memory headroom ~27 / 97.7 GB; `vmmemWSL` 60–70 % of the cores at times (E-d13 if it bites).
+- **E1, E2, E4 — DONE** (unchanged).
+- **E3 — STOPPED after FOUR verifier FAILs.** Fix round 3 is COMPLETE under E-d15 (builders #9–#12; Status.md E3 entry :10-852, TESTING
+  §18.17 :524-540 — verifier round 4 found every record true but four number nits): the corpus is 809 rows (150 + 659 of verifier round
+  3's probes), stem hits weigh 0.6 and never satisfy the head rule, multi-word openers / adverbs / trailing words are placement or
+  stop words, `SAME_SOUND` on the stem, MI / MJ pinned, and **the miss rule**: on a miss with candidates `generate_sfx` /
+  `generate_music` answer the three closest library sounds and generate nothing — `force: true` generates. **Verifier round 4 FAIL on
+  F4** (E3 HANDOFF → Open problems → "Verifier round 4"): the 0.6 factor + the equal-hit head rule make a verb-form MODIFIER + a noun
+  that is a stranger's tag a confident match on the stranger ("a cracked screen" → `power-down` only; "a scribbled note" →
+  `chime-reward` only) while the right clip (first at both older matchers) sits unseen in the nearest list — the mirror image of F3,
+  the same lexical shape (which word carries the sound is semantic; `STEM_STRENGTH = 1` reverts 13 of 14 but brings F3 back).
+  **The proposed fix round 4 + Hasan's design call (E-d16) are in E3 HANDOFF "Next step"** (option 1, recommended: the ANSWER-level
+  recall fill — up to three sounds, matches then the closest, labelled; no matcher change; a recall bar for verifier round 5; option
+  2: E3 DONE-PARTIAL as it stands → the exit).
+- **The track-E exit — not run**; its HANDOFF is updated for the miss rule (`40083b9`: step 0's markers + code hash `7967c6f`, turn
+  (b) an explicit force ask with a fallback, (c) a match, a sixth report line); profile `E-exit`, CDP 9280 — no `E-exit` profile exists
+  yet.
+- **Files E changed that C / D / F also touch:** the session-6 list PLUS (fix round 3) NEW `src/main/services/library/
+  sound-match-vocab.ts`, `sound-match-corpus-rows.ts`, the four `sound-match-corpus-r3-*.test.ts`, `sound-match-bonus.test.ts`,
+  `src/main/services/studio/agent-tools/audio-tools-miss.test.ts`; CHANGED `sound-match.ts` (181), `sound-match-words.ts` (211),
+  `agent-tools/sound-reuse.ts` (74), `audio-tools.ts` (199), **`studio-agent-prompt-tools.ts` (five miss-rule sentences — B and C4
+  touch this prompt too)**. Before ANY later session works on `end-to-end-p0` (B7 verifier, track-B exit, C, D, F): land
+  `end-to-end-p0-e` first (`git merge end-to-end-p0-e` in the main checkout once its own work is committed) or keep working on
+  `end-to-end-p0-e`.
+- **TESTING §18 numbering (E-d10):** unchanged (E3 18.17; C / D / F from 18.18).
+
+## Session 9 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`
+
+```
+You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),
+session 9. Track E lives on the local branch end-to-end-p0-e in the git worktree
+D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt — read every doc below FROM THAT WORKTREE (the main
+checkout's copies are older). Follow docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the
+builder and verifier briefs, the stop report, the "things you never do") with the overrides below. Read
+first: CLAUDE.md; docs/studio/END_TO_END_PLAN.md (esp. §0 E5, §1.6, T6, §3 Track E, §5); the top of
+Status.md (the E3 entry); docs/studio/end-to-end/NEXT-SESSION.md (state, lessons); docs/studio/end-to-end/
+ORCHESTRATOR.md ("Answers in force", "Session 4 — track E" with E-d1…E-d10 + E-d2a, "Session 6" with
+E-d11…E-d14, "Session 7" with E-d15, "Session 8" with its log, its stop and the PROPOSED E-d16, "For Hasan's
+real-video test"); docs/studio/end-to-end/DRIVING.md (esp. "Track E" incl. E-d13); docs/studio/end-to-end/E3/
+HANDOFF.md (all of it — "Next step" = the proposed fix round 4, "Open problems" → "Verifier round 4" / 3 / 2 / 1);
+docs/studio/end-to-end/E-exit/HANDOFF.md; docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
+
+FIRST check the main checkout: if its uncommitted work is gone/committed and Hasan's dev app is not running,
+say so in one line; either way keep working in the worktree (decision E-d1) unless I say to land it.
+
+MY DECISION (E-d16) — [HASAN: keep ONE of (A) / (B), delete the other]:
+  (A) GO: (1) E3 fix round 4 exactly as the E3 HANDOFF "Next step" option 1 says — the ANSWER-level recall fill
+      (the tool answer shows up to three sounds: the matches, then the closest, labelled matched / weak match /
+      closest; NO matcher change; the corpus recall assertion over the answer's three; verifier round 4's F4
+      phrasings (r4\g-probe.txt), its ordinary set (c-ordinary.txt) and f-probe.txt as corpus rows with
+      plain-meaning outcomes; the four (iv) nits and note 1 fixed in the records; regression + broad probes
+      re-run WITH participle + noun frames; gates; rebuild; records); then E3 VERIFIER ROUND 5 — E3's LAST (a
+      FAIL stops the run) under E-d16's bar: (i) a corpus row failing; (ii) an ordinary phrasing where the
+      library clearly has the sound and the right clip is NOT among the answer's three; (iii) a confident
+      (≥ 0.5) match that puts a clearly wrong sound first while the right clip exists; (iv) a false record — a
+      weak match first with the right clip beside it is a note. (2) The track-E exit.
+  (B) NO: E3 is DONE-PARTIAL as it stands (code 7967c6f, records 3cff0be; F4 and round 4's notes stay on my
+      real-video list) — the orchestrator adds a one-paragraph DONE-PARTIAL addendum to the Status.md E3 entry
+      and TESTING §18.17 (no src/ change, no builder), then (2) the track-E exit.
+
+SCOPE, in order, no stop between parts: per my decision above, then the track-E exit
+(docs/studio/end-to-end/E-exit/HANDOFF.md — already updated for the miss rule). Stop after the track-E exit,
+on BLOCKED, or on E3's FAIL. Do NOT touch B7's verifier, the track-B exit, or tracks C, D, F. Anything that
+needs my hands, ears or keys: build + verify up to it, mark it DEFERRED-HASAN, add it to ORCHESTRATOR's "For
+Hasan's real-video test" list, continue.
+
+OVERRIDES for the whole run — the session-8 overrides verbatim (NEXT-SESSION.md "Earlier: session 8's
+paste-in", the OVERRIDES block) with these changes: answers in force are Q1–Q6, E-d1…E-d15 and E-d16 as
+decided above; a builder's BROAD probe set must include participle + noun frames ("a cracked screen", "a
+scribbled note") and adjective + verb-form frames ("a soft knocking") besides the inflections, openers and
+adverbs; verifiers (round 5, the exit) get the range, the exit, DRIVING's rules and verifier round 4's
+findings verbatim — never the builders' conclusions; no model call outside the exit's ≤ 3 turns + 1 retry.
+```
+
+## Lessons from session 8 (apply them)
+
+- **A factor that demotes one class promotes its mirror.** F3 ("running water": the right clip hits the HEAD, the wrong one the
+  verb-form modifier) and F4 ("a cracked screen": the wrong clip hits the head, the right one the verb-form modifier) are the same
+  lexical shape; which word carries the sound is semantic, so every threshold trades one for the other. A recall-based ANSWER (show
+  the matches and the closest, let the model read the descriptions) is the only fix that covers both — propose it before another
+  matcher round.
+- **A "no worse first" claim is only as wide as its frames.** The builder's 7,554-probe set had no participle + noun frame; the
+  verifier's 13,970-probe set did and found F4 in minutes. List the frames in the record, and brief the next builder's set with the
+  frames every verifier has used.
+- **Every verifier's probe files became the next corpus** (rounds 1–4). Keep it: a round's `g-probe` / `c-ordinary` / `f-probe` are
+  corpus candidates with plain-meaning outcomes, not just evidence.
+- A records-only builder that re-opens every evidence file still finds slips (48 `*` rows not 38; two line counts) — keep that
+  instruction; and a verifier re-deriving numbers found four more (0.41 / 0.32 / 0.46 / "build-up") — the builder's own numbers in
+  prose should come from the report files, not from memory of a run.
+- **Do not commit docs while a verifier runs** (HEAD moved `9a93009` → `963f3d9` under round 4; harmless, but it had to note it) —
+  or tell the verifier the HEAD it starts from.
+
+---
+
+## Earlier: session 8's header (2026-10-28)
+
 # Next session — END_TO_END_PLAN.md, session 8 (track E: E3 fix round 3 + its last verifier, then the track-E exit)
 
 > **Hasan, 2026-10-28 23:34: "go with the recommendation"** → fix round 3 WITH the miss rule, then verifier round 4 (decision
@@ -36,7 +146,7 @@
   working on `end-to-end-p0-e`.
 - **TESTING §18 numbering (E-d10):** unchanged (E3 18.17; C / D / F from 18.18).
 
-## Session 8 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`
+## Earlier: session 8's paste-in (2026-10-28, superseded by the session-9 one above; its OVERRIDES block is the one session 9 reuses)
 
 ```
 You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),

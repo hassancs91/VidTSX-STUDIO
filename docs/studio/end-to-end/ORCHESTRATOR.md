@@ -36,7 +36,7 @@
 | D5 | TODO | | | | | |
 | E1 | **DONE** (exit MET in round 3; fix round 3 docs-only; verifier round 4 PASS on the records) | 8 (#8 = docs-only round 3) | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) → fix `d3908c3` → FAIL round 3 (records: R1 resurrected-tombstone claim, R2 mp3 range −160 ms at 8 kHz) → docs fix `8a1a60c` → **PASS round 4** (records; 4 notes V4-N1…N4, none a failure) | code `cd978c3` `6005a7e` `a3f48d8` `eb533e4` `36a0586` `d3908c3`; docs to `a35aef3`, fix round 3 `8a1a60c` (branch `end-to-end-p0-e`) | round 3: 68/68 timed rows within 10 ms (index Δ 0.0 ms, printed ≤ 5.0 ms), 19/19 unreadable listed unreadable; migration 82 entries, backup byte-identical, idempotent; E-d5 old reader 86 + 2 tombstones deep-equal; negatives N1 (V2-1) / N2 (attached pic) caught; vitest 477 files / 4,079 tests + the 3 E-d2a suites; types 26/10; round 4: E1 suites 20 files / 170 tests, types 26/10, `8a1a60c` changes 4 `//` lines in `src/` | 2026-10-23 20:25 / 2026-10-24 09:35 |
 | E2 | **DONE** (verifier FAIL round 1 → fix round 1 → PASS round 2) | 8 (#6 = records only, #7–#8 = fix round 1) | FAIL round 1 (F1 the −1.5 ceiling over after the mp3 re-encode on a 0.25 s burst; F2 shot-ref `usedIn` mark before validation) → fix `f990487` (E-d11 corrective re-encode from the original; mark after validation; `pool-import.ts` seam + test; one-line `normalizeError`; gated answer) → **PASS round 2** | code `60b5537` (normalizer) `841e311` (call site, args, dev stand-in) `68bbe44` (`usedIn` on the three landings) `3084668` (listing row) `f990487` (fix round 1); docs `70bb70f` `59b8e93` `1e36cbc` `bbfd17e` `4eb6bf5`, records `3249cbe` `b238d7f`, fix-round records `fd964ad` `d86497a` (branch `end-to-end-p0-e`) | stand-in in −9.3 LUFS / +0.6 dBTP → recorded −20.27 LUFS / −10.79 dBTP (gain −10.71); independent ffmpeg-full ebur128 −20.2 LUFS, TP −10.8, astats −10.79; probe 2.000 s = ffprobe n8 (0 ms); `tags [whoosh, air]`, `category motion`, `source`/`model` standin; `usedIn ["e2-exit"]` after the tool's own import, unchanged after `insert_asset`; `list_assets` row shows duration · category · tags · −20.3 LUFS · used in; ceiling case gain +4.18 (clamped, wanted +7.4), −23.44 LUFS, TP −1.79 (0.3 dB under the ceiling after the mp3 re-encode); music path identical; live: Assets › `generated` lists the 4 files (still), Studio root set first; worktree vitest 485 files / 4,138 tests green except the 3 E-d2a suites (rule (b): NONE of 68 files); types 26/10; **after fix round 1 (verifier round 2):** a 0.25 s gated burst −1.884 dBTP / −1.871 dBFS (1 corrective pass; was −1.3 over), five new transients worst −1.546 dBTP, 110-run sweep never over; vitest 487 / 4,149 + the 3 E-d2a suites; types 26/10 | 2026-10-24 09:40 / live 10:36 (stopped 12:55 before the records); session 6 2026-10-28 16:09 / 17:42 (records, FAIL 1, fix, PASS 2) |
-| E3 | **STOPPED — three verifier FAILs** (session 7, 2026-10-28 23:15; a fix round 3 waits for Hasan's go — E3 HANDOFF "Next step") — code `6224040` (matcher, tools, prompt rule) `8bde97c` (Assets screen); live step met (`7ba2141`); verifier round 1 FAIL (F1 placement clauses) → fix `b176881` `788c8d2`; verifier round 2 FAIL (F2 loose prefix match) → fix round 2 `09e81ea` (corpus 150 rows, E-d14), records `5e56594`; **verifier round 3 FAIL (F3: the -ing stem `running` → `run` hits dash-zip's `run` tag — "running water" → dash-zip first, was stream-soft at `788c8d2`; shut / move collisions; E-d14 (ii) + (iii))** | 8 (#8 = records only) | FAIL round 1 (F1) → FAIL round 2 (F2) → **FAIL round 3 (F3)** | code `6224040` `8bde97c`, fix 1 `b176881` `788c8d2`, fix 2 `09e81ea`; docs `00c1f74` `7ba2141` `bc2cc9b` `0ca8148` `f593515` `b2b0de8` `8d76856`, records `5e56594` `8ee0642` | live keyless whoosh ×2 → `library:sfx/whoosh-soft.mp3` card, no generation, `usedIn` 16 → 18; cuckoo → no-provider notice + a library alternative offered; tool level top 3 before the provider check, `force` generates; tile `<audio>` plays (0.415 → 1.433 s in 1.0 s), chip 45 → 4; vitest 493 / 4,215 + the 3 E-d2a suites; types 26/10 | 2026-10-28 19:28 / (stopped 22:15) |
+| E3 | **STOPPED — FOUR verifier FAILs** (session 8, 2026-10-29 02:05; fix round 3 DONE under E-d15 — the corpus +659 rows `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, records `3cff0be`; **verifier round 4 FAIL on F4** — the 0.6 stem factor + the equal-hit head rule: "a cracked screen" → `power-down` only, "a scribbled note" → `chime-reward` only, the right clips first at both olds now in the unseen nearest list; a fix round 4 PROPOSED — E-d16, the answer-level recall fill — waits for Hasan, E3 HANDOFF "Next step"; earlier: session 7, 2026-10-28 23:15, three FAILs) — code `6224040` (matcher, tools, prompt rule) `8bde97c` (Assets screen); live step met (`7ba2141`); verifier round 1 FAIL (F1 placement clauses) → fix `b176881` `788c8d2`; verifier round 2 FAIL (F2 loose prefix match) → fix round 2 `09e81ea` (corpus 150 rows, E-d14), records `5e56594`; **verifier round 3 FAIL (F3: the -ing stem `running` → `run` hits dash-zip's `run` tag — "running water" → dash-zip first, was stream-soft at `788c8d2`; shut / move collisions; E-d14 (ii) + (iii))** | 12 (#8, #12 = records only) | FAIL round 1 (F1) → FAIL round 2 (F2) → FAIL round 3 (F3) → **FAIL round 4 (F4)** | code `6224040` `8bde97c`, fix 1 `b176881` `788c8d2`, fix 2 `09e81ea`, fix 3 `574edbc` `02e2a10` `7967c6f`; docs `00c1f74` `7ba2141` `bc2cc9b` `0ca8148` `f593515` `b2b0de8` `8d76856`, records `5e56594` `8ee0642`, fix-3 records `3cff0be` `5852abf` | live keyless whoosh ×2 → `library:sfx/whoosh-soft.mp3` card, no generation, `usedIn` 16 → 18; cuckoo → no-provider notice + a library alternative offered; tool level top 3 before the provider check, `force` generates; tile `<audio>` plays (0.415 → 1.433 s in 1.0 s), chip 45 → 4; vitest 493 / 4,215 + the 3 E-d2a suites; types 26/10; fix round 3: corpus 809 rows green, regression vs `788c8d2` / `09e81ea` no correct first lost outside the `x|∅` recall rows, 7,554 (builder) + 13,970 (verifier) broad probes, vitest 503 / 5,097 + the 3 E-d2a suites, types 26/10 | 2026-10-28 19:28 / (stopped 2026-10-29 02:05) |
 | E4 | **DONE** (verifier FAIL round 1 + FAIL round 2, both on the records only → PASS round 3; exit and code sound in every round) | 5 (#4 = fix round 1 test + records, #5 = fix round 2 records + audit) | FAIL round 1 (records: R1 moved-clip claim, R2 pointer; E-d12) → fix `4fa1551` + `51dff42` → FAIL round 2 (records: R3 a stale git-state line) → fix `ff7f302` `76744ad` → **PASS round 3** (records, ~190 statements) | code `4aed92f` `5247ed9`, test `4fa1551`; docs `dc41822` `ad7b415` `ff95d1c` `8dba927` `ce9aaac` `bdeb722`, fix records `51dff42` `d1d7f8d` `ff7f302` `76744ad` (branch `end-to-end-p0-e`) | 51 / 51 sha256-identical, probe = ffprobe n8.1.2 0 ms (vs catalog `duration_s`: 38 × 0, 12 × ≤ +0.5 ms, `camera-shutter` −42 ms), fields mapped, `usedIn` verbatim + a Studio id kept on re-run; dry run tree hash equal; re-run byte-equal; changed copy → 1 entry's tags; vitest 489 / 4,165 + the 3 E-d2a suites; types 26/10 | 2026-10-28 17:42 / 19:28 |
 | F0 | TODO | | | | | |
 | F1 | TODO | | | | | |
@@ -578,7 +578,21 @@
 - **Machine (session 6):** memory commit swung between 0.5 and 34 GB of headroom (Brave ~35 GB, `vmmemWSL` ~27 GB), and `vmmemWSL`
   (Docker / WSL) held 60–80 % of all 16 cores for long stretches (21:00–21:50) — test runs timed out under it (E-d13 was added).
   Quitting Docker Desktop / `wsl --shutdown` when unused frees both.
-- **E3 (session 7) — HIS CALL before anything else on E3:** E3 stopped on its third verifier FAIL (F3 — the matcher's stem rule
+- **E3 (session 8) — HIS CALL before anything else on E3 (E-d16, "Stops (session 8)"):** E3 stopped on its FOURTH verifier FAIL (F4
+  — fix round 3's 0.6 stem factor lets "a cracked screen" / "a glitching screen" match `power-down` only and "a scribbled note" / "a
+  typed note" match `chime-reward` only, the right clips unseen in the nearest list). Go / no-go for a fix round 4 (the answer-level
+  recall fill, no matcher change) + a verifier round 5 under a recall bar, or E3 DONE-PARTIAL as it stands and straight to the
+  track-E exit (its HANDOFF is ready, updated for the miss rule).
+- **E3 (session 8) — notes for real use (verifier round 4, E3 HANDOFF "Verifier round 4"):** the adjective + verb-form class ("a soft
+  knocking", "a slow ticking") is a near miss whose right clip is SECOND in the nearest list in four of seven phrasings (the records
+  say "first"); "a buildup" (only "a build-up" matches), "a ding", "a runner", "a clicker / ticker / zipper" generate without `force`
+  (no candidate scores); a music prompt saying "… bed" is never a true miss (every bed is tagged `bed` — one extra `force` call for a
+  genre the library lacks); "an F major triad" → `piano-c-maj` (one-letter tokens dropped); "a click every single time …" → a near
+  miss ("every single time" is not an opener); polysemy confident matches with no right clip ("a fire crackling" → `launch-thump`,
+  "winding up" → the wind clips, "a flickering screen" → `power-down`). Scratch left (his call): `…\vidtsx-e2e\E3-verify\r4\` (13.3 MB
+  incl. its scratch library with 8 stand-in files), kit `.vidtsx-temp\end-to-end\E3-verify\r4\`; the builders' E3 profile index now
+  holds 4 `generated/` entries (cuckoo ×2, dog-bark, soft-whoosh) from fix round 3's real-handler drivers.
+- **E3 (session 7, ANSWERED 2026-10-28 23:34 — E-d15) — HIS CALL before anything else on E3:** E3 stopped on its third verifier FAIL (F3 — the matcher's stem rule
   offers `dash-zip` first for "running water"). Go / no-go for a fix round 3 + a verifier round 4 (beyond the three-FAIL limit), and the
   design call in E3 HANDOFF "Next step" item 3 (a matcher MISS answers the three nearest library sounds and generation needs `force` —
   the matcher's bar becomes recall, the model picks). The track-E exit (HANDOFF ready, `E-exit/`) runs after E3 passes.
@@ -1288,3 +1302,57 @@
   `5852abf`:** `git log -1 -- src/` `7967c6f`, `7967c6f..HEAD -- src/ scripts/` empty, the diff list 99 paths, `grep -o "'\*'"` → 47 in
   `-senses` (one is a comment) + 2 in `-ordinary` = 48 rows, `out/main/index.js` 00:54:49 holds "No library sound matched" ×1, tree
   clean, 0 `electron.exe`. E3 → VERIFY; **verifier round 4 — E3's LAST (E-d15 (i)–(iv)) spawned**, range `e98190f..HEAD`.
+- 01:24 · the track-E exit HANDOFF updated for the miss rule (`40083b9`, LOG time fix `963f3d9`): step 0's build markers + the code
+  hash, turn (b) an explicit force ask + the fallback, (c) a match, a sixth report line (docs only; HEAD moved under the verifier —
+  noted by it, harmless).
+- 02:00 · **E3 verifier round 4 FAIL — F4, a matcher code defect in the F3 class (E-d15 (iii))** (~101 calls, 36 min; no launch, no model
+  call; evidence `…\vidtsx-e2e\E3-verify\r4\`): fix round 3's `STEM_STRENGTH = 0.6` + the equal-hit head rule make a verb-form modifier
+  + a noun that is ANOTHER clip's tag a CONFIDENT match on the stranger while the right clip — first at `788c8d2` and `09e81ea` — falls
+  under 0.5 into the nearest list a match answer never shows: through the real handler "The library already has 1 sound matching "a
+  cracked screen"" → `power-down` (`screen` tag; `break-glass-crack` 0.57 → 0.34 unseen), the same for "a glitching / shattered screen"
+  (`glitch-zap`), "a scribbled note" / "a typed note" → `chime-reward` ("bell notes"; `pencil-scribble` / `keys-typing-soft` 0.50 →
+  0.30 unseen) — 14 wrong firsts of 32 phrasings; `STEM_STRENGTH = 1` reverts 13 of 14 (so F3a, not polysemy). Plus (iv) four number
+  nits in Status.md (:189 0.41 → 0.38; :213 0.32 → 0.34; :215 0.46 → 0.43; :305 "build-up" is not in riser-soft's text). **Orchestrator
+  confirmed** the code (`sound-match-words.ts:35` / :114-121; `sound-match.ts:94-104`, :159, :166), the fixture entries and the evidence
+  lines (`g-probe.txt:3-10`, `h-noprov2.txt:1-9`, `g-probe-STEM1.txt:3-10`, the fixture's riser-soft :54). Passed: gates first try at
+  default workers (run 2 counted 503 / 3 / 5 files, 5,097 / 9 / 35 tests, 70.97 s; rule (b) NONE of 99; tsc 26 / 10), the corpus (5
+  files / 814 tests; its own evaluation 0 / 809, every expectation fair), its own 13,970-probe broad set + 236-phrasing ordinary set,
+  the real handlers on its own clean library with its own −29.4 LUFS stand-in (8 generated files all −20.2 LUFS), 12 mutations all
+  caught, the build, **every other record true**. Notes 1–10 (E3 HANDOFF "Verifier round 4"): "the right clip FIRST in the nearest" is
+  SECOND in four of seven phrasings; "a buildup" / "a ding" / -er forms generate without `force` (no candidate scores); a "… bed" music
+  prompt is never a true miss; one-letter tokens dropped ("an F major triad"); "every single time" not an opener. **E3 FAIL count 4 →
+  the run STOPS** (the session-8 rule); the track-E exit NOT run.
+- 02:05 · Stop records: E3 HANDOFF (status STOPPED, "Verifier round 4" under Open problems, the proposed fix round 4 / E-d16 in Next
+  step) + LOG `59502ab`; this file; NEXT-SESSION.md (session 9). Resources at the stop (02:06): C: 44.6 GB, D: 43.8 GB free; headroom
+  ~27 GB; 0 `electron.exe`; no vitest of ours; the worktree clean; the main checkout unchanged (16 foreign files); the builders' E3
+  profile index SHA unchanged through round 4.
+
+## Stops (session 8)
+
+- 2026-10-29 02:05 · **STOP — E3's FOURTH verifier FAIL** (Hasan's session-8 rule: a FAIL in round 4 stops the run). Done this session:
+  E3 fix round 3 complete under E-d15 (builders #9–#12: the corpus +659 rows, F3a / F3b / F3c, the miss rule, the regression and
+  broad-probe reports, gates, `wt/out`, the records); E3 verifier round 4 FAIL on F4 (a real matcher defect in the F3 class: the new
+  0.6 stem factor demotes the right clip when the verb form is the MODIFIER and the noun is a stranger's tag — the mirror image of F3,
+  the same lexical shape; four (iv) number nits; everything else true). Not run: the track-E exit (its HANDOFF is updated for the
+  miss rule). **Proposed next — Hasan's call (E-d16):** (A) go — fix round 4 as E3 HANDOFF "Next step" option 1: the ANSWER-level
+  recall fill (the tool shows up to three sounds — the matches, then the closest, labelled `matched` / `weak match` / `closest`; no
+  matcher change; the corpus recall over the answer's three; the verifier's F4 phrasings + ordinary set as rows; the records' nits)
+  + verifier round 5 under a recall bar ((ii) the right clip not among the answer's three; (iii) a ≥ 0.5 match with a clearly wrong
+  first; a weak match first with the right clip beside it = a note); then the exit. (B) no — E3 DONE-PARTIAL as it stands (exit MET
+  live; F4 + the notes on his list) → the exit next. Recommendation: (A) — threshold tweaks trade F3 for F4 (the sound-carrying word
+  is semantic); showing the closest beside a weak match is the one fix that covers both shapes and matches E-d15's "the model
+  picks". No `src/` change after `7967c6f`; nothing pushed; `end-to-end-p0-e` not merged.
+
+### E-d16 (PROPOSED by the orchestrator 2026-10-29 02:05 — NOT decided; Hasan's call in session 9)
+
+- **The answer-level recall fill.** `generate_sfx` / `generate_music` answer up to THREE library sounds whenever any candidate scores:
+  the matches first (as now), then the closest other candidates (coverage > 0) to fill the three; each row labelled `matched` (coverage
+  ≥ 0.5), `weak match` (a head-rule match under 0.5) or `closest`; when every match is weak the answer says the library "may have" the
+  sound; a pure miss keeps fix round 3's wording; `force: true` generates as now; a true miss (no candidate scores) generates without
+  `force` as now. The matcher (`7967c6f`) is unchanged; only the tool answer and its tests change; the corpus RECALL assertion runs
+  over the answer's three.
+- **Verifier round 5's bar (would replace E-d15 for that round):** FAIL only for (i) a corpus row failing (the 809 rows + verifier
+  round 4's probe files `…\E3-verify\r4\g-probe.txt` / `c-ordinary.txt` / `f-probe.txt` with plain-meaning outcomes); (ii) an ordinary
+  phrasing where the library clearly has the sound and the right clip is NOT among the answer's three; (iii) a confident (≥ 0.5) match
+  that puts a clearly wrong sound first while the right clip exists; (iv) a false record. A weak match first with the right clip beside
+  it, a stranger in the three, or another class is a note.
