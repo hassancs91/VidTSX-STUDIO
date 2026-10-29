@@ -21,13 +21,24 @@ let smart: BenchResult[] = [];
 let basic: BenchResult[] = [];
 let smartTable = new Map<string, RecallCount>();
 let basicTable = new Map<string, RecallCount>();
+/** The matcher's own ranking per Basic row (computed once: 1,515 full rankings take seconds). */
+let matcher = new Map<number, ReturnType<typeof rankLibrarySounds>>();
 
 beforeAll(async () => {
   smart = await runBenchmark(rows, benchDeps(CORPUS_LIBRARY, 'smart', fixtureRanker(fx)));
   basic = await runBenchmark(rows, benchDeps(CORPUS_LIBRARY, 'basic'));
   smartTable = recallTable(smart);
   basicTable = recallTable(basic);
-}, 120_000);
+  matcher = new Map(basic.map((r) => [r.row.id, rankLibrarySounds(CORPUS_LIBRARY, r.row.prompt, {
+    soundClass: r.row.cls, minDurationSec: r.row.min, limit: CORPUS_LIBRARY.length,
+  })]));
+}, 180_000);
+
+const matcherOf = (id: number): ReturnType<typeof rankLibrarySounds> => {
+  const m = matcher.get(id);
+  if (!m) throw new Error(`no matcher ranking for row #${id}`);
+  return m;
+};
 
 const at = (table: Map<string, RecallCount>, name: string): RecallCount => {
   const c = table.get(name);
@@ -41,11 +52,16 @@ describe('the fixture', () => {
     expect(rows.filter((r) => r.kind === 'named')).toHaveLength(1375);
     expect(rows.filter((r) => r.kind === 'null')).toHaveLength(140);
     expect(rows.filter((r) => r.kind === 'any')).toHaveLength(50);
-    expect(rows.every((r) => r.source && r.labelledBy && r.prompt)).toBe(true);
+    // E3's corpus keeps one empty prompt (row #48, '∅') — a prompt is a string, not necessarily non-empty.
+    expect(rows.filter((r) => !r.source || !r.labelledBy || typeof r.prompt !== 'string').map((r) => r.id)).toEqual([]);
+    expect(rows.filter((r) => r.prompt === '').map((r) => r.id)).toEqual([48]);
   });
 
   it('holds a vector for every clip (at its current item text) and every scored prompt, within ~3 MB', () => {
     expect(fx.file).toMatchObject({ version: 1, modelId: 'multilingual-e5-small', dims: 384, pooling: 'mean', prefixVersion: 1 });
+    // The generator's recorded precision check (scripts/library-search-fixture.mjs): the stored precision reproduces
+    // S1's float32 (c) table, and so did the float32 vectors it was quantised from.
+    expect(fx.file.check).toMatchObject({ precision: fx.file.precision, tableEqualsS1: true, float32TableEqualsS1: true, scoredRows: 1515 });
     for (const e of CORPUS_LIBRARY) expect(fx.items.get(e.relPath)?.textHash).toBe(semanticItemOf(e).textHash);
     for (const r of rows.filter(isScored)) expect(fx.queries.has(r.prompt)).toBe(true);
     expect([...fx.items.values()].every((x) => x.v.length === 384)).toBe(true);
@@ -110,8 +126,7 @@ describe('Basic = today, exactly (§9.1)', () => {
   it("lists selectSoundAnswer's three first, same clips, same order, on every row", () => {
     const off: number[] = [];
     for (const r of basic) {
-      const ranking = rankLibrarySounds(CORPUS_LIBRARY, r.row.prompt, { soundClass: r.row.cls, minDurationSec: r.row.min, limit: CORPUS_LIBRARY.length });
-      const three = (selectSoundAnswer(ranking, r.row.prompt)?.rows ?? []).map((a) => clipIdOf(a.match.entry.relPath));
+      const three = (selectSoundAnswer(matcherOf(r.row.id), r.row.prompt)?.rows ?? []).map((a) => clipIdOf(a.match.entry.relPath));
       if (JSON.stringify(r.ids.slice(0, 3)) !== JSON.stringify(three)) off.push(r.row.id);
       expect(r.result.ran).toBe('basic');
     }
@@ -124,7 +139,7 @@ describe('Basic = today, exactly (§9.1)', () => {
 
   it("answers nothing exactly when the matcher scores nothing (a true miss — the tool then generates)", () => {
     for (const r of basic) {
-      const ranking = rankLibrarySounds(CORPUS_LIBRARY, r.row.prompt, { soundClass: r.row.cls, minDurationSec: r.row.min, limit: CORPUS_LIBRARY.length });
+      const ranking = matcherOf(r.row.id);
       expect(r.result.candidates.length === 0, `#${r.row.id}`).toBe(ranking.matches.length + ranking.nearest.length === 0);
     }
   });
