@@ -132,3 +132,19 @@
   audio search with no sound class (`list_assets(kind: audio)`, the Assets box) uses the coverage ranking — accepted (design §3 names E3's
   matcher for the sound-class path, which keeps Basic = today for `generate_sfx` / `generate_music`). Builder #2 (the fixture script →
   step a green) to spawn.
+- 15:21 · S3 builder #2 spawned (HEAD `daa3cc5`).
+- 15:57 · S3 builder #2 HANDOFF (56 calls, ~37 min; **step a DONE**): `2ffcc27` — `scripts/library-search-fixture.mjs` 218 (esbuild-bundles
+  the product code, S1's model read-only, `dtype: 'q8'`, 51 clips + 1,505 prompts embedded in 9,895 ms; float32 → int8 → int16, the design's
+  rule) + `benchmark/fixtures/labelled-set.json` 374,708 B + `vectors-multilingual-e5-small.json` 1,698,742 B stored **int16** (float32 table
+  = S1's: true; int8: false, 1,171 rows differ; int16: true — recorded in the file's `check`); the §9.1 test green (the "Basic = today"
+  rankings moved into a `beforeAll` with a 180 s timeout; E3's empty-prompt row #48 pinned as nothing-fits); docs `20bc069` `40300e9`
+  `0e5257d`. node_modules unchanged (`find -newer` marker empty). Note 1: 14 / 1,515 rows have a different top-20 ORDER from float32 —
+  36 clip pairs at cosine gaps ≤ 2.22e-6 (a float32 regeneration itself differs from S1's `perRow` in 1 row). Note 2: **Hasan's dev app came
+  up 15:27** (main checkout, CDP 9222, his profile `AppData\Roaming\VidTSX`, 6 `electron.exe`). **Orchestrator re-check:** tree clean at
+  `0e5257d`; matcher diff empty; `vitest run src/main/services/library-search` → 7 files / 60 tests passed in 27.5 s (15:57); Hasan's app
+  confirmed (ports 9222, his profile); main checkout still 16 paths. **Ruling on note 1:** accepted — the design's check is table
+  equality (design §9.1), and it holds on all 18 row sets; the order flips are below float32 regeneration noise. **New rule from 15:57
+  (Hasan's app is running):** never kill it, never run `electron-vite dev`, never touch the main checkout's `out/`; our own `electron.exe`
+  instances (own profile + port, `wt/out`) are allowed ONLY after checking he is not rendering (no `ffmpeg` / `chrome-headless-shell` /
+  Remotion process under his electron PIDs and no `%TEMP%\vidtsx-studio` entry modified in the last 2 min) — DRIVING's startup-sweep rule;
+  the full vitest gate expects flakes under his app (DRIVING's load rules / E-d13 apply). Builder #3 (step b — the engine) to spawn.
