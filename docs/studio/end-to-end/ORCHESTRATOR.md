@@ -1472,3 +1472,31 @@
   "soft") shown before break-crash-digital (a stranger in the three; crunch-bite stays first). Orchestrator re-check: `git log -1 -- src/`
   `c5a6124`, matcher diff 0 bytes, tree clean. Builder #18 (items 2–5: the fix4b drivers, gates, rebuild, records) spawned; the 9 → question
   to Hasan in parallel.
+
+### E-d16c (Hasan, 2026-10-29 11:46) — the 9 left after E-d16b are notes
+
+- **Hasan chose "Notes".** No more code. For verifier round 5: where a shown CONFIDENT clip's own text (tags / name / category /
+  description) already carries the prompt word — so E-d16b's word-diversity rule cannot fire — and that first was ALREADY the first at
+  `09e81ea`, a right clip missing from the answer's three is a NOTE (the 9 of the broad set: "a clicked / clicking screen", "a screen
+  clicking" — power-down's description says "one soft click" — and the softed / softing / warmed / warming / screen softing / warming
+  variants). Everything else in E-d16 / E-d16a / E-d16b stands.
+- 11:58 · E3 builder #18 HANDOFF (65 calls, ~18 min; items 2–4 DONE, docs `1535ba7` `d078e3a`, no `src/` change — code `c5a6124`): the fix4b
+  re-run (index SHA / mtime unchanged) — catalog 1,073 rows vs `7967c6f` 329 changed / 2 right clips lost ("a moving transition"; NEW "a
+  sucking whoosh before the reveal" — whoosh-reverse stays first, the two other whooshes give way to pop-reveal / impact-deep-soft which
+  cover `reveal`: E-d16b as designed, a stranger in the three) / 0 none left / 0 confident firsts moved; vs `34feafe` 10 / 1 / 0 / 0; broad
+  15,998 vs `7967c6f` 8,196 changed / 0 lost / 0 moved, vs `34feafe` 63 / 0 / 0, 42 gained, "right in the three: false" = the 9 (E-d16c).
+  Gates: CPU 48 % external (a browser) → DRIVING's normal rule; full vitest FIRST default run counted — files 3 failed / 508 passed / 5
+  skipped (516), tests 9 / 5,394 / 35 (5,438), 63.53 s, only the 3 E-d2a suites; rule (b) NONE of 106 paths; tsc 26 / 10; `wt/out` rebuilt
+  11:54:37 (after `c5a6124` 11:36:59), markers 1 / 1 / 3. Slip: one HANDOFF append by heredoc (content checked). Risk raised: 6 F9 "a quiet
+  `<-ing>`" probes show no right clip (five "quiet" clips tie 0.31 > the verb's 0.25–0.29; same at `7967c6f`, shown at `09e81ea`; no
+  confident row → E-d16b does not fire) → question to Hasan.
+
+### E-d16d (Hasan, 2026-10-29 12:05) — try the greedy diversity rule, else the quiet class is a note
+
+- **Hasan chose "Try greedy, else note".** One experiment: E-d16b's rule applied GREEDILY — slot by slot after the confident rows, a
+  below-threshold sound that covers a prompt word no ALREADY-SHOWN row (confident OR an earlier below-threshold pick) covers goes ahead,
+  each group in E-d16a's order — so it also fires with no confident row (after the first shown row: "a quiet snapping" → a quiet clip,
+  then a snap clip). **Keep it only if** over the 1,073 corpus rows + the 15,998 broad probes it loses NO right clip vs `c5a6124` AND vs
+  `7967c6f`, moves no confident first, and the corpus stays green; otherwise keep `c5a6124` and the 6 F9 "a quiet `<-ing>`" probes ("a quiet
+  airing / emphasising / singling / snapping / tailing / warming") are NOTES for verifier round 5. Either way no matcher change.
+- 12:06 · builder #19 (the greedy experiment → implement or fall back; then records) to spawn.
