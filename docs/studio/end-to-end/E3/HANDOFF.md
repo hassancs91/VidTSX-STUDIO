@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
+status: HANDOFF — **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus) is next — builder #14** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -570,7 +570,78 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
 - **4c — gates and the rebuild:** in Verified "builder #11" (CPU measured → DRIVING's normal rule; run 2 counted; rule (b) NONE over
   the 99-path `src/` + `scripts/` diff list; tsc 26 / 10; the `wt/out` rebuild at `7967c6f`).
 
+### Built (builder #13, fix round 4, 2026-10-29) — step 1: the answer-level recall fill (E-d16 + E-d16a), commit `34feafe`
+
+- **NEW pure `src/main/services/library/sound-answer.ts` (75 lines)** — `selectSoundAnswer(ranking)` :58-75 takes a
+  `rankLibrarySounds()` ranking (called with `limit` = every candidate — an option, not a matcher change) and returns
+  `{ kind, rows, confident, weak } | null`: the CONFIDENT matches (`coverage >= CONFIDENT_COVERAGE` 0.5 — the matcher's own
+  `MATCH_COVERAGE`, mirrored as a constant because the matcher file stays byte-identical) first in the matcher's order, then the
+  below-threshold sounds — weak matches (a `matches` entry under 0.5 = the head rule) AND `nearest` together — sorted by
+  `byCoverageClosestFirst` :50-55 (coverage desc; |gap| < `COVERAGE_EPSILON` 1e-9 = a tie → `closest` before `weak match`;
+  same label → the matcher's order, stable sort); `ANSWER_SIZE` 3; null = no row (a TRUE miss). **Stated choice — the kind follows
+  the rows SHOWN:** a `matched` row → 'match'; else a `weak match` row → 'weak'; else 'nearest' (so three closest that outrank
+  every weak match by coverage read as a pure miss). `labelOfMatch` :45-47. Unit tests `sound-answer.test.ts` (89 lines, 10 tests:
+  null; ≥3 confident keep the matcher's order; "a cracked screen"; the E-d16a "a breaking screen" pin; the epsilon tie; a closest
+  above a weak; the mix; a pure miss; never padded; the label threshold).
+- **`agent-tools/sound-reuse.ts` (74 → 95 lines)** — `formatReuseAnswer` + `libraryReuseAnswer` (`ReuseAnswer.kind` now
+  'match' | 'weak' | 'nearest'); the old `formatSoundMatches` / `formatNearestSounds` are gone (no other importer in `src/`).
+  **The exact rendering (stated):** each row = E2's `formatLibraryRow` with the label after its "- ":
+  `- [matched] library:sfx/… (audio, 0.68 s, imported) — "…" · category: … · tags: …` / `- [weak match] …` / `- [closest] …`.
+  Headers: a confident match, all shown matched → the OLD header unchanged (`The library already has N sounds matching "<p>" —
+  nothing was generated (no cost, no provider needed):`); a confident match + others → `… (no cost, no provider needed). 3 shown:
+  1 matched, 1 weak match, 1 closest:` (zero parts omitted); only weak → `The library may have a sound for "<p>" — only 1 weak
+  match, nothing confident; nothing was generated (no cost, no provider needed). The closest library sounds:`; a pure miss → fix
+  round 3's header verbatim (its rows now carry `[closest]`). Last line: 'match' → `Place the one that fits with insert_asset(assetId:
+  "library:<first shown>", lane: "audio", at: …) — a library ref works as the asset id. Only if none of them fits, call <tool> again
+  with force: true to generate a new one.`; 'weak' / 'nearest' → fix round 3's `If one of them fits, place it with … If none fits,
+  call <tool> again with force: true …`. **Marker unique to the new wording (for step 6): `The library may have a sound for`.**
+- **`audio-tools.ts` (199 lines, unchanged count)** — `FORCE_HINT` :61 "returned library sounds (matched, weak match or closest)";
+  `REUSE_NOTE` :64 "returns up to three library:<path> refs … the matches first, then the closest other library sounds, each row
+  labelled [matched], [weak match] or [closest] (only weak matches: the library "may have" the sound)". The handlers (:132-135,
+  :172-178) are unchanged — `if (reuse) return text(reuse.text)`; force / plan / `minDurationSec` / before-the-provider-check as
+  before.
+- **`studio-agent-prompt-tools.ts` :31 only** (87 lines) — "returns up to three `library:<path>` refs instead of generating (no cost,
+  no provider needed) — the matches first, then the closest other library sounds, each row labelled `matched`, `weak match` or
+  `closest` (only weak matches: the library "may have" the sound); place the one that fits …". :21 / :32 / :70 / :75 say the miss
+  rule, still true — unchanged. Pinned: `studio-agent-prompt.test.ts` (200 → 204) — the :104 pin re-worded + a new `it` "the recall
+  fill (E-d16, fix round 4)".
+- **Tests:** NEW `agent-tools/audio-tools-fill.test.ts` (184 lines, 8 tests; real handlers over the committed 51-clip
+  `CORPUS_LIBRARY`, same mocks as the miss test; the engine + normalizer are behind the mocked `generateAudioAsset`): "a cracked
+  screen" → `weak match power-down | closest break-glass-crack | closest pop-reveal` + "may have"; "a scribbled note" → `closest
+  pencil-scribble | weak match chime-reward` (the tie); **"a breaking screen" → `matched power-down | closest break-crash-digital |
+  closest break-glass-crack`** (E-d16a pin); "running water" → `matched stream-soft | closest dash-zip` (never padded); "an F major
+  triad" → the old header, 3 matched; "a soft knocking" → fix round 3's wording, 3 closest; a true miss generates, `force` generates
+  without a lookup; music — "a pulsing bed" → `matched tech-pulse | closest lullaby-tender | closest ambient-pad`, with
+  `durationSeconds: 60` lullaby-tender (57.05 s) drops out, a pure miss, a plan and `force` never look. Every answer case asserts
+  `hasAudioProvider` / `generateAudioAsset` / `importLibraryFile` uncalled. `audio-tools-miss.test.ts` (180 → 184) and
+  `audio-tools-reuse.test.ts` (173 → 177) updated for the labels; **the reuse test's "a soft airy whoosh for a transition" on its
+  4-clip mock: `whoosh-wind` is a WEAK (head-rule) match — the old answer said "2 sounds matching"; now "1 sound matching … 3 shown:
+  1 matched, 1 weak match, 1 closest" (`clock-tick-soft` via "soft" in its description).** Music "may have" is covered by the
+  pure tests only (no music prompt on the fixture gives a weak match — the probe below).
+- **NO matcher change:** `git diff 7967c6f -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+  src/main/services/library/sound-match-vocab.ts | wc -c` → `0` (as of `34feafe`).
+- Scratch: kit `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\fix4-rank.e3.test.ts` → `fix4-rank.txt` (the full `7967c6f`
+  rankings with coverages for 24 prompts — the inputs the fill tests were written against); logs `fix4-red.log`, `fix4-green.log`
+  (the wide run with 3 ffmpeg load timeouts), `fix4-green-2.log` (counted), `fix4-ffmpeg-alone.log`, `fix4-tsc-node-step1.log`.
+
 ## Verified (exact commands + outputs)
+
+- **Fix round 4, builder #13 (2026-10-29 10:37–10:46, step 1; worktree root; HEAD `74b29e0` → `34feafe`):**
+  - Red first (the new tests + the updated miss / reuse / prompt tests on the UNCHANGED code): `node
+    D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library/sound-answer.test.ts
+    src/main/services/studio/agent-tools/audio-tools-fill.test.ts …/audio-tools-miss.test.ts …/audio-tools-reuse.test.ts
+    src/main/services/studio/studio-agent-prompt.test.ts > E3/fix4-red.log` → **Test Files 5 failed (5), Tests 13 failed | 25
+    passed (38)** + `sound-answer.test.ts` unloadable (the module did not exist; its 10 tests not collected). The one fill test
+    green on the old code: "a TRUE miss … generates without force; force: true generates without looking" (unchanged behaviour).
+  - Green: `… vitest.mjs run src/main/services/library/sound-answer.test.ts src/main/services/studio/agent-tools/
+    src/main/services/studio/studio-agent-prompt.test.ts src/main/services/library/sound-match > E3/fix4-green-2.log` → **Test Files
+    26 passed (26), Tests 995 passed (995)** (incl. the five corpus files — the 809 rows unchanged, their recall still over
+    matches ∪ nearest until step 2). A wider first run (`… src/main/services/library/`, `fix4-green.log`, 50 files) had 3 × 5000 ms
+    timeouts in `audio-normalize-ceiling` / `audio-normalize` / `catalog-import` (real ffmpeg, parallel load) → alone `fix4-ffmpeg-
+    alone.log` **3 passed, 17 passed**.
+  - `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.node.check.json --noEmit` → **10 `error TS`** (baseline),
+    none in a touched file (`fix4-tsc-node-step1.log`). The web check is step 5's.
+  - `git diff 7967c6f -- <the three matcher files> | wc -c` → `0`.
 
 - **Fix round 3, builder #12 (2026-10-29, records only; worktree root; HEAD `78f32d9` → `3cff0be`; no `src/` / `scripts/`
   change, no gate re-run, no rebuild, no launch, no model turn, no test run — the logs read with `grep` / `wc` / `git show`):**
@@ -1035,6 +1106,24 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
+**FIX ROUND 4, continued — builder #14: steps 2–7 of the session-9 brief (step 1 is DONE by builder #13, `34feafe` — Built /
+Verified "builder #13"; do not redo it; NO matcher change — `git diff 7967c6f -- sound-match.ts sound-match-words.ts
+sound-match-vocab.ts` must stay empty).** Start with **step 2, the corpus:** (a) in `src/main/services/library/sound-match-corpus-rows.ts`
+make `expectCorpusRow`'s RECALL run over the ANSWER's three — `selectSoundAnswer(rankLibrarySounds(CORPUS_LIBRARY, prompt, { …,
+limit: CORPUS_LIBRARY.length }))` from the new `sound-answer.ts` (the same call `sound-reuse.ts` `libraryReuseAnswer` makes) — instead of
+matches ∪ nearest (top 3 each); keep the FIRST assertion on `matches[0]` and the `not` list on the matches; run the 809 rows (the 150-row
+file + the four r3 files) and record whether any row changed (expected none — say so with the run's counts). (b) State the E-d16 row
+convention in the file header: the named clip must be in the answer's three; if the answer's first is `matched` it must be an allowed
+clip — EXCEPT (E-d16a) a first at the 0.5 line (|coverage − 0.5| < 1e-9) or tied (within 1e-9) with an allowed clip among the confident
+matches, when an allowed clip is in the three (assert that; list these rows as notes in the file); a right clip scoring 0 → '∅' with a
+`// vocabulary note`. (c) Add verifier round 4's probes as rows with PLAIN-MEANING outcomes in new `sound-match-corpus-r4-*.test.ts`
+files (≤ ~300 lines each, `describeCorpus` counts): `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r4\g-probe.txt` (32),
+`c-ordinary.txt` (236 — fix wrong expectations, say which), `f-probe.txt` (adjective + verb-form and participle + noun sections — write
+the verdicts). Record the new rows' red count on the recall of matches ∪ nearest (the CURRENT corpus helper, before (a)) — or say which
+baseline you used — then green. Then steps 3–7 of the brief exactly (records fixes, regression + broad probes with the frames listed,
+gates, rebuild with the marker **`The library may have a sound for`** + "No library sound matched" + "PLACEMENT_BONUS", records, HANDOFF
+DONE). Inputs ready: the full `7967c6f` rankings for 24 prompts in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\fix4-rank.txt`.
+
 **Session 9 (orchestrator, 2026-10-29 10:40) — E-d16a binds fix round 4 (ORCHESTRATOR.md "Session 9"):** E-d16's literal fill fails its
 own bar on "a breaking screen" (`power-down` exactly 0.50 + two weak head-rule matches fill the three; the break clips 0.30 unseen).
 Hasan (10:33): NO matcher change; **the fill = the confident matches (≥ 0.5, matcher order) first, then the below-threshold sounds —
@@ -1338,6 +1427,21 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Open problems
 
+### Fix round 4 (builder #13, step 1) — notes for the records, none blocking
+
+- **Stated choices (not in E-d16's text, decided here):** (1) the answer's kind follows the rows SHOWN — a weak match that three
+  closest candidates outrank by coverage leaves a 'nearest' answer (fix round 3's wording); (2) the 'match' header counts the
+  CONFIDENT rows shown (≤ 3, as the old header counted the top three) and adds "K shown: a matched, b weak match(es), c closest" only
+  when a non-matched row is shown — with three confident rows the header is the old one, byte for byte; (3) the pure-miss rows carry
+  `[closest]` too (header and last line verbatim from fix round 3); (4) the label sits after the row's "- " so the model reads it
+  first, the E2 row content after it is unchanged; (5) the below-threshold order is by COVERAGE (E-d16a), not the matcher's rank
+  (coverage + the placement bonus) — the bonus still orders the confident matches and breaks ties inside one label.
+- **A behaviour change visible in an old test:** the reuse test's 4-clip mock "a soft airy whoosh for a transition" — `whoosh-wind` was
+  always a head-rule (weak) match; the old answer said "2 sounds matching", the new one "1 sound matching … 1 matched, 1 weak match, 1
+  closest". The same relabelling applies on the real library wherever a head-rule match was counted as a match before.
+- Music "may have": no music prompt on the 51-clip fixture yields a weak match (`fix4-rank.txt`, 8 bed prompts) — covered by the pure
+  unit tests (class-independent) only.
+
 ### Verifier round 4 — FAIL on F4 (2026-10-29 01:24–02:00; E3's LAST round under E-d15; no launch, no model call; kit `.vidtsx-temp\end-to-end\E3-verify\r4\`, evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r4\`)
 
 - **F4 (code defect in the F3 class — E-d15 (iii): a confident match puts a clearly wrong sound first while the right clip exists;
@@ -1640,6 +1744,9 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Do-not-redo
 
+- Fix round 4 step 1 (builder #13, `34feafe`): the fill (`sound-answer.ts`), the labelled wording (`sound-reuse.ts`), `REUSE_NOTE` /
+  `FORCE_HINT`, the prompt :31 sentence and their tests are DONE — extend (the corpus recall uses `selectSoundAnswer`), do not
+  redesign; never touch the three matcher files.
 - The design note (a)–(f) and the matcher / tool / prompt build above — extend, do not redesign. The real-catalog
   order was recorded (`E3\catalog-order.txt`); the unit fixture pins the same shape.
 - (c) the Assets screen (`8bde97c`) and (d) the G4 note — done and green; the `wt/out` rebuild at `8bde97c`; the E3
@@ -1740,3 +1847,8 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   → "Verifier round 4") + four (iv) number nits; gates, corpus (809 rows fair), its own 13,970-probe broad set + 236-phrasing ordinary
   set, real handlers on its own scratch library with its own stand-in, 12 mutations, the build and every other record true. No
   launch, no model call; the worktree untouched.
+- 2026-10-29 10:37–10:47 · builder #13 (fix round 4, step 1) · ~45 calls · the answer-level recall fill (E-d16 + E-d16a): NEW pure
+  `sound-answer.ts` + tests, `sound-reuse.ts` labelled rows / "may have" wording, `REUSE_NOTE` / `FORCE_HINT`, the prompt :31 sentence;
+  NEW `audio-tools-fill.test.ts` (the real handlers over the 51-clip fixture, incl. the "a breaking screen" pin); red 13 / 38 →
+  green 26 files / 995 tests; tsc node 10; matcher diff vs `7967c6f` empty — `34feafe`. Handed off at the step boundary (30 % rule);
+  steps 2–7 to builder #14. No launch, no model call, no gate run, no rebuild.
