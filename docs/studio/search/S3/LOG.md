@@ -34,3 +34,8 @@
   `search-runtime-rerank.test.ts`, `smart-search-rerank.test.ts`; HANDOFF "In progress" pins the API); stopped by the coordinator for a
   machine shutdown — no code, build, launch, download or test run; 0 instances of ours. Next: run them red, write the code, commit, then the
   rebuild + §9.3 2 / 3 click-through.
+- 2026-10-29 20:35 · builder #10 · LS-r7 DONE (`d3b1108`): the 3 test files red at 20:25 (8 failed / 3 passed, `step-r7\vitest-red.log`) →
+  NEW `rerank-prompt.ts` (75) + `rerank.ts` (76), `AiFeatureSource` + `LibrarySearchRequest.rerank?`, the runtime's `createReranker` + index
+  generation, `search-app.ts` → `llmEngine.generate` / `aiUsageService` (dynamic imports), the Assets box's 1 s idle / Enter settle +
+  `keepAnswer`, the row's `smart-rerank` option enabled; green 31 / 31, folders 23 files / 202 tests, agent-tools + handlers 18 / 103, tsc 25 / 10,
+  matcher diff empty; no provider / model call; no build / launch. Next: rebuild `wt/out`, the §9.3 2 / 3 click-through, then step f. HANDOFF.

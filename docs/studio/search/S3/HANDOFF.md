@@ -1,5 +1,5 @@
 # S3 — build library search (red first, in hand-off-sized steps)
-status: IN PROGRESS (steps a, b, c, d DONE; step e part 1 — the UI code + unit tests — `4337910`; **LS-r7 (the rerank rung) started: 3 RED test files written, UNCOMMITTED, no code yet** — builder #9 stopped by the coordinator at 2026-10-29 ~17:58 for a machine shutdown; then the rebuild + §9.3 2 / 3 click-through, then step f)
+status: IN PROGRESS (steps a, b, c, d DONE; step e part 1 — the UI code + unit tests — `4337910`; **LS-r7 (the rerank rung) DONE — `d3b1108`** (builder #10, red 20:25 → green 20:29); next: the rebuild + §9.3 2 / 3 click-through, then step f)
 
 > Branch `library-search`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt` (paths below are relative to it).
 > **The design is `docs/studio/LIBRARY_SEARCH_DESIGN.md` — it binds S3; its §9 is THE ACCEPTANCE BAR S4 fails by.** If the code
@@ -344,6 +344,43 @@ the three pure files below.
   `librarySearchSettingsSet`, `onLibrarySearchEvent`, and `embeddingModelDownload` / `onEmbeddingDownloadProgress` (the preload already had
   them, `api/embedding.ts`) — **tsc web 26 → 25** (the baseline's `use-embedding-models.ts(131)` `embeddingModelDownload` error is gone).
 
+**LS-r7 — the Smart + AI rerank rung: `d3b1108`** (as of `d3b1108`; builder #10; red first at 20:25:37 — `step-r7\vitest-red.log`:
+builder #9's 3 test files, run for the first time, `Test Files 3 failed (3) · Tests 8 failed | 3 passed (11)`: `rerank.test.ts` "Cannot find
+module './rerank'"; `smart-search-rerank.test.ts` 6 × `RERANK_SETTLE_MS` undefined / "… is not a function"; `search-runtime-rerank.test.ts`
+2 × "expected vi.fn() to be called 1 times, but got 0 times" — the 3 that passed red pin "no rerank" behaviour that held already). The 3
+test files are committed unchanged with the code (14 paths, +611 −36). **No provider / model call was made anywhere** (unit tests inject the
+generator; DEFERRED-HASAN, design §9.4).
+
+- NEW `src/main/services/library-search/rerank-prompt.ts` (75) — `RERANK_TOP = 20`; `rerankPromptOf(query, items)`: S1 (d)'s rules adapted
+  to an order ("by plain meaning", "not by words that happen to match", "a loosely related or merely similar item goes below …", leaving out
+  non-fits allowed), `Search: <JSON-quoted query>`, lines `<n> | <relPath> | <text, whitespace flattened>` for the first 20, reply ONLY
+  `{"order": [3, 1, 2]}`; `parseRerankOrder(text, items)` → relPaths or null (fence stripped; the first `{…}` else a bare `[…]`; integers or
+  digit strings in 1..min(items, 20); null on empty / prose / broken JSON / no `order` / `[]` / out of range / 0 / duplicate / fraction / a ref).
+- NEW `src/main/services/library-search/rerank.ts` (76) — `RERANK_FEATURE_SOURCE: AiFeatureSource = 'library-search-rerank'`;
+  `createLibraryReranker({generate, logUsage, indexVersion})`: one `generate({prompt})` (no providerId); the usage row after every response
+  (also an unreadable one) in the `llm-handlers.ts` shape (provider / model / tokens / cost / measured `durationMs` / ISO `timestamp` /
+  `requestType: 'llm'`), fire-and-forget; an unreadable answer → rejects "rerank answer unreadable"; a generate failure → rejects, nothing
+  logged; cache key = JSON of [index version, query, relPath:textHash list], the PROMISE cached (concurrent asks share one call), failures
+  removed (never cached), at most 200 keys (oldest dropped); `[]` → `[]` without a call.
+- `src/shared/types/ai-usage.ts:15` — `AiFeatureSource` gains `'library-search-rerank'`. `src/shared/types/library-search.ts:22-26` —
+  `LibrarySearchRequest.rerank?: boolean` (doc: the Assets box's settled query only; effective only under `smart-rerank`).
+- `search-runtime.ts:54-58` `LibrarySearchRuntimeDeps.createReranker?` (built once, :83, index version `<libraryRoot>#<generation>`);
+  `search()` :119 passes `reranker` ONLY for `request.rerank === true`, not while removing (LS-r5) — `searchLibrary` still applies it only when
+  the run is `smart-rerank` and keeps the Smart order on a rejection; `indexWritten(root)` :150-154 bumps the generation for the current
+  library only (then the debounced sync as before).
+- `search-app.ts:62-72,87` — `createReranker`: `generate` = `(await import('../../../engine/llm-engine')).llmEngine.generate(request)` (the
+  app-default text provider), `logUsage` = `(await import('../ai-usage')).aiUsageService.appendEntry(entry)` — dynamic, so the provider chain
+  loads on the first rerank only (search-app's static import graph unchanged).
+- `src/features/asset-library/services/smart-search-request.ts:33-62` — `RERANK_SETTLE_MS = 1000`, `rerankRequestOf` (`{...req, rerank:
+  true}`, same `requestKeyOf`), `shouldRerank(status)` (only mode `smart-rerank`), `HeldAnswer {key, result, reranked}`, `keepAnswer(prev, next)`.
+- `hooks/useLibrarySearch.ts` (118) — answers held through `keepAnswer`, kept only while the box's key is still current (a ref); under
+  `shouldRerank` a 1 s idle timer + `settle()` (Enter) send `rerankRequestOf(request)` once per key; returns `settle`. Basic: still no IPC call.
+- `components/AssetSearchBar.tsx` — optional `onSubmit` on Enter; `AssetLibraryScreen.tsx:301` passes `smart.settle` (474 lines, pre-existing
+  over 300, +1).
+- `rows/LibrarySearchRow.tsx` — the `smart-rerank` option ENABLED ("Smart + AI rerank — your AI provider orders the top 20"; the
+  `disabled` flag removed) + one description sentence ("… lets your default AI provider reorder the Assets search's top 20 once you stop typing
+  (one logged call per search); the assistant never reranks."). `searchMarkerTitle` NOT changed (optional item skipped).
+
 ## Verified (exact commands + outputs)
 
 All from the worktree root, as of `3cb73df`:
@@ -527,7 +564,26 @@ load, no download, no full run — no resource guard needed):
   `require(` import in them. Largest new file `smart-search.test.ts` 119, largest new source `useLibrarySearch.ts` 87. No new npm package.
 - Post-commit: `4337910` = 13 paths; `git status --short` clean after it.
 
-## In progress — LS-r7, UNCOMMITTED (builder #9, as of `290dbbb`; stopped mid-step by the coordinator for a shutdown)
+As of `d3b1108` (builder #10, 20:25–20:33; logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\step-r7\`; no build, no launch, no
+model load, no download, no full run, no provider call — no resource guard needed):
+
+- Red 20:25:37 (`vitest-red.log`): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library-search/rerank.test.ts
+  src/main/services/library-search/search-runtime-rerank.test.ts src/features/asset-library/services/smart-search-rerank.test.ts` → `Test Files
+  3 failed (3) · Tests 8 failed | 3 passed (11)`.
+- Green 20:29:30 (`vitest-green-r7.log`): the same command → `Test Files 3 passed (3) · Tests 31 passed (31)` (the `it.each` rows now counted).
+- 20:29:33 (`vitest-green-folders.log`): `… vitest.mjs run src/main/services/library-search src/library-search-engine src/features/asset-library
+  src/renderer/components/SettingsModal src/shared/library-search-text.test.ts --maxWorkers=2` → `Test Files 23 passed | 1 skipped (24) · Tests
+  202 passed | 2 skipped (204)` (16.6 s; the skipped file = the gated live test without its env var; the §9.1 benchmark incl.).
+- (`vitest-tools.log`) `… vitest.mjs run src/main/services/studio/agent-tools src/main/ipc/library-search-handlers.test.ts --maxWorkers=2` →
+  `Test Files 18 passed (18) · Tests 103 passed (103)` (the tools never pass `rerank`; the 1,515-row no-claim file incl.).
+- tsc web → **25** `error TS` (`tsc-web.log`), node → **10** (`tsc-node.log`); no line names a rerank / library-search / smart-search /
+  Assets-box / Settings-row / ai-usage file. `git diff 7967c6f --stat -- …/sound-match.ts …-words.ts …-vocab.ts` → empty. `any` grep over the
+  14 paths: 4 hits, each the word "any" in a comment. Largest created file `rerank.test.ts` 154 (builder #9's), largest created source `rerank.ts`
+  76; `search-runtime.ts` 193. No new npm package.
+- Post-commit: `git status --short` → only ` M docs/studio/search/ORCHESTRATOR.md` (the orchestrator's own uncommitted log line — not ours,
+  not staged); `git show --stat d3b1108` = 14 files, +611 −36. `wt/out` is still the `373125a` build.
+
+## In progress — none. (LS-r7's pre-code record below is kept for the API it pinned; built in `d3b1108`, see Done.)
 
 Three NEW test files are on disk, untracked (`git status --short` → `??` ×3), **written but NOT run** (no red run was made — the stop came
 first), and the code they need does not exist yet, so they are RED by construction ("Cannot find module './rerank'" / "'./rerank-prompt'",
@@ -563,11 +619,9 @@ build, no launch, no download, no test run, 0 `electron.exe` of ours (checked: p
 
 ## Next step (ONE concrete instruction)
 
-First finish LS-r7: run the 3 untracked test files red (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
-src/main/services/library-search/rerank.test.ts src/main/services/library-search/search-runtime-rerank.test.ts
-src/features/asset-library/services/smart-search-rerank.test.ts`, log the red), write the code listed under "In progress" until they are
-green (plus the library-search / asset-library / SettingsModal folders and tsc ≤ 25 / 10), commit with explicit paths; THEN the rebuild +
-click-through below. Rebuild `wt/out` and run the §9.3 2 / 3 click-through: (0) read `docs/ui-automation-cdp.md` (builder #8 did not — it read DRIVING, UI_SPEC
+LS-r7 is DONE (`d3b1108`). Rebuild `wt/out` (still the `373125a` build — main changed in steps d + LS-r7, the renderer in step e + LS-r7) and
+run the §9.3 2 / 3 click-through; never select `smart-rerank` in the live app (it would make a provider call — DEFERRED-HASAN; the row's
+option may be read, not chosen): (0) read `docs/ui-automation-cdp.md` (builder #8 did not — it read DRIVING, UI_SPEC
 §colour / components, and the design); (1) `S3\guard.ps1` (resources + Hasan not rendering + 0 of ours), write the numbers here, then build
 (DRIVING Track E step 1; `wt/out` is still `373125a` — main changed in step d, the renderer in step e); (2) prepare the search-S3 profile for
 the no-model start: remove `<profile>\ai-models\embeddings\multilingual-e5-small\` (our copy of S1's model, made 17:00) and
@@ -587,7 +641,11 @@ read the IPC's own order for the same request before suspecting the merge (`merg
 
 ## Open problems
 
-- (note — for the orchestrator; not blocking §9) **the "Smart + AI rerank" rung has no implementation.** Design §3 lists `rerank.ts` and §8.3
+- RESOLVED by LS-r7 (`d3b1108`): the rung is built (`rerank-prompt.ts`, `rerank.ts`, the runtime / app wiring, the Assets box's settle, the
+  row's option enabled); its live call stays DEFERRED-HASAN (§9.4). Open edge (note, not tested live): with `smart-rerank` chosen, every
+  settled query of the Assets box is one provider call on the user's app-default provider (cached per index version) — Hasan's first live try
+  should watch the AI usage dashboard for `library-search-rerank` rows. The note below is kept for the record.
+- (was: note — for the orchestrator; not blocking §9) **the "Smart + AI rerank" rung has no implementation.** Design §3 lists `rerank.ts` and §8.3
   describes the Assets box's rerank (one provider call per settled query, cached by query + index version), but no S3 step builds it (§12's
   S3a–S3e do not name it; §9.4 makes the live rerank DEFERRED-HASAN, "unit-tested with an injected reranker" — `library-search.ts`'s
   injected-reranker tests exist; the runtime passes none). The KV accepts `smart-rerank` (`search-settings.ts:11`), and with no reranker it
@@ -687,6 +745,9 @@ read the IPC's own order for the same request before suspecting the merge (`merg
   `ElectronAPI` members; 15 new unit tests) — extend, don't redo. **`wt/out` is still `373125a`** — rebuild before the click-through. The CDP
   hooks: `[data-library-search-row]`, `[data-library-search-choice]` (a native `<select>`), `[data-library-search-download]`,
   `[data-library-search-progress]`, `[data-library-search-state]`, `[data-library-search-error]`, `[data-library-search-marker]`.
+- LS-r7 (`d3b1108`: rerank-prompt / rerank / runtime + app wiring / the box's settle / the row's option; 31 tests in the 3 files, red logged
+  in `step-r7\vitest-red.log`) — extend, don't redo. **No live rerank in S3** (never choose `smart-rerank` in the live app). `wt/out` is still
+  `373125a` — rebuild before the click-through.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -713,3 +774,6 @@ read the IPC's own order for the same request before suspecting the merge (`merg
   S1's `d-prompt-template.txt`, the Assets hook / request / search bar, the Settings row); wrote LS-r7's 3 test files (UNCOMMITTED, not run —
   "In progress"); STOPPED by the coordinator for a machine shutdown (no build / launch / download / test run; ui-automation-cdp and UI_SPEC not
   read).
+- 2026-10-29 20:25–20:35 · builder #10 · ~50 · read HANDOFF, ORCHESTRATOR (Answers in force, LS-r1b, LS-r7), the design §3 / §4 / §8.3 / §9 /
+  §12, the rerank seams; LS-r7 red (8 failed) → code → green (31), folders 202 + tools 103 green, tsc 25 / 10, `d3b1108`; handed off at the
+  step boundary (no build / launch; DRIVING, ui-automation-cdp and UI_SPEC not read this session — the click-through builder must read them).
