@@ -7,6 +7,128 @@
 
 ---
 
+## 2026-10-29 — LIBRARY SEARCH: one shared, meaning-aware search service — keywords + local multilingual-e5-small (RRF60); `generate_sfx` / `generate_music` answer up to 20 candidates with no claim and the assistant picks (`force` to generate); `list_assets` ranked; the Assets box Smart search; the Settings "Library search" row (Download, Basic / Smart / Smart + AI rerank) — DONE (S4 verifier round 1 PASS, in two parts; §9.3 5 read by ruling LS-r8)
+
+- **Result: PASS over the whole acceptance bar** (`docs/studio/LIBRARY_SEARCH_DESIGN.md` §9), verifier round 1, no FAIL round. The
+  search now finds "things falling over" → `crash-tumble` and "صوت زجاج يتكسر" (Arabic) → `break-glass-crack`, which the keyword
+  matcher never did. Recall@10 over the 1,375 named rows: keywords 91.8 → 99.3; the 425 held-out rows 73.4 → 97.9; the corpus stays 100.
+  The Studio tools put up to 20 library candidates in front of the assistant and claim nothing; the assistant picks.
+  **Read it with ruling LS-r8:** in all four keyless turns the assistant named the right clip, then ASKED for the first cut's time
+  instead of placing it. The bar calls that a NOTE, and none of its FAIL cases happened (no generation, no wrong clip, no claim string),
+  so S4 is recorded as PASS with that reading. **Hasan may overrule it** (then it is a §9 question for him, not a FAIL round).
+- **Where / when:** branch `library-search` (worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt`), cut from `end-to-end-p0-e` @
+  `906273c` on 2026-10-29 13:39. **Not pushed, not merged:** landing it after `end-to-end-p0-e` is Hasan's call, and the track-E exit
+  (E3, DONE-PARTIAL as of `c5a6124`) waits for this landing. The run: 2026-10-29 13:37 → 21:53; **S3 paused 17:51–20:24** for Hasan's
+  shutdown, resumed in a new session. The run's record (table, answers in force, Log, rulings LS-r1 … LS-r8):
+  `docs/studio/search/ORCHESTRATOR.md`.
+- **What was built:**
+  - **S1, the spike** (13:41–14:57, 4 builders, docs only; 25 / 40 keyless model calls; `docs/studio/search/S1-spike-report.md`): a
+    labelled set of 1,565 rows (1,375 named / 140 `∅` / 50 `*`) over the 51-clip library; four embedding models, an RRF hybrid, the LLM
+    pick and a local cross-encoder measured. (a) keywords ALL R@10 / R@20 91.8 / 91.9, HELD-OUT 73.4 / 73.6 → (c) RRF K = 60 +
+    multilingual-e5-small 99.3 / 99.9, HELD-OUT 97.9 / 99.8, CORPUS 100; the pick over the top 20: wrong-confident 6.3 % against the
+    keyword answer's 25.4 % on the same 240 rows; warm p95 6.33 / 15.88 ms (51 / 2,000 vectors, Electron), cold 1,421 ms, RSS 412.8 MB
+    loaded, 135,392,016 B on disk. No similarity floor separates "the library lacks it" from a real ask → "nothing fits" is the pick's
+    "none", never a threshold; the cross-encoder adds nothing (not used); the app's embedding worker needed `dtype: 'q8'`. **Hasan's rule
+    → Smart's model = multilingual-e5-small** (q8, mean pooling, `query: ` / `passage: `) in the RRF60 hybrid; the pick = the
+    assistant over the top 20. STOP not fired.
+  - **S2, the design note + THE ACCEPTANCE BAR** (`e83e813`, 14:58–15:05): `docs/studio/LIBRARY_SEARCH_DESIGN.md` (§9 fixed before any
+    builder or verifier).
+  - **S3, the build** (15:04–21:11, 12 builders, red first). Code commits: `3cb73df` the pure service `src/main/services/library-search/`
+    (types, item-text, search-pool, keyword-retriever, fuse, library-search, search-settings) · `2ffcc27` the benchmark fixture (S1's
+    labelled set + int16 vectors) and `scripts/library-search-fixture.mjs`, §9.1 green · `3c50783` the engine `src/library-search-engine/`
+    (utilityProcess host + child, q8 embedder, the vector cache `<library root>/.vidtsx/search/vectors-<modelId>.json`, model lock),
+    `vector-sync`, the gated live test, the `embedding-engine/worker.ts` `dtype: 'q8'` fix · `62685e9` IPC + settings (`library:search`,
+    `:status`, `:settings:set`, push `library:search:event`; handlers with typed errors, `lazily`; preload; `search-runtime.ts` with the
+    ladder and the background build) · `373125a` LS-r2 (catalog size 135,392,016 B / "135 MB") + LS-r3 (unload before a model delete)
+    · `5796423` LS-r4 (only playable media is searched) + LS-r5 (Basic while the model is being removed) · `eebcaff` `generate_sfx` /
+    `generate_music` answer from the search (design §8.1) · `332ef1b` LS-r6 (the header names what ran) + `list_assets(scope library,
+    query)` ranked · `4337910` the Settings row + the Assets box Smart search · `d3b1108` LS-r7, the Smart + AI rerank rung · `3f08759`
+    the Settings row stacks its controls under the text (found live). The docs that record them: hand-offs `af130ca`, `20bc069`
+    `40300e9` `0e5257d`, `419ada7`, `2639b2a`, `22517c5`, `82d5917`, `921de81`, `5fa978e`, `b081a35` (the pause), `53ee4e6`, `2ee0d21`;
+    the exit check `7944e57`; S3 DONE `ab1f439`; S4 `45f5e88` (part 1) and `12fa661` (PASS + LS-r8); the orchestrator's log commits in
+    between. Range `906273c..HEAD`: 107 paths, 97 under `src/` + `scripts/` (73 created, 24 modified).
+  - **What the user gets:** (1) `generate_sfx` / `generate_music` search the library BEFORE the provider check and answer up to 20
+    candidates — "Library sounds that may fit "<prompt>" — found by search (words + meaning), NOT checked; nothing was generated (no
+    cost) …" ("(words only)" when Basic ran) — with no "already has", no "matching", no `[matched]` labels; the assistant picks;
+    `force: true` generates; an empty pool generates without `force`. (2) `list_assets(scope: "library", query)` ranked, at most 20,
+    header "Ranked by search (words + meaning) — check the descriptions; the order is not a ranking of fit". (3) The Assets box: in
+    Smart the service's top 20 first, then the filter's other matches, a "Smart" marker; Basic = today's `filterAssets`, unchanged. (4)
+    Settings › General › "Library search": Auto (default) / Basic / Smart / Smart + AI rerank, a "Download (135 MB)" button through the
+    existing `embedding:model:download`, the state line ("Now: Smart (auto) · vectors 51 / 51 ready"). Auto = Smart once the model is on
+    disk; nothing downloads without a click. Smart + AI rerank (Assets box only; the app-default provider; usage row
+    `library-search-rerank`) is only ever an explicit choice.
+- **S4, the verifier (round 1, 21:13–21:52, independent: the bar + the rulings, not the builders' reports):** part 1 stopped INCOMPLETE
+  at its call limit with nothing failed (§9.1, §9.2, §9.3 1 / 2 / 4); part 2 checked §9.3 3, §9.3 5 and the download host and gave the
+  verdict **PASS**. Verified at `45f5e88` (`src/` = `3f08759`); profile `profiles\search-S4-verify`, CDP 9295. Per item:
+  - **§9.1 the benchmark:** the committed fixture equals S1 row for row (1,565 / 1,565, 0 differences) and table for table (18 row
+    sets, 0 mismatches); the tests assert what §9.1 says; **13 / 13 mutants caught** in a scratch worktree; the gated live test 2 / 2
+    (model load 1,475 ms; min cosine 1.000000 for the 51 clips and the 1,505 prompts batched, 0.991872 one at a time; live R@10 / R@20
+    ALL 99.3 / 99.9, HELD-OUT 97.9 / 99.8, CORPUS 100 — every §9.1 threshold holds). *Sources differ:* part 1's hand-back said "all 14
+    mutants"; its `mutations\summary.txt` lists 13 and part 2's verdict table says 13 — recorded as 13 (the verifier's file).
+  - **§9.2 the gates:** full worktree vitest `Test Files 28 failed | 509 passed | 6 skipped (543)` · `Tests 9 failed | 5354 passed | 37
+    skipped`; the 28 = the 25 LS-r1c suites (0 tests each, only the `<wt>\stream` / `<wt>\stream\promises` resolution error; all 25 pass
+    in a fresh detached worktree, 25 files / 239 tests) + the 3 E-d2a suites (the 9 failed tests, package resolution only; shown
+    independent of the range by an esbuild metafile per test file). tsc web 25 / node 10 (bar ≤ 26 / ≤ 10). The matcher files
+    byte-identical to `7967c6f`. House rules hold.
+  - **§9.3 1 main never blocks:** 478 / 478 IPC pings answered, 0 errors, **max gap 98.9 ms** (while the Assets screen opened, before
+    the download), 66.3 ms from download-complete to the end of the first Smart query (bar ≤ 250 ms), under outside `vmmemWSL` load
+    (~11 of 16 cores). (S3's own run: 152 pings, max gap 65.1 ms.)
+  - **§9.3 2 the download:** nothing downloaded by itself; the row's Download fetched 135,392,016 B (4.7 s → 21.5 s), status → Smart
+    (auto), the background build → 51 / 51. Host read from the code: `https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/<file>`.
+  - **§9.3 3 the Assets box:** Smart "things falling over" → `crash-tumble` 4th; "صوت زجاج يتكسر" → `break-glass-crack` 1st; the grid's
+    first 20 == the `library:search` IPC's 20, in order. Basic → the same tiles as `filterAssets` ("whoosh" 6, "glass break" 1, "soft"
+    33, "things falling over" 0).
+  - **§9.3 4 the real handlers, app stopped:** Smart "things falling over" → 20 rows, `crash-tumble` row 4, header "found by search
+    (words + meaning), NOT checked …", 0 claims, 0 generated; Basic "(words only)" = today's three; `force: true` → 1 generation; a
+    music-only library (pool 0) → generates without `force`.
+  - **§9.3 5 four keyless turns (4 / 4, 0 retries, all `claude-subscription`):** "Add a soft whoosh at the first cut." ×2 →
+    `list_assets(library, audio, "soft whoosh")`, `whoosh-soft` row 1; "Add the sound of things falling over at the first cut." ×2 →
+    `list_assets(library, audio, "things falling over crash")` (+ `list_assets(project)`), `crash-tumble` row 2. 0 claim strings, 0
+    generations (three counters), 0 proposals / placements; each turn named the right clip and asked for the cut time — NOTE ×4 →
+    **ruling LS-r8** (above).
+- **DEFERRED-HASAN (Hasan's list):**
+  1. **The live Smart + AI rerank call** — never chosen in S4 (LS-r7; unit-tested with an injected generator).
+  2. **The by-ear check of a placed clip** — nothing was placed.
+  3. **The assistant's first-cut gap** — in all four turns it could not find "the first cut" (V1 = two 3 s clips → 3.0 s); no tool reads
+     cut points. Outside this range (its edits to `project-tools.ts` / `studio-agent-prompt-tools.ts` are library-search wording only);
+     E3's pre-range turn on the same project proposed 2.75 s. Not root-caused. Worth a look before his real-video test.
+  4. **Landing `library-search`** after `end-to-end-p0-e` — his call; not pushed, not merged; the track-E exit waits for it.
+  5. **The LS-r8 reading** — his to keep or overrule.
+- **Notes (not FAILs):**
+  - §9.4's list: R@1 / the fused order's first (ALL 87.7, `j-falling` 33.3 — not a confidence); the pick's quality beyond the four turns;
+    E3's corpus `∅` rows a plain-meaning pick fills; image / video retrieval (unit tests only); libraries over 51 clips; timings on other
+    machines; the live rerank; the Embedding Tester's worker-thread DLL exposure; the by-ear check.
+  - **The 25 worktree-only `stream` suites:** they fail at import in THIS worktree only ("Cannot find module '<wt>\stream'" 15,
+    "'<wt>\stream\promises'" 10) and pass in a fresh worktree; environmental to the directory, cause not found (time-boxed twice);
+    counted by LS-r1 → LS-r1b → LS-r1c (named in `…\search\S3\step-f\ls-r1b-files.tsv`).
+  - **The int16 fixture:** its table equals S1's float32 table on all 18 row sets (int8 did not: 1,171 rows differ); 14 / 1,515 rows have
+    a different top-20 ORDER from float32 — 36 clip pairs at cosine gaps ≤ 2.22e-6, below float32 regeneration noise (accepted).
+  - **One query at a time:** min cosine 0.991872 against 1.000000 in batches of 32 (a batch effect; bar ≥ 0.99); the committed benchmark
+    stays on the batched fixture (ruling, 16:22).
+  - **Pre-existing files over 300 lines that the branch touched:** `AssetLibraryScreen.tsx` 464 → 474, `electron.d.ts` 648 → 656,
+    `channels.ts` 647 → 654. Every created code file ≤ 286 lines (`search-runtime.test.ts`); the two JSON fixtures (1,570 / 1,569 lines)
+    are data.
+  - **Cosmetic:** the Settings row reads "vectors no vectors yet" before a build; the first download progress event comes ~5 s after the
+    click with `percent: -1`.
+  - **Outside §9 (verifier):** no turn called `generate_sfx`, so its answer text ran live only in the §9.3 4 harness; the Basic IPC lists
+    fewer items than the Basic grid ("whoosh" 5 vs 6 — by design); an audio search with no sound class puts `music/docu-pluck` 8th for
+    "things falling over" (the accepted coverage ranking); pre-existing: an empty filter says "No files here yet. Click Import to add
+    some.", and the Assets screen shows a "No AI provider is configured" banner while the keyless subscription answers the assistant;
+    t1's reply says "I found a good match" (the model's words, not the tool's); the window minimizes itself (the driver restores it).
+  - **S1's models** (read-only since S1): `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S1\models\` — the fixture script and the gated
+    live test read `multilingual-e5-small` there (4 files, 135,392,016 B).
+  - **The keyless turns' usage rows** (`claude-subscription`, claude-sonnet-5-5; the costs are the app's estimates): t1 in 908 / out 651,
+    $0.535103, 19,136 ms · t2 910 / 830, $0.4180724, 20,701 ms · t3 910 / 516, $0.091046, 22,620 ms · t4 910 / 624, $0.1003534,
+    15,636 ms. No paid-key call in the run; no credential store read.
+- **Evidence / re-run:** profiles `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\search-S3\profile` (CDP 9292; model downloaded,
+  choice Auto) and `…\profiles\search-S4-verify\profile` (CDP 9295), both copied from `profiles\source` WITHOUT `settings.db*`; S1's
+  `profiles\search-S1` (9290). Logs: `C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S3\` (`fixture\`, `step-b\`, `step-c\`, `step-d2\`,
+  `step-e\`, `step-e2\`, `step-r7\`, `step-f\`) and `…\search\S4\r1\` (part 1 at the top, `mutations\`, `tools\`; part 2 under `p2\`, the
+  turns in `p2\turns\t1` … `t4\`). Kits: `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S1\` (labelled set, reports), `…\search\S3\`
+  (`build-e2.sh`, `launch-s3.sh`, `c-ping.mjs`, `e2-drive.mjs`, `guard.ps1`, `import-graph-esbuild.mjs`), `…\search\S4\r1\` (`launch.sh`,
+  `mutate.sh`, `tools.s4.test.ts`, `p2-box.mjs`, `p2-turn.mjs`, …) and the verifier's reports `REPORT.md` (part 1) + `REPORT-part2.md`
+  (the verdict). TESTING.md §19; HANDOFF `docs/studio/search/S3/HANDOFF.md`; the design `docs/studio/LIBRARY_SEARCH_DESIGN.md`.
+
 ## 2026-10-28 — END-TO-END E3: reuse before generate — the prompt rule, `generate_sfx` / `generate_music` answer the top-3 library matches unless `force`; the Assets screen plays audio and filters by origin / tag chips — DONE (fix round 4 after verifier round 4 FAIL on F4 (builders #13–#20, decisions E-d16 + E-d16a + E-d16b + E-d16c + E-d16d: the answer-level recall fill with the word-diversity rule, no matcher change); fix round 3 after verifier round 3 FAIL on F3, a matcher defect — builders #9–#12, decision E-d15: stem hits weigh less, placement openers / adverbs, the miss rule; fix round 2 after verifier round 2 FAIL on F2 — builders #7–#8; fix round 1 after verifier round 1 FAIL on F1 — builders #5–#6; the E3 verifier round 5 — E3's last — is next)
 
 - **What:** part E3 of `docs/studio/END_TO_END_PLAN.md` (track E, session 6; worktree branch `end-to-end-p0-e`, E-d1). Row:
