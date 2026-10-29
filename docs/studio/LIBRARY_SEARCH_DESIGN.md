@@ -179,8 +179,10 @@ export interface LibrarySearchStatus {
   If one fits, place it with insert_asset(assetId: "library:<path>", lane: "audio", at: …). If none fits, call generate_sfx again with force: true.
   ```
 
-  No "already has", no "matching", no `[matched]` / `[weak match]` / `[closest]` — in any mode. `degraded` adds one line ("Searched by words
-  only: <reason>").
+  No "already has", no "matching", no `[matched]` / `[weak match]` / `[closest]` — in any mode. The header names what actually ran
+  (`ran`): "(words + meaning)" for Smart, "(words only)" for Basic (an explicit Basic choice or a fallback); `degraded` adds one line
+  ("Searched by words only: <reason>"). *(Clarified by the orchestrator 2026-10-29 17:25, ruling LS-r6 — the first text printed
+  "(words + meaning)" in every mode, untrue in Basic.)*
 - `poolSize: 0` → generates (§6). `force: true` → generates. The provider notice, `compositionPlan`, the length rule, E2's normalize /
   `usedIn` — unchanged.
 - `REUSE_NOTE` / `FORCE_HINT` (`agent-tools/audio-tools.ts`) and the prompt lines (`studio-agent-prompt-tools.ts:31-32`) say the same; pinned.
@@ -188,7 +190,7 @@ export interface LibrarySearchStatus {
 ### 8.2 `list_assets(scope: "library", query)`
 
 - With a query: the service's ranked candidates (`kind` → `kinds`), E2's rows, at most 20, header "Ranked by search (words + meaning) — check
-  the descriptions; the order is not a ranking of fit". Basic ranks by the keyword list instead of today's every-word filter (an item with
+  the descriptions; the order is not a ranking of fit" ("(words only)" when Basic ran — LS-r6). Basic ranks by the keyword list instead of today's every-word filter (an item with
   no prompt word is not listed in Basic). Without a query: unchanged (today's listing).
 - Project scope: unchanged.
 

@@ -213,3 +213,28 @@
   - **LS-r5 — a search during a model delete:** while a before-delete hook for the search model is pending, Smart searches run Basic with
     `degraded: 'model being removed'` and never spawn the child; cleared on the deleted / failed outcome. Unit test.
   Builder #6 (LS-r4, LS-r5, then step d — the agent tools) to spawn.
+- 17:05 · S3 builder #6 spawned (HEAD `79b10c3`).
+- 17:24 · S3 builder #6 HANDOFF (75 calls, ~18 min; LS-r4 + LS-r5 + step d part 1): `5796423` (LS-r4 the pool = playable media only; LS-r5
+  Basic + `degraded: 'model being removed'` during the before-delete hook, cleared on `deleted` / a new optional `'delete-failed'` event);
+  `eebcaff` (NEW `agent-tools/tool-library-search.ts` — the tools on `getLibrarySearchRuntime().search`, Basic over the read index if the
+  runtime throws; `sound-reuse.ts` rewritten per design §8.1 — one header, an optional "Searched by words only" line, ≤ 20 E2 rows in the
+  search's order, the place / force line, no claim / labels; generation only on an empty pool (Smart) / a true miss (Basic) / `force`;
+  `REUSE_NOTE` / `FORCE_HINT` / prompt :31-32 rewritten + pinned; NEW `audio-tools-no-claim.test.ts` — all 1,515 rows through the real
+  handlers in Basic AND Smart; E3's reuse / fill / miss tests rewritten; matcher, `sound-answer*`, corpus untouched); docs `82d5917`. Its
+  runs: audio-tools + prompt 53 / 53; library-search + engine + handlers 131 + 2 skipped; a wider run 149 files passed / 5 failed — the 2
+  E-d2a `shot-bundle*` suites + 3 with "Cannot find module '…\wt\stream\promises'" / "'…\wt\stream'" (`pack-package`, `project-package`,
+  `project-package-import`). tsc 26 / 10; no file > 205 lines. Not shown red first: the prompt pins. `wt/out` is still the `373125a` build.
+- 17:10–17:25 · **Orchestrator check:** `src/main/services/studio/pack-package.test.ts` fails here with the same `…\wt\stream\promises`
+  error (reproduced); moving the worktree's own vitest cache (`wt\node_modules\.vite\vitest`, our 6.8 KB results file) aside to
+  `.vidtsx-temp\search\S3\wt-node_modules-aside` changes nothing (vitest recreates the folder; same error); the bare import is
+  `src/main/services/packages/zip-reader.ts:32` (`'stream/promises'`) — the same code passes in the track-E worktree. Cause environmental to
+  this directory, not found (time-boxed again).
+- **Rulings (orchestrator, 17:25):**
+  - **LS-r1b — LS-r1 extended:** every suite that fails in THIS worktree ONLY with "Cannot find module '<wt>\stream'" or "'<wt>\stream\promises'"
+    (today: `studio-cut-plan-run-handler`, `pack-package`, `project-package`, `project-package-import` — the graph through `zip-reader.ts`)
+    is counted like the E-d2a suites, each proven green in a fresh detached worktree at the gate's HEAD (commands + outputs recorded); any
+    other error, or a red in the fresh worktree, is real. The verifier repeats the proof.
+  - **LS-r6 — the header names what ran:** "(words + meaning)" only when Smart ran; "(words only)" when Basic ran (explicit or fallback),
+    plus the `degraded` reason line — `generate_*` answers and the `list_assets` header (design §8.1 / §8.2 clarified in the design note,
+    this commit; §9 unchanged — the no-claim strings and "the neutral header" still hold). Test-pinned.
+  Builder #7 (LS-r6, step d part 2 `list_assets`, rebuild `wt/out`, then step e) to spawn.
