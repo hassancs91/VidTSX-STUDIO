@@ -20,7 +20,7 @@
 |---|---|---|---|---|---|---|
 | S1 — the spike (no product code) | **DONE** (STOP not fired) | 4 | — (the report read by the orchestrator against S1's rule; S4 verifies the whole) | docs `5c5bd09` `42f8d43` `3eb1772` `1bacaac` `ee2b78b` `edf531c` `040717f`; report `docs/studio/search/S1-spike-report.md` | R@10 / R@20 ALL: keywords 91.8 / 91.9 → (c) RRF60 + multilingual-e5-small 99.3 / 99.9; HELD-OUT 73.4 / 73.6 → 97.9 / 99.8; CORPUS 100 → 100; pick over top-20 wrong-confident 6.3 % vs keywords 25.4 % (240 rows); warm p95 6.33 / 15.88 ms (51 / 2,000, Electron); no ∅ floor; 25 / 40 model calls | 2026-10-29 13:41 / 14:57 |
 | S2 — the design note + THE ACCEPTANCE BAR | **DONE** (orchestrator) | — | — | `docs/studio/LIBRARY_SEARCH_DESIGN.md` (commit: see Log 15:05) | the bar = design §9 (benchmark thresholds per file, no R@10 regression vs keywords, Basic = today, no claim, nothing fits, gates, five live checks, notes) | 2026-10-29 14:58 / 15:05 |
-| S3 — build (red-first, hand-off-sized parts) | BUILDING | 0 | | | | 2026-10-29 15:05 / |
+| S3 — build (red-first, hand-off-sized parts) | **PAUSED** (Hasan, 17:51 — machine shutdown) — steps a–d DONE, step e part 1 DONE; LS-r7 (the rerank rung) started: 3 red test files on disk, UNCOMMITTED; then the rebuild, the §9.3 2 / 3 click-through, step f | 9 | | code `3cb73df` `2ffcc27` `3c50783` `62685e9` `373125a` `5796423` `eebcaff` `332ef1b` `4337910` | benchmark = S1's (c) table exactly (int16 fixture); gated live test green; ping loop max gap 65.1 ms; 1,515-row no-claim test both modes; tsc 25 / 10 | 2026-10-29 15:05 / (paused 17:55) |
 | S4 — verify (independent; ≤ 3 FAILs) | TODO | | | | | |
 
 ## Answers in force (Hasan's paste-in, 2026-10-29)
@@ -55,6 +55,10 @@
 ## Stops
 
 (one line per stop: what was reported, what Hasan said)
+
+- 2026-10-29 17:51 · **Hasan: "please stop after the current task, we will continue later, I need to shutdown".** The orchestrator told S3
+  builder #9 to hand off at once (17:52); it returned at 17:55 (`b081a35`). **PAUSED mid-S3** — not a protocol stop; nothing failed.
+  Resume from `docs/studio/search/NEXT-SESSION.md`.
 
 ## Log
 
@@ -267,3 +271,15 @@
   rerank) and only after the query settles (Enter, or 1 s idle); the Settings row's choice enabled; unit tests with an injected generator;
   NO live call (DEFERRED-HASAN, design §9.4). Design §12 amended (this commit). Builder #9 (LS-r7, rebuild, the §9.3 2 / 3 click-through,
   then step f) to spawn.
+- 17:49 · S3 builder #9 spawned (HEAD `290dbbb`).
+- 17:51 · Hasan asked to stop after the current task (machine shutdown). 17:52 · the orchestrator messaged builder #9: hand off now.
+- 17:55 · S3 builder #9 HANDOFF (28 calls, ~6 min; stopped on the order BEFORE any LS-r7 code): three RED test files written, NOT run,
+  **UNCOMMITTED** (`??`): `src/main/services/library-search/rerank.test.ts` (fixes the API of NEW `rerank-prompt.ts` + `rerank.ts`:
+  `createLibraryReranker` with an injected generator, the usage log, the cache by index version + query + relPath:textHash, one shared call
+  for identical concurrent requests, failures not cached), `src/main/services/library-search/search-runtime-rerank.test.ts` (only `rerank:
+  true` requests, only under `smart-rerank`; an index write bumps the version), `src/features/asset-library/services/smart-search-rerank.test.ts`
+  (1 s idle, the same request + `rerank: true`, a late plain answer never replaces a reranked one); docs `b081a35` (HANDOFF "In progress" +
+  Next step). **Orchestrator check (17:55):** HEAD `b081a35`, `git status --short` = exactly those three `??` files, 0 instances of ours
+  (the 6 `electron.exe` are Hasan's), C: 50.0 GB, D: 41.5 GB; the main checkout now lists 20 changed paths (was 16 — the other session's
+  work; not ours, not touched). `wt/out` is still the `373125a` build (step c); the `search-S3` profile still holds the copied model + its
+  vectors (the click-through must remove both first).
