@@ -1418,3 +1418,13 @@
   still matches ∪ nearest until step 2). Orchestrator re-check: `git log -1 -- src/` `34feafe`, `git diff 7967c6f --` the three matcher
   files = 0 bytes, tree clean, 0 `electron.exe`. Stated choice: the answer's kind follows the rows SHOWN; whoosh-wind (weak in the reuse
   mock) is now labelled weak, not counted as a match. Builder #14 (step 2 the corpus, then 3–7) spawned.
+- 10:58 · E3 builder #14 HANDOFF (47 calls, ~10 min; step 2 DONE, no launch / model turn / gate run / rebuild): `9a13e3b` the corpus —
+  `sound-match-corpus-rows.ts` 146 (the recall over the ANSWER's three via `selectSoundAnswer(rankLibrarySounds(…, { limit: all }))`; the
+  first stays on `matches[0]`, `not` on the matches; the E-d16 row convention `describeAnswerCorpus` / `expectAnswerRow` — right clip in
+  the three, a `matched` first must be allowed, the E-d16a exception only with `edge: 'line' | 'tie'` AND the condition true); NEW
+  `sound-match-corpus-r4-frames.test.ts` (67 rows: g-probe 32 + f-probe 35 with its own verdicts) + `-r4-ordinary.test.ts` (197 rows from
+  c-ordinary; 45 duplicates skipped); 4 vocabulary '∅' rows (a rewound tape, a clicker, a river running, a running tap); E-d16a edge rows:
+  line "a breaking screen" / "a glitched photo" / "a typed message" (each a first at exactly 0.50), tie "an F major triad". Red 36 / 266
+  before → the 809 old rows unchanged → green 28 files / 1,261 tests. One note (not a right-clip loss): "a moving transition" — `whoosh-wind`
+  (weak 0.30) drops from the three by E-d16a's own tie rule (closest chess-piece-thock / wind-soft 0.30 ahead); `whoosh-soft` stays first.
+  Orchestrator re-check: `git log -1 -- src/` `9a13e3b`, matcher diff 0 bytes, tree clean. Builder #15 (steps 3–7) spawned.
