@@ -25,6 +25,16 @@ vi.mock('../project-store', () => ({
 const loadIndex = vi.fn();
 vi.mock('../../library/library-store', () => ({ loadIndex: (root: string) => loadIndex(root) }));
 vi.mock('../../library/library-paths', () => ({ getLibraryRoot: () => 'C:/lib' }));
+// Library search (§8.1): the app's runtime is never built here — a Basic search over the (empty) mocked index.
+vi.mock('../../library-search/search-app', async () => {
+  const { searchLibrary } = await import('../../library-search/library-search');
+  const settings = () => ({ choice: 'basic' as const, modelId: 'multilingual-e5-small', modelDownloaded: false });
+  return {
+    getLibrarySearchRuntime: () => ({
+      search: (req: { query: string }) => searchLibrary(req, { loadEntries: async () => (await loadIndex('C:/lib')).entries, settings }),
+    }),
+  };
+});
 
 const { buildAudioTools } = await import('./audio-tools');
 
