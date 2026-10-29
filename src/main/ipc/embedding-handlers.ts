@@ -24,7 +24,7 @@ import {
   isEmbeddingModelDownloaded,
   deleteEmbeddingModel,
 } from '../services/embedding-models';
-import { notifyEmbeddingModelChanged } from '../services/embedding-model-events';
+import { notifyEmbeddingModelChanged, runBeforeEmbeddingModelDelete } from '../services/embedding-model-events';
 import { enqueueDownload } from '../services/download-manager';
 import { embeddingEngine } from '../../embedding-engine';
 import { logEngine } from '../../logging/log-engine';
@@ -178,6 +178,8 @@ export async function handleEmbeddingModelDelete(
   data: EmbeddingModelDeleteRequest,
 ): Promise<EmbeddingModelDeleteResponse> {
   try {
+    // Users holding the model (the library-search engine child) let go of it before its files are deleted (LS-r3).
+    await runBeforeEmbeddingModelDelete(data.modelId);
     await deleteEmbeddingModel(data.modelId);
     notifyEmbeddingModelChanged({ modelId: data.modelId, change: 'deleted' });
     return { success: true };

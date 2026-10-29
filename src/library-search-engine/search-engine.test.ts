@@ -145,3 +145,36 @@ describe('LibrarySearchEngine — sync (the background build)', () => {
     expect(vectors).toEqual([{ ready: 0, total: 1, building: true }, { ready: 1, total: 1, building: false }]);
   });
 });
+
+// LS-r3: before the search model's files are deleted the host stops its child and waits for it to exit.
+describe('LibrarySearchEngine — unload before a model delete', () => {
+  it('no child → nothing spawns, it resolves', async () => {
+    await engine.unload();
+    expect(children).toHaveLength(0);
+  });
+
+  it('kills the child, waits for its exit, rejects what was pending; the next call respawns', async () => {
+    const pending = engine.sync(ITEMS, true);
+    const rejected = expect(pending).rejects.toThrow('library search model deleted');
+    await engine.unload();
+    expect(children[0].killed).toBe(true);
+    await rejected;
+    expect(engine.isLoaded()).toBe(false);
+    expect(engine.isBuilding()).toBe(false);
+    void engine.rank('b', ITEMS).catch(() => undefined);
+    expect(children).toHaveLength(2);
+  });
+
+  it('a child that does not exit: unload gives up after its wait', async () => {
+    void engine.rank('a', ITEMS).catch(() => undefined);
+    const child = last();
+    child.kill = () => { child.killed = true; };
+    let done = false;
+    void engine.unload(1_000).then(() => { done = true; });
+    await vi.advanceTimersByTimeAsync(999);
+    expect(child.killed).toBe(true);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(done).toBe(true);
+  });
+});

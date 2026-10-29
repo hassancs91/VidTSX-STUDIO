@@ -5,7 +5,7 @@ import type { LibrarySearchResult, LibrarySearchStatus } from '../../shared/type
 // The library-search IPC handlers (LIBRARY_SEARCH_DESIGN.md §10): every body in try/catch with a typed error —
 // a throwing runtime never rejects the invoke.
 const STATUS: LibrarySearchStatus = {
-  mode: 'smart', choice: 'auto', modelId: 'multilingual-e5-small', modelDownloaded: true, modelBytes: 118_000_000,
+  mode: 'smart', choice: 'auto', modelId: 'multilingual-e5-small', modelDownloaded: true, modelBytes: 135_392_016,
   vectors: { ready: 51, total: 51, building: false },
 };
 const RESULT: LibrarySearchResult = { ran: 'smart', requested: 'smart', modelId: 'multilingual-e5-small', candidates: [], poolSize: 0 };

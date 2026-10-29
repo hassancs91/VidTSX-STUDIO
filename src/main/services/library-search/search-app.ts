@@ -12,7 +12,7 @@ import { LibrarySearchEngine } from '../../../library-search-engine/search-engin
 import { vectorFilePath } from '../../../library-search-engine/vector-store';
 import { logEngine } from '../../../logging/log-engine';
 import { getTempDir } from '../../utils/paths';
-import { onEmbeddingModelChanged } from '../embedding-model-events';
+import { onBeforeEmbeddingModelDelete, onEmbeddingModelChanged } from '../embedding-model-events';
 import { getEmbeddingModelDir, isEmbeddingModelDownloaded } from '../embedding-models';
 import { onLibraryIndexWritten } from '../library/library-index-events';
 import { getLibraryRoot } from '../library/library-paths';
@@ -74,6 +74,7 @@ export function getLibrarySearchRuntime(): LibrarySearchRuntime {
   runtime = created;
   onLibraryIndexWritten((root) => created.indexWritten(root));
   onEmbeddingModelChanged((change) => created.modelChanged(change));
+  onBeforeEmbeddingModelDelete((modelId) => created.beforeModelDelete(modelId));
   log.info('Library search runtime created');
   return created;
 }

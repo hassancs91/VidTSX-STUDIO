@@ -11,6 +11,8 @@ import type { EngineChild, EngineItem, EngineModel, EngineVectors, SearchWorkerR
 export const COLD_TIMEOUT_MS = 5_000;
 export const WARM_TIMEOUT_MS = 2_000;
 export const IDLE_UNLOAD_MS = 10 * 60_000;
+/** How long `unload` waits for the killed child to exit before the model delete goes ahead anyway. */
+export const UNLOAD_WAIT_MS = 2_000;
 
 export interface VectorState extends EngineVectors {
   building: boolean;
@@ -37,6 +39,8 @@ interface Pending {
 
 export class LibrarySearchEngine implements SemanticRanker {
   private child: EngineChild | null = null;
+  /** Resolves when the current child (the last one forked) has exited. */
+  private childExited: Promise<void> | null = null;
   private loaded = false;
   private seq = 0;
   private readonly pending = new Map<string, Pending>();
@@ -79,12 +83,25 @@ export class LibrarySearchEngine implements SemanticRanker {
     child?.kill();
   }
 
+  /** Before the model's files are deleted (LS-r3): kill the child and wait for its exit, at most `waitMs`. */
+  async unload(waitMs = UNLOAD_WAIT_MS): Promise<void> {
+    const exited = this.childExited;
+    if (!this.child || !exited) return;
+    this.terminate('library search model deleted');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([exited, new Promise<void>((resolve) => { timer = setTimeout(resolve, waitMs); })]);
+    if (timer) clearTimeout(timer);
+  }
+
   private ensureChild(): EngineChild {
     if (this.child) return this.child;
     const child = this.opts.fork();
     this.child = child;
+    let markExited: () => void = () => undefined;
+    this.childExited = new Promise<void>((resolve) => { markExited = resolve; });
     child.onMessage((msg) => this.handleMessage(msg));
     child.onExit((code) => {
+      markExited();
       if (this.child !== child) return;
       this.child = null;
       this.loaded = false;

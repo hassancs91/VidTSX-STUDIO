@@ -21,6 +21,7 @@ let syncCalls: Array<{ items: SemanticItem[]; prune: boolean }>;
 let syncRelease: Array<() => void>;
 let rankReady: number | null;
 let onVectors: ((state: RuntimeVectors) => void) | null;
+let unloadCalls: number;
 
 function fakeEngine(cb: (state: RuntimeVectors) => void): RuntimeEngine {
   onVectors = cb;
@@ -36,6 +37,9 @@ function fakeEngine(cb: (state: RuntimeVectors) => void): RuntimeEngine {
       syncRelease.push(() => resolve({ ready: items.length, total: items.length }));
     }),
     isBuilding: () => syncRelease.length > 0,
+    unload: async () => {
+      unloadCalls += 1;
+    },
   };
 }
 
@@ -50,7 +54,7 @@ function make(): LibrarySearchRuntime {
       return settings;
     },
     isModelDownloaded: (id) => downloaded.has(id),
-    modelBytes: (id) => (id === 'multilingual-e5-small' ? 118_000_000 : id === 'bge-small' ? 1 : null),
+    modelBytes: (id) => (id === 'multilingual-e5-small' ? 135_392_016 : id === 'bge-small' ? 1 : null),
     emit: (e) => { events.push(e); },
     syncDebounceMs: 10,
   });
@@ -75,13 +79,14 @@ beforeEach(() => {
   syncRelease = [];
   rankReady = null;
   onVectors = null;
+  unloadCalls = 0;
 });
 
 describe('LibrarySearchRuntime — status', () => {
   it('no model: Basic (auto), not downloaded, the catalog size, no vectors — and nothing is asked of the engine', async () => {
     const rt = make();
     expect(rt.status()).toEqual({
-      mode: 'basic', choice: 'auto', modelId: 'multilingual-e5-small', modelDownloaded: false, modelBytes: 118_000_000,
+      mode: 'basic', choice: 'auto', modelId: 'multilingual-e5-small', modelDownloaded: false, modelBytes: 135_392_016,
       vectors: { ready: 0, total: 0, building: false },
     });
     await settle();
@@ -232,6 +237,14 @@ describe('LibrarySearchRuntime — settings and events', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('before the search model is deleted the engine child is unloaded (LS-r3); another model → not', async () => {
+    const rt = make();
+    await rt.beforeModelDelete('bge-small');
+    expect(unloadCalls).toBe(0);
+    await rt.beforeModelDelete('multilingual-e5-small');
+    expect(unloadCalls).toBe(1);
   });
 
   it('engine progress is pushed as vectors events', () => {

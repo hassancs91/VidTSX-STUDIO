@@ -31,6 +31,8 @@ export interface RuntimeVectors {
 export interface RuntimeEngine extends SemanticRanker {
   sync(items: SemanticItem[], prune: boolean): Promise<{ ready: number; total: number }>;
   isBuilding(): boolean;
+  /** Stops the child and waits for its exit (the model's files are about to be deleted). */
+  unload(): Promise<void>;
 }
 
 export interface SearchSettingsPatch {
@@ -113,6 +115,12 @@ export class LibrarySearchRuntime {
     if (change.modelId !== this.deps.readSettings().modelId) return;
     if (change.change === 'downloaded' && this.smartOn()) this.buildInBackground();
     this.pushStatus();
+  }
+
+  /** The before-delete hook (`embedding-model-events.ts`, LS-r3): the search model's files are about to go — stop the child first. */
+  async beforeModelDelete(modelId: string): Promise<void> {
+    if (modelId !== this.deps.readSettings().modelId) return;
+    await this.engine.unload();
   }
 
   /** `library-index-events.ts`: a write in the current library → a debounced sync (skipped while Smart is off). */

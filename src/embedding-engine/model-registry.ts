@@ -84,8 +84,9 @@ export const EMBEDDING_MODEL_CATALOG: EmbeddingModelDefinition[] = [
     language: 'multilingual',
     dimensions: 384,
     maxTokens: 512,
-    sizeBytes: 118_000_000,
-    sizeLabel: '118 MB',
+    // The measured download of the four files below (onnx 118,308,185 + tokenizer.json 17,082,730 + 658 + 443 B).
+    sizeBytes: 135_392_016,
+    sizeLabel: '135 MB',
     hfRepoId: 'Xenova/multilingual-e5-small',
     files: [
       'config.json',
