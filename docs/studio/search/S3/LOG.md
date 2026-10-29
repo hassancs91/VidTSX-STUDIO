@@ -30,3 +30,7 @@
   (choice with Auto default, rerank rung disabled — not built, Open problems; 135 MB; Download via `embedding:model:download` + progress;
   vector state), the Assets box (`useLibrarySearch` 250 ms, pure `smartSearchRequestOf` / `mergeSmartResults`, the "Smart" marker), shared
   `library-search-text.ts`, `ElectronAPI` members; tsc 25 / 10; matcher diff empty. Next: rebuild `wt/out` + the §9.3 2 / 3 click-through.
+- 2026-10-29 17:58 · builder #9 · LS-r7 started — 3 RED test files written, UNCOMMITTED and not yet run (`rerank.test.ts`,
+  `search-runtime-rerank.test.ts`, `smart-search-rerank.test.ts`; HANDOFF "In progress" pins the API); stopped by the coordinator for a
+  machine shutdown — no code, build, launch, download or test run; 0 instances of ours. Next: run them red, write the code, commit, then the
+  rebuild + §9.3 2 / 3 click-through.
