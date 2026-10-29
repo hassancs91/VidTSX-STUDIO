@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF — **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus) is next — builder #14** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
+status: HANDOFF — **fix round 4 (E-d16 + E-d16a) IN PROGRESS: step 1 (the answer-level recall fill, red → green) DONE by builder #13 `34feafe`; step 2 (the corpus: recall over the answer's three + verifier round 4's probes as 264 rows) DONE by builder #14 `9a13e3b`; step 3 (the record fixes) is next, then 4–7 — builder #15** (Next step). Before session 9: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **fix round 4 is set out in "Next step" (the answer-level recall fill — decision E-d16, Hasan's go 2026-10-29 10:07) for session 9, then verifier round 5 = E3's LAST under E-d16's bar; the track-E exit is NOT run.** Open problems → "Verifier round 4".
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -624,7 +624,64 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   rankings with coverages for 24 prompts — the inputs the fill tests were written against); logs `fix4-red.log`, `fix4-green.log`
   (the wide run with 3 ffmpeg load timeouts), `fix4-green-2.log` (counted), `fix4-ffmpeg-alone.log`, `fix4-tsc-node-step1.log`.
 
+### Built (builder #14, fix round 4, 2026-10-29) — step 2: the corpus (recall over the ANSWER's three + verifier round 4's probes), commit `9a13e3b`
+
+- **`src/main/services/library/sound-match-corpus-rows.ts` (79 → 146 lines)** — (a) `expectCorpusRow` :96-104 (lines as of `9a13e3b`): the FIRST assertion
+  stays on `matches[0]` (weak or confident; none = '∅'), `not` stays on the matches (top three), the RECALL now runs over the ANSWER
+  — NEW `corpusAnswer()` :81-84 = `selectSoundAnswer(rankLibrarySounds(CORPUS_LIBRARY, prompt, { …, limit: CORPUS_LIBRARY.length }))`
+  (the call `sound-reuse.ts` `libraryReuseAnswer` makes), `expectRecall()` :89-93. (b) The header :1-23 states both conventions and
+  E-d16's row convention; NEW `expectAnswerRow()` :107-126 + `describeAnswerCorpus()` :144-146 (the round-4 files): the named clip in
+  the answer's three; a first labelled `matched` must be allowed EXCEPT (E-d16a) at the 0.5 line (|cov − 0.5| < `COVERAGE_EPSILON`)
+  or tied (within it) with an allowed `matched` row shown, when an allowed clip is in the three — the row must carry `edge: 'line' |
+  'tie'` (new `CorpusOpts.edge` :29-34) and a row carrying an `edge` whose first IS allowed fails ("stale E-d16a note"); a weak /
+  closest first is not asserted; '∅' = no confident first (stated choice: the answer may still show weak / closest rows); the
+  exception never applies to a '∅'-only row. `describeCorpus` keeps its signature (both go through `describeRows` :128-136).
+- **NEW `sound-match-corpus-r4-frames.test.ts` (85 lines, 67 rows)** — g-probe's 32 (verifier's expectations verbatim except "a
+  rewound tape" → '∅' vocabulary note) + f-probe's 35 new rows (6 of its 41 were already rows), MY verdicts (f-probe carries none;
+  the map is in the kit `fix4-corpus.e3.test.ts` `F_VERDICT`): knocking → `KNOCK` / "at the door", "when the door opens" →
+  `knock-solid`; "a soft breaking" → the break clips; "a slow ticking" → `clock-tick-soft`; "a loud crashing" → `CRASH`; "a quiet
+  humming" → `scan-hum`; scribbled / sketched / pencil note / signature / line → `pencil-scribble`; "a glitched photo" → `glitch-zap`;
+  "a popped message" → `pop-reveal|ui-send`; "a typed message" → `keys-typing-soft`; "a launched message" → `ui-send|launch-thump`;
+  "a crashed device" → `power-down|break-crash-digital`; "a shattered phone screen" → `break-glass-crack`; "a swiped card" →
+  `whoosh-soft`; the rest the one obvious clip. E-d16a `edge: 'line'` rows: "a breaking screen" (power-down 0.50), "a glitched photo"
+  (camera-shutter 0.50), "a typed message" (ui-send 0.50) — listed in the header and inline.
+- **NEW `sound-match-corpus-r4-ordinary.test.ts` (211 lines, 197 rows)** — c-ordinary's 236 minus 39 already in the corpus; the
+  verifier's expectations kept VERBATIM (none wrong by plain meaning on my read of all 197) except three 'x|∅' rows whose clip scores
+  0 → '∅' + `// vocabulary note` ("a clicker", "a river running", "a running tap" — the last two keep `NO_DASH`); E-d16a `edge:
+  'tie'`: "an F major triad" (the three majors at 0.60, piano-c-maj first). 45 duplicates skipped in all (6 f + 39 c; list in
+  `E3\fix4-corpus-review.txt`).
+- **No old row changed:** the five old files pass with the recall over the answer (try1: their 814 tests green — 809 rows + 5 count
+  tests). **NO matcher change:** `git diff 7967c6f -- <the three matcher files> | wc -c` → `0` (as of `9a13e3b`).
+- Kit: `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\fix4-corpus.e3.test.ts` (parses g / c / f, dedupes against the 809, writes
+  the two row files with `FIX4_WRITE=1`, the review sheet `fix4-corpus-review.txt` — every r4 row's ANSWER (labels + coverages) beside
+  the 7967c6f answer — and the LESS check over 809 + 264 rows); `fix4-r4-notes.txt` (the 25 r4 rows whose answer first is not an
+  allowed clip); logs `fix4-corpus.log`, `fix4-corpus-red.log`, `fix4-corpus-try1.log`, `fix4-corpus-green.log`,
+  `fix4-corpus-green-2.log`, `fix4-tsc-node-step2.log`.
+
 ## Verified (exact commands + outputs)
+
+- **Fix round 4, builder #14 (2026-10-29 10:48–10:56, step 2; worktree root; HEAD `8fb6416` → `9a13e3b`):**
+  - Kit: `FIX4_WRITE=1 node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config
+    D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E3/vitest.e3.config.ts fix4-corpus > E3/fix4-corpus.log` → **1 passed (1)**;
+    `fix4-corpus-review.txt` line 1-2: "g 32 / c 236 / f 41 parsed", "kept 264 (g 32, f 35, c 197); duplicates …: 45"; **"LESS rows:
+    1"** — "a moving transition" (expected `whoosh-soft|whoosh-wind`): 7967c6f answered `whoosh-soft 0.50 | whoosh-wind 0.30` (weak),
+    the fill answers `[matched] whoosh-soft 0.50 | [closest] chess-piece-thock 0.30 | [closest] wind-soft 0.30` — whoosh-wind drops by
+    E-d16a's tie rule (closest before weak at 0.30); the allowed first `whoosh-soft` is still shown first (Open problems).
+  - **Red on the CURRENT helper** (the new rows written with `describeCorpus` = FIRST on `matches[0]` + recall over matches ∪ nearest,
+    before (a)): `node …/vitest.mjs run src/main/services/library/sound-match-corpus-r4 > E3/fix4-corpus-red.log` → **Test Files 2
+    failed (2), Tests 36 failed | 230 passed (266)** — 32 on the first match (the F4 power-down / chime-reward firsts, the verb-form ∅
+    firsts, the 0.50 / tie firsts), 4 on recall ("a rewound tape", "a clicker", "a river running", "a running tap" — their clip scores 0).
+  - After (a) + (b), the r4 files on `describeAnswerCorpus`: `… run src/main/services/library/sound-match-corpus >
+    E3/fix4-corpus-try1.log` → **Test Files 2 failed | 5 passed (7), Tests 8 failed | 1072 passed (1080)** — the five old files all
+    green (no old row changed); the 8 = the 4 E-d16a edges + the 4 vocabulary rows → annotated (Built) → `fix4-corpus-green.log`
+    **Test Files 7 passed (7), Tests 1080 passed (1080)**.
+  - `… run src/main/services/library/sound-answer.test.ts src/main/services/studio/agent-tools/
+    src/main/services/studio/studio-agent-prompt.test.ts src/main/services/library/sound-match > E3/fix4-corpus-green-2.log` → **Test
+    Files 28 passed (28), Tests 1261 passed (1261)**.
+  - `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.node.check.json --noEmit` → **10 `error TS`** (baseline),
+    none in a touched file (`fix4-tsc-node-step2.log`).
+  - `git diff 7967c6f -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+    src/main/services/library/sound-match-vocab.ts | wc -c` → `0` (as of `9a13e3b`).
 
 - **Fix round 4, builder #13 (2026-10-29 10:37–10:46, step 1; worktree root; HEAD `74b29e0` → `34feafe`):**
   - Red first (the new tests + the updated miss / reuse / prompt tests on the UNCHANGED code): `node
@@ -1106,7 +1163,41 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 4, continued — builder #14: steps 2–7 of the session-9 brief (step 1 is DONE by builder #13, `34feafe` — Built /
+**FIX ROUND 4, continued — builder #15: step 3 (the record fixes), then steps 4–7 (steps 1–2 are DONE — builder #13 `34feafe`
+the fill, builder #14 `9a13e3b` the corpus: Built / Verified "builder #13" / "builder #14"; do not redo them; NO matcher change —
+`git diff 7967c6f --` the three matcher files must stay empty).** **Step 3 — the record fixes** (Edit tool; line numbers as of
+`9a13e3b`): Status.md :189 "the whooshes at 0.41" → 0.38; :213 "trap-snap 0.32 on" (… "shutting down") → 0.34; :215 "power-down
+0.46" → 0.43; :305 "(riser-soft says build / build-up)" → "(riser-soft says build / building)"; the same false comment in
+`src/main/services/library/sound-match-corpus-r3-ordinary.test.ts:16` ("riser-soft says build-up" → "riser-soft says build /
+building"); verifier note 1 — Status.md :406, :410 and :780 "the right clip FIRST in the nearest" → "the right clip in the nearest —
+SECOND in four of the seven adjective + verb-form phrasings ('a soft / gentle / loud knocking' list chess-piece-capture first on an
+exact tie, 'a slow ticking' ui-click-soft first)" (grep TESTING §18.17 for the same claim too); commit (`docs(studio): E3 fix round 4
+— the (iv) record fixes`, explicit paths). **Step 4 — regression + broad probes** (the E3 index READ-ONLY: SHA-256 + mtime before /
+after, its 4 `generated/` entries excluded from the pool; never a generating driver there): the ANSWER at HEAD (`selectSoundAnswer`,
+labels) vs the answers of `788c8d2` / `09e81ea` (their matcher's top three — `E3\sound-match-788.ts`, `sound-match-09e.ts` present)
+and `7967c6f` (matches top three, else nearest top three) over the 1,073 rows (809 + the r4 files' 264; `rowsOf()` in
+`E3\fix4-corpus.e3.test.ts` reads the files) → `E3\catalog-order-fix4.txt`; the broad set = builder #11's frames
+(`E3\broad-fix3.e3.test.ts`: every inflection of every tag / category / file-name word, bare / "a w" / "a w sound" / "a soft w", the
+placement openers, the leading adverbs / wrappers) PLUS participle + noun ("a <-ed / -ing form> <noun>" with the nouns that are other
+clips' words — screen, note, photo, message, board, device, door, card, …) and adjective + verb-form ("a soft / gentle / loud / slow /
+quiet <-ing form>") → `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\broad-probes-fix4.txt` + a summary in the kit; per probe the old
+answers vs the new (labels), counted: probes, answer changed, a right clip LOST from the answer (the LESS check — the corpus has one,
+"a moving transition", Open problems), a confident first changed; READ the changed rows; a LESS case where no right clip stays shown =
+fix it in the tool layer (`sound-answer.ts`, never the matcher) + re-run, or BLOCKED with the cases; list the frames in the record.
+Then **step 5 gates** (CPU + top processes → `…\vidtsx-e2e\E3\cpu-fix4.txt`; the resource guard; 0 `electron.exe` of ours; the full
+worktree vitest → `…\vidtsx-e2e\E3\vitest-full-fix4.log`, DRIVING's normal rule or E-d13 — say which run counted — green except the
+three E-d2a suites; rule (b) `git diff --name-only 5d77600..HEAD -- src/ scripts/` → `E3\diff-list-fix4.txt` + the three suites' import
+graphs → `E3\import-graph-fix4.txt`; tsc web 26 / node 10), **step 6 the rebuild** (`wt/out`, DRIVING "Track E" step 1, log
+`E3\build-fix4.log`; `out/main/index.js` holds `The library may have a sound for` + "No library sound matched" + "PLACEMENT_BONUS";
+its mtime after the last `src/` commit), **step 7 the records** (the Status.md E3 entry — title + a "Verifier round 4 FAIL (F4) → fix
+round 4" bullet: E-d16 + E-d16a, the fill, the labels and wording, the corpus (1,073 rows; red 36 / 266 on the current helper; the
+notes), the regression / broad numbers + frames, the gates, the `wt/out` line, E-d16's bar for verifier round 5 in one sentence; the
+code list + line counts; open notes — and TESTING §18.17 likewise; every git / tree / build statement "as of `<hash>`", re-checked
+after the commit), HANDOFF `status: DONE` with Next step = "E3 verifier round 5 — E3's LAST; bar E-d16 + E-d16a (CDP 9273,
+`profiles\E3-verify` may be reused; range `963f3d9..HEAD`; the records to check: Status.md E3 entry :<lines>, TESTING §18.17
+:<lines>)", the LOG line, commit.
+
+(Step 2 DONE by builder #14, `9a13e3b` — kept for the record:) **FIX ROUND 4, continued — builder #14: steps 2–7 of the session-9 brief (step 1 is DONE by builder #13, `34feafe` — Built /
 Verified "builder #13"; do not redo it; NO matcher change — `git diff 7967c6f -- sound-match.ts sound-match-words.ts
 sound-match-vocab.ts` must stay empty).** Start with **step 2, the corpus:** (a) in `src/main/services/library/sound-match-corpus-rows.ts`
 make `expectCorpusRow`'s RECALL run over the ANSWER's three — `selectSoundAnswer(rankLibrarySounds(CORPUS_LIBRARY, prompt, { …,
@@ -1427,6 +1518,26 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Open problems
 
+### Fix round 4 (builder #14, step 2) — notes for the records, none blocking
+
+- **The one LESS row (the fill shows a clip fewer than `7967c6f` did) — "a moving transition"** (`whoosh-soft|whoosh-wind`, not
+  `chess-piece-thock`): `7967c6f` answered `whoosh-soft 0.50 | whoosh-wind 0.30` (a weak head-rule match); the fill answers `[matched]
+  whoosh-soft 0.50 | [closest] chess-piece-thock 0.30 | [closest] wind-soft 0.30` — E-d16a's own tie rule (a closest before a weak
+  match at equal coverage) pushes whoosh-wind to fourth. The allowed first stays shown first, so NOT a "right clip lost" case; not
+  changed (changing it would re-open E-d16a). A stranger (`chess-piece-thock`, "chess move") in the three = an E-d16 note.
+- **Stated choices in the E-d16 row convention (`expectAnswerRow`):** '∅' means "no CONFIDENT first" (weak / closest rows may show
+  — e.g. "a flickering screen" → `[weak match] power-down`); the E-d16a exception never excuses a '∅'-only row; an `edge` note whose
+  first has become allowed FAILS (so the notes stay true); the old 809 rows keep the stricter matcher FIRST (`matches[0]`, weak
+  included) — only their recall moved to the answer.
+- **The r4 rows whose answer first is NOT an allowed clip (E-d16 notes; `E3\fix4-r4-notes.txt`):** the 8 F4 screen rows → `[weak match]
+  power-down 0.43 / 0.47` first with the right clip beside it ("a cracked / glitching / glitched / corrupted / shattered / zapped /
+  crashing screen"; "a flickering screen" has no right clip); the 3 `edge: 'line'` rows and the 1 `edge: 'tie'` row (Built); "a slow
+  ticking" → `[closest] ui-click-soft 0.20` first, clock-tick-soft second (verifier note 1); "a shattered phone screen" → `[closest]
+  power-down 0.24` first, break-glass-crack second; the vocabulary rows ("a rewound tape", "a clicker" → a true miss; "a river
+  running", "a running tap" → `[closest] dash-zip` alone).
+- f-probe's verdicts are mine (the probe file has none); the judgement calls: "a popped message" (`pop-reveal|ui-send`), "a launched
+  message" (`ui-send|launch-thump`), "a crashed device" (`power-down|break-crash-digital`), "a swiped card" (`whoosh-soft`, a UI swipe).
+
 ### Fix round 4 (builder #13, step 1) — notes for the records, none blocking
 
 - **Stated choices (not in E-d16's text, decided here):** (1) the answer's kind follows the rows SHOWN — a weak match that three
@@ -1744,6 +1855,10 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 
 ## Do-not-redo
 
+- Fix round 4 step 2 (builder #14, `9a13e3b`): the corpus — the recall over the answer's three, the E-d16 convention
+  (`describeAnswerCorpus` / `expectAnswerRow`, `edge` notes), the two r4 row files (264 rows) — DONE; the kit
+  `E3\fix4-corpus.e3.test.ts` regenerates the row files ONLY with `FIX4_WRITE=1` (never set it again: it would overwrite the
+  annotated files).
 - Fix round 4 step 1 (builder #13, `34feafe`): the fill (`sound-answer.ts`), the labelled wording (`sound-reuse.ts`), `REUSE_NOTE` /
   `FORCE_HINT`, the prompt :31 sentence and their tests are DONE — extend (the corpus recall uses `selectSoundAnswer`), do not
   redesign; never touch the three matcher files.
@@ -1852,3 +1967,8 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   NEW `audio-tools-fill.test.ts` (the real handlers over the 51-clip fixture, incl. the "a breaking screen" pin); red 13 / 38 →
   green 26 files / 995 tests; tsc node 10; matcher diff vs `7967c6f` empty — `34feafe`. Handed off at the step boundary (30 % rule);
   steps 2–7 to builder #14. No launch, no model call, no gate run, no rebuild.
+- 2026-10-29 10:48–10:58 · builder #14 (fix round 4, step 2) · ~38 calls · the corpus: `expectCorpusRow`'s recall over the ANSWER's
+  three (FIRST on `matches[0]` kept), the E-d16 convention `describeAnswerCorpus` / `expectAnswerRow` with E-d16a `edge` notes, NEW
+  `sound-match-corpus-r4-frames.test.ts` (67 rows) + `-r4-ordinary.test.ts` (197 rows); red 36 / 266 on the current helper → green 7
+  files / 1,080 tests (the 809 old rows unchanged), the E3 set 28 files / 1,261; tsc node 10; one LESS row (noted) — `9a13e3b`.
+  Handed off at the step boundary (30 % rule); steps 3–7 to builder #15. No launch, no model call, no gate run, no rebuild.
