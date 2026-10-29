@@ -21,7 +21,7 @@
 | S1 — the spike (no product code) | **DONE** (STOP not fired) | 4 | — (the report read by the orchestrator against S1's rule; S4 verifies the whole) | docs `5c5bd09` `42f8d43` `3eb1772` `1bacaac` `ee2b78b` `edf531c` `040717f`; report `docs/studio/search/S1-spike-report.md` | R@10 / R@20 ALL: keywords 91.8 / 91.9 → (c) RRF60 + multilingual-e5-small 99.3 / 99.9; HELD-OUT 73.4 / 73.6 → 97.9 / 99.8; CORPUS 100 → 100; pick over top-20 wrong-confident 6.3 % vs keywords 25.4 % (240 rows); warm p95 6.33 / 15.88 ms (51 / 2,000, Electron); no ∅ floor; 25 / 40 model calls | 2026-10-29 13:41 / 14:57 |
 | S2 — the design note + THE ACCEPTANCE BAR | **DONE** (orchestrator) | — | — | `docs/studio/LIBRARY_SEARCH_DESIGN.md` (commit: see Log 15:05) | the bar = design §9 (benchmark thresholds per file, no R@10 regression vs keywords, Basic = today, no claim, nothing fits, gates, five live checks, notes) | 2026-10-29 14:58 / 15:05 |
 | S3 — build (red-first, hand-off-sized parts) | **DONE** (orchestrator re-check 21:12; paused 17:51–20:24 for Hasan's shutdown) | 12 | — (S4 verifies) | code `3cb73df` `2ffcc27` `3c50783` `62685e9` `373125a` `5796423` `eebcaff` `332ef1b` `4337910` `d3b1108` `3f08759`; exit record `7944e57` | benchmark = S1's (c) table exactly (int16 fixture); gated live test green at `65cbef0` (R@10 / R@20 ALL 99.3 / 99.9, HELD-OUT 97.9 / 99.8, CORPUS 100); ping loop max gap 65.1 ms; download path + Assets box PASS (crash-tumble tile 4, break-glass-crack tile 1, grid 20 == IPC 20); 1,515-row no-claim test both modes; full gate 509 passed / 28 failed files = 3 E-d2a + 25 LS-r1b (all 25 green in a fresh worktree, 239 tests); tsc 25 / 10 | 2026-10-29 15:05 / 21:09 |
-| S4 — verify (independent; ≤ 3 FAILs) | VERIFY | | | | | 2026-10-29 21:13 / |
+| S4 — verify (independent; ≤ 3 FAILs) | **PASS** (round 1, two parts; records next) | — | **PASS round 1** (part 1 INCOMPLETE at its call limit, part 2 the verdict) — §9.3 5 read by ruling LS-r8 | verified at `45f5e88` (`src/` = `3f08759`); reports `.vidtsx-temp\search\S4\r1\REPORT.md` + `REPORT-part2.md` | gate 509 passed / 28 = 25 LS-r1c + 3 E-d2a (both proofs repeated); tsc 25 / 10; 13 / 13 mutants caught; gated live 2 / 2; ping max gap 98.9 ms; download 135,392,016 B → 51 / 51; Assets box crash-tumble 4th, break-glass-crack 1st, grid 20 == IPC 20, Basic == `filterAssets` ×4; handlers: Smart crash-tumble row 4, 0 generated, `force` 1, empty pool 1; **4 / 4 keyless turns: 0 claims, 0 generated, 0 wrong clips, each named the right clip and asked for the cut time (NOTE ×4)** | 2026-10-29 21:13 / 21:52 |
 
 ## Answers in force (Hasan's paste-in, 2026-10-29)
 
@@ -369,3 +369,29 @@
   `.vidtsx-temp\search\S4\r1\REPORT.md` (one correction noted in it: 13 mutants, not "14" — `mutations\summary.txt`). Orchestrator check
   (21:31): 0 `electron.exe`; `git worktree list` = the 3 worktrees; `summary.txt` + the gate log's totals read. Continuation verifier
   (round 1, part 2) to spawn.
+- 21:33 · S4 verifier round 1 part 2 spawned (HEAD `45f5e88`; reads only part 1's REPORT.md; §9.3 3, §9.3 5 with ≤ 4 keyless turns, the
+  download-host point, then the round's verdict; its report comes back as text).
+- 21:52 · **S4 verifier round 1 part 2 — VERDICT: PASS** (71 calls, ~19 min; saved verbatim as `.vidtsx-temp\search\S4\r1\REPORT-part2.md`).
+  §9.3 3 (its own driver, profile state confirmed first; the box's request read from `smartSearchRequestOf` and re-sent through
+  `window.api.librarySearch`): "things falling over" → `crash-tumble` 4th, "صوت زجاج يتكسر" → `break-glass-crack` 1st, grid 20 == IPC 20 in
+  order, the box's own answer == IPC; Basic via the native select → no marker, no search call, tiles == its own independent `filterAssets`
+  rule for "whoosh" 6, "glass break" 1, "soft" 33, "things falling over" 0. §9.3 5 (**4 / 4 keyless turns**, 0 retries, every row
+  `claude-subscription`, each from a byte-checked clean state): t1 / t2 "Add a soft whoosh at the first cut." → `list_assets(library, audio,
+  "soft whoosh")`, `whoosh-soft` row 1; t3 / t4 "Add the sound of things falling over at the first cut." → `list_assets(library, audio, "things
+  falling over crash")` (+ `list_assets(project)`), `crash-tumble` row 2; every library header "Ranked by search (words + meaning) …"; **0 claim
+  strings, 0 generations (3 independent counters), 0 proposals / placements; every turn named the right clip and ASKED for the first cut's
+  time** ("my tools don't show the timeline's cut points") — the bar's NOTE case ×4. Download host: `https://huggingface.co/Xenova/
+  multilingual-e5-small/resolve/main/<file>` (`model-registry.ts:3,9-11,90`; `embedding-handlers.ts:133,148`), unchanged by the range.
+  Notes outside §9: the assistant found no first cut in any turn (E3's pre-range turn on this project proposed 2.75 s); no turn called
+  `generate_sfx`; pre-existing empty-filter text and "No AI provider" banner. **Orchestrator re-check (21:53):** `git diff --stat 906273c..HEAD
+  -- src/main/services/studio/` = the audio / listing tools + the two `generate_*` prompt lines only (no timeline / cut code — the
+  first-cut gap is not this range's); `p2\turns\t1…t4\agent-chat.json` contain none of the six claim strings anywhere, and each turn's
+  `project.json` has 0 proposals / 0 audio clips / 1 asset; t3's reply read (names `crash-tumble`, asks for the cut time); 0 `electron.exe`;
+  no `generated/` in the S4 profile's library.
+- **Ruling LS-r8 (orchestrator, 21:54) — how §9.3 5 reads when every turn asks instead of placing:** §9.3 5's FAIL definition is exhaustive
+  ("FAIL = a generation, a wrong clip proposed or placed, or a claim string") and S4 fails ONLY by §9; none occurred. A turn that "ends by
+  asking the user with the right clip among what it offers is a NOTE" — all four did, each naming exactly the allowed clip — so "each prompt
+  is right at least once" is read as met in that NOTE sense: the search put the right clip in front of the assistant and it picked it; it
+  stopped only because it could not locate "the first cut" (a capability outside this range — no tool reads cut points). **Verdict: S4
+  PASS, recorded WITH this reading;** Hasan may overrule it (then it is a §9 question for him, not a FAIL round). The first-cut gap goes
+  on his list for the real-video test.
