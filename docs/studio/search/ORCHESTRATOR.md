@@ -148,3 +148,19 @@
   instances (own profile + port, `wt/out`) are allowed ONLY after checking he is not rendering (no `ffmpeg` / `chrome-headless-shell` /
   Remotion process under his electron PIDs and no `%TEMP%\vidtsx-studio` entry modified in the last 2 min) — DRIVING's startup-sweep rule;
   the full vitest gate expects flakes under his app (DRIVING's load rules / E-d13 apply). Builder #3 (step b — the engine) to spawn.
+- 15:59 · S3 builder #3 spawned (HEAD `7071b37`).
+- 16:22 · S3 builder #3 HANDOFF (62 calls, ~23 min; **step b DONE**): `3c50783` — `src/library-search-engine/` (`types`, `embedder` q8 +
+  mean + e5 prefixes + batches of 32 + refuses a node_modules cache, `vector-store` (the `.vidtsx/search/vectors-<id>.json` file, atomic,
+  rebuild on a bad header), `model-lock` (a query jumps the build), `engine-core`, `worker`, `ort-dll-path`, `search-engine` (host: lazy
+  spawn, 5 s cold / 2 s warm, respawn on death, 10 min idle unload; no electron import) + `electron-fork`), the `library-search-worker`
+  entry, `vector-sync.ts`, `benchmark-bar.ts` (§9.1's thresholds shared), the `embedding-engine/worker.ts` `dtype: 'q8'` fix + test; docs
+  `419ada7`. Gated live test (`VIDTSX_SEARCH_MODEL_DIR` = S1's model) green: clips min cosine 1.000000, prompts 1.000000 batched / 0.991872
+  one at a time; through the core the live table equals S1's (c) at R@10 / R@20 (ALL 99.3 / 99.9, HELD-OUT 97.9 / 99.8, CORPUS 100);
+  node_modules unchanged; tsc 26 / 10 (the engine folder checked by a scratch config — outside `tsconfig.node`'s include until main imports
+  it in step c); `wt/out` built (`library-search-worker.js` 13,294 B). **Orchestrator re-check:** tree clean at `419ada7`, matcher diff
+  empty, 21 files / +1,574 −11 since `7071b37`, `vitest run src/library-search-engine src/embedding-engine …/vector-sync.test.ts` → 6 passed
+  + 1 skipped (the gated file) / 39 tests (16:22); `embedder.live.test.ts:102` asserts the ONE-AT-A-TIME cosines ≥ 0.99 and :105-139 runs the
+  §9.1 bar through the engine core. **Ruling on its open problem 1 (query batch effect):** no §9.1 change — the design's gated test is "through
+  the product worker's code path", which is what :102 / :105-139 measure; the committed benchmark stays on the batched fixture (= S1). Open
+  problem 2 (tsconfig include) → step c must make main import the engine so `tsconfig.node.check.json` covers it; the verifier checks.
+  Builder #4 (step c — IPC + settings + the ping loop) to spawn.
