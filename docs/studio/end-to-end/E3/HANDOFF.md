@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: DONE — fix round 3 complete: items 1–3 (builder #9 the corpus `574edbc` + the matcher fix `02e2a10`; builder #10 the miss rule `7967c6f`), item 4a–4c (builder #11: the regression report vs `788c8d2` + `09e81ea` over all 809 rows, the 7,554-probe broad set read and classified — no "worse" first, one class noted; gates counted under DRIVING's normal rule; `wt/out` rebuilt at `7967c6f`; docs + scratch only — code HEAD `7967c6f`), item 4d the records (builder #12, `3cff0be`: Status.md E3 entry :10-852, TESTING §18.17 :524-540; every evidence file re-read first — the `*` row count corrected to 48 and three line-count nits stated; the re-checks after the commit all true). Next: **E3 verifier round 4 — E3's LAST, bar E-d15 (i)–(iv)**
+status: STOPPED — **FOURTH verifier FAIL** (round 4, 2026-10-29 01:24–02:00, E-d15 (iii): **F4** — fix round 3's own stem factor (`STEM_STRENGTH = 0.6`) with the equal-hit head rule lets a verb-form modifier + a noun that is ANOTHER clip's tag match the stranger CONFIDENTLY while the right clip — first at both `788c8d2` and `09e81ea` — drops into the nearest list a match answer never shows: "a cracked screen" / "a glitching screen" → `power-down` only, "a scribbled note" / "a typed note" → `chime-reward` only; plus four (iv) number nits in Status.md). Fix round 3 itself is complete (items 1–4: the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` / `5852abf`; gates, build and every other record TRUE in round 4). The session-8 rule: a FAIL in round 4 stops the run — **a fix round 4 is PROPOSED in "Next step" (the answer-level recall fill, proposed decision E-d16) and waits for Hasan's go / no-go; the track-E exit is NOT run.** Open problems → "Verifier round 4".
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -1035,7 +1035,42 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**E3 verifier round 4 — E3's LAST; the bar is E-d15 (i)–(iv)** (orchestrator: spawn it — CDP 9273, its own `profiles\E3-verify`
+**STOPPED 2026-10-29 02:05 (the session-8 rule: a FAIL in verifier round 4 stops the run). PROPOSED fix round 4 — waits for Hasan's
+go / no-go and his design call (proposed decision E-d16; ORCHESTRATOR.md "Stops (session 8)").** Verifier round 4 FAILED on F4
+(Open problems → "Verifier round 4"): the F3a factor (`STEM_STRENGTH = 0.6`, `sound-match-words.ts:35`, `matchStrength` :114-121)
+with the equal-hit head rule (`sound-match.ts:159` `headHit` only on `hit.equal`, the match test :166) makes "a cracked screen" /
+"a glitching screen" / "a shattered screen" / "a scribbled note" / "a typed note" a CONFIDENT match on the clip whose tag or text
+equals the NOUN (`power-down`'s `screen` tag, `chime-reward`'s "bell notes") while the right clip (`break-glass-crack`, `glitch-zap`,
+`pencil-scribble`, `keys-typing-soft` — first at `788c8d2` AND `09e81ea`) covers only the verb-form modifier at 0.6 → under 0.5
+with no head hit → the nearest list, which a match answer never shows. Through the real handler: "The library already has 1 sound
+matching "a cracked screen"" → `library:sfx/power-down.mp3` (`…\E3-verify\r4\h-noprov2.txt`). **Why no threshold tweak settles it:**
+"running water" (F3 — the right `stream-soft` hits the HEAD "water" equally, the wrong `dash-zip` hits the modifier "running" by
+stem) and "a cracked screen" (F4 — the wrong `power-down` hits the head "screen" equally, the right `break-glass-crack` hits the
+modifier "cracked" by stem) are the SAME lexical shape; which word carries the sound is semantic. The verifier's `STEM_STRENGTH = 1`
+probe reverts 13 of the 14 F4 firsts (`g-probe-STEM1.txt`) but brings F3's 0.50 tie back; ranking by unfactored coverage brings
+"shutting down" → `trap-snap` back. Two ways forward:
+1. **(Recommended) The answer-level recall fill — proposed E-d16.** The tool answer always shows up to THREE sounds: the matches
+   first, then the closest other candidates (coverage > 0) to fill the three, each row labelled `matched` / `weak match` (a head-rule
+   match under 0.5) / `closest`; when every match is weak the wording says the library "may have" the sound; `force: true` as now
+   (`sound-reuse.ts` `formatSoundMatches` / `libraryReuseAnswer`; `rankLibrarySounds` already returns both lists). So the right clip is
+   in front of the model on BOTH shapes ("a cracked screen": `power-down` weak 0.43, `break-glass-crack` closest 0.34 — the model
+   reads "a pane of glass cracking" against "a device switching off" and picks; "running water": `stream-soft` matched, `dash-zip`
+   closest). Tool layer only — no matcher change; `audio-tools-miss.test.ts` / `-reuse.test.ts` rows red first; the corpus RECALL
+   assertion extended to the ANSWER's three (`expectCorpusRow`); corpus rows for the verifier's 14 F4 phrasings (`…\E3-verify\r4\
+   g-probe.txt`) and its 236-phrasing ordinary set (`c-ordinary.txt`) with plain-meaning outcomes; the (iv) nits fixed in the records
+   (Status.md :189 "0.41" → 0.38, :213 "trap-snap 0.32" → 0.34, :215 "power-down 0.46" → 0.43, :305 "(riser-soft says build /
+   build-up)" → "build / building" — and the same comment in `sound-match-corpus-r3-ordinary.test.ts:16`) and the verifier's note 1
+   ("the right clip FIRST in the nearest" → in the nearest, SECOND in four of the seven phrasings); the regression + broad-probe
+   reports re-run with participle + noun frames added; gates; rebuild; records. **The bar for a verifier round 5 (E-d16):** (i) the
+   corpus; (ii) an ordinary phrasing where the library has the sound and the right clip is NOT among the answer's three; (iii) a
+   confident (≥ 0.5) match that puts a clearly wrong sound first while the right clip exists; (iv) a false record — a weak match
+   first with the right clip beside it is a note.
+2. **(Alternative) Stop E3 here as DONE-PARTIAL** (the exit is MET live — the whoosh case ×2, the stand-in generation found before
+   regenerated, the Assets screen plays; the matcher is a recorded heuristic with four rounds of notes): F4 and round 4's notes go on
+   Hasan's real-video list; the track-E exit runs next. Cheaper, but F4-shaped prompts keep telling the model "the library already
+   has 1 sound" with the wrong clip until a later round.
+
+(Done 2026-10-29 01:24–02:00 — FAIL on F4, see Open problems; kept for the record:) **E3 verifier round 4 — E3's LAST; the bar is E-d15 (i)–(iv)** (orchestrator: spawn it — CDP 9273, its own `profiles\E3-verify`
 copy WITHOUT `settings.db*` may be reused (verifier scratch; its library holds its own stand-in files under `generated/`); range
 `e98190f..HEAD` — the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` (the other commits in
 the range are docs); the records to check: Status.md E3 entry **:10-852** (the fix-round-3 bullet :137-421, the code list :422-,
@@ -1294,6 +1329,74 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 #4 (gates + records) is done: gates green (Verified above), records committed; no code change, no live run.
 
 ## Open problems
+
+### Verifier round 4 — FAIL on F4 (2026-10-29 01:24–02:00; E3's LAST round under E-d15; no launch, no model call; kit `.vidtsx-temp\end-to-end\E3-verify\r4\`, evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r4\`)
+
+- **F4 (code defect in the F3 class — E-d15 (iii): a confident match puts a clearly wrong sound first while the right clip exists;
+  the right clip was first at BOTH `788c8d2` and `09e81ea`).** On the committed fixture (= the real index's 51 clips, verified field
+  by field; `g-probe.txt`, 32 phrasings, 14 wrong firsts) and through the REAL `generate_sfx` handler with no provider on the
+  verifier's clean 51-clip scratch library (`h-noprov2.txt`): "a cracked screen" — `788c8d2` / `09e81ea` `break-glass-crack 0.57 |
+  power-down 0.43`, HEAD **`power-down 0.43` (the head rule) alone**, nearest `break-glass-crack 0.34 | pop-reveal 0.26 | scan-hum
+  0.26`; the handler answers "The library already has 1 sound matching "a cracked screen"" → `library:sfx/power-down.mp3` ("An
+  electronic device switching off for good …"); the same for "a glitching / glitched / corrupted / shattered screen" (`glitch-zap` /
+  `break-glass-crack` 0.57 → `power-down 0.43`), "a zapped screen" (`glitch-zap | zap-electric 0.53` → `power-down 0.47`), "a crashing
+  screen", "a breaking screen" (a 3-way 0.50 tie → `power-down 0.50 | pop-reveal 0.30 | scan-hum 0.30`); "a scribbled note" —
+  `pencil-scribble 0.50 | chime-reward 0.30` → **`chime-reward 0.30` (the head rule) alone**, nearest `pencil-scribble 0.30`; the same
+  for "scribbling a note", "a sketched note", "a scribbled note when the text appears", "a typed note" (`keys-typing-soft 0.50` →
+  `chime-reward 0.30`). **Mechanism (at `7967c6f`):** `sound-match-words.ts:35` `STEM_STRENGTH = 0.6`, applied by `matchStrength`
+  :114-121 (a verb form scores 0.6); `sound-match.ts:94-104` `hitOf` → `weight = FIELD_WEIGHT × strength`, `equal` only at strength 1;
+  :154-160 `headHit` only on `hit.equal`; :166 a match at `coverage ≥ 0.5 || (headHit && coverage ≥ 0.3)`. "a cracked screen": terms
+  `cracked:1, screen:1`, head `screen`; `break-glass-crack` covers `cracked` via its `crack` tag at 0.6 → 0.34, no equal head →
+  nearest; `power-down` covers `screen` (an equal TAG hit) → 0.43 with `headHit` → a match, first and only. **Proof it is F3a, not
+  polysemy:** with `STEM_STRENGTH = 1` applied (then restored, sha verified; `mutate-probe.cjs`, `g-probe-STEM1.txt`) 13 of the 14
+  wrong firsts revert to the right clip (the one left, "a flickering screen", has no right clip); the polysemy existed at `09e81ea`
+  and the right clip still won there. The miss rule does not reach it (a match, not a miss): the model is told the library has the
+  sound; a user who believes it places a wrong clip, or calls `force` and pays for a duplicate of a clip it never saw. The records'
+  broad set did not cover participle + noun frames (bare / "a w" / "a w sound" / "a soft w" + openers), so its "no worse first" claim
+  is scoped, not false. **Orchestrator confirmed** the code lines, the fixture entries (`power-down` tags `… screen, device …`;
+  `break-glass-crack` tags `… crack …`; `chime-reward` "bell notes"; `pencil-scribble` tags `scribble, sketch …`) and the evidence
+  lines (`g-probe.txt:3-10`, `h-noprov2.txt:1-9`, `g-probe-STEM1.txt:3-10`).
+- **(iv) — false statements in the Status.md E3 entry (minor; none changes an outcome):** :305 "(riser-soft says build / build-up)"
+  — riser-soft's text is the tag `build` + "riser building" (orchestrator confirmed in the fixture :54); "build-up(s)" appears only
+  in ambient-pad's / docu-pluck's NEGATED "no build-ups" (the ∅ outcome itself is right; the same false comment sits in
+  `sound-match-corpus-r3-ordinary.test.ts:16`); :213 "trap-snap 0.32 on 'shutting down'" — actual 0.34; :215 "power-down 0.46" —
+  actual 0.43 (:363 says 0.43); :189 "a running whoosh … the whooshes at 0.41" — actual 0.38 (:257 says 0.38).
+- **Passed (its own numbers):** gates — CPU 01:24 `LoadPercentage` 85, `vmmemWSL` 60.3 % (external); run 1 had `shot-module-resolver
+  .test.ts:151` (DRIVING's named LOAD timeout, 10 / 10 alone) → **run 2 counted at default workers: 503 / 3 / 5 files (511), 5,097 /
+  9 / 35 tests (5,141), 70.97 s, 0 timed out**, only the 3 E-d2a suites; rule (b) its own strict walk 2 / 12 / 23 modules, NONE of
+  the 99 paths; tsc 26 / 10. The corpus: 5 files / 814 tests green; its own evaluation of the 809 rows 0 FAIL, every expectation
+  fair, the recall assertion as recorded (49 `*` incl. "soft", 61 `∅`, 52 `x|∅`). Its own 13,970-probe broad set vs both olds (the
+  "worse?" rows all -er / -ly / nonsense inflections the old prefix rule matched, "water X-ing" nonsense, and the noted adjective +
+  verb-form class) and a 236-phrasing ordinary set (225 ok; the one real finding above; the rest notes). Real handlers on its own
+  clean 51-clip scratch library (51 / 51 sha256 = the catalog): no provider — a match answers before the provider check, a near miss
+  answers "No library sound matched …" with three rows + `force: true` and writes nothing (index byte-identical), a true miss → the
+  provider notice; its own −29.4 LUFS stand-in — a true miss generated once (8 files in all, every one `ebur128` −20.2 LUFS / −13.6
+  dBTP) then FOUND, near misses WITH the provider generated nothing, `force` generated (sfx + music), a 90 s bed and a
+  `compositionPlan` generated, the length rule strict. Mutations: MI, MJ, F3a `STEM_STRENGTH = 1` (22 failed), the equal-hit head
+  rule, the miss rule generating, `force` ignored (sfx / music), the nearest unsorted, the `covered <= 0` guard, the adverb stop words,
+  SAME_SOUND off the stem — every one caught by a committed test; the openers-off mutation not applied (its pattern did not match;
+  pinned by `sound-match-words.test.ts:82-90` + the placement corpus). Build: `out/main/index.js` 00:54:49 after `7967c6f` (00:30:57),
+  the markers present; no renderer source changed since `8bde97c`. **Records: everything else true** — the title, E-d15's bar, every
+  line pointer at `7967c6f`, every line / row / test count, git fact, log total and time, the regression and broad headers, both
+  driver JSONs, the intentional first changes, the earlier rounds' facts at HEAD.
+- **Notes (not failures — Hasan's list):** (1) the records' "the right clip FIRST in the nearest list" for the adjective + verb-form
+  class is imprecise — "a soft / gentle / loud knocking" list `chess-piece-capture` first and `knock-solid` second (an exact tie,
+  relPath order), "a slow ticking" `ui-click-soft` first, `clock-tick-soft` second: by plain meaning the right clip is SECOND in four
+  of the seven phrasings; (2) vocabulary gaps that now generate without `force` (no candidate scores): "a buildup" (riser-soft is
+  tagged `build`; only "a build-up" matches — the strongest (ii) candidate by plain meaning), "a ding" ×3, "a runner", "eaten",
+  "woooosh", "a clicker / ticker / zipper"; (3) a music prompt containing "bed" can never be a true miss on this library (every bed
+  carries the tag `bed`) — a genre the library lacks costs one extra tool call when phrased "… bed"; (4) "an F major triad" →
+  `piano-c-maj` (one-letter tokens dropped, the three majors tie; same at both olds); (5) "cozy lofi hip hop under the tutorial" → ∅
+  with lofi-warm first in the nearest; "a click every single time the button is tapped" → ∅ ("every single time" is not an opener)
+  — F1-class near misses with the right clip first in the nearest; (6) "objects clattering down" → ∅ (nearest `crash-tumble 0.44`),
+  a 0.58 match at both olds — the class (16); (7) strangers first in a nearest list: "a single bell ring" → `knock-solid 0.20` ahead
+  of the chimes, "a dying battery" → `flame-snuff | power-down 0.24`, "a tap running" / "running creek" / "a river running" →
+  `dash-zip` alone; (8) polysemy confident matches with no right clip: "a fire crackling" → `launch-thump` (cannon `fire`), "winding
+  up" → the wind clips, "a shocking moment" → `zap-electric`, "a flickering screen" → `power-down` (at both olds too); (9) the
+  library index's `hash` field is not a SHA-1 of the file bytes (nothing in E3 reads it); (10) generated files without a `category`
+  argument index `category undefined` — expected.
+- Its scratch: kit `…\E3-verify\r4\` (0.2 MB), evidence `…\vidtsx-e2e\E3-verify\r4\` (13.3 MB incl. its scratch library with 8
+  stand-in files). Nothing running; the worktree clean at `963f3d9`; the builders' E3 profile untouched.
 
 ### Verifier round 3 — FAIL on F3 (2026-10-28 22:37–23:14; no launch, no model call; kit `.vidtsx-temp\end-to-end\E3-verify\r3\`, evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r3\`)
 
@@ -1625,3 +1728,7 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   `3cff0be`; four discrepancies recorded (48 `*` rows not 38; `-rows.ts` 62 not 58; `-bonus.test.ts` 47 not 52; 87 vs 88);
   re-checks after the commit all true; HANDOFF DONE. No `src/` / `scripts/` change, no gate re-run, no rebuild, no launch, no
   model turn.
+- 2026-10-29 01:24–02:00 · verifier round 4 (orchestrator-spawned; E3's last under E-d15) · ~101 calls · **FAIL on F4** (Open problems
+  → "Verifier round 4") + four (iv) number nits; gates, corpus (809 rows fair), its own 13,970-probe broad set + 236-phrasing ordinary
+  set, real handlers on its own scratch library with its own stand-in, 12 mutations, the build and every other record true. No
+  launch, no model call; the worktree untouched.
