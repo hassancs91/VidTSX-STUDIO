@@ -13,7 +13,7 @@ const ROWS: CorpusRow[] = [
   ['an airy swoosh', W], ['a whoosh with some air', W], ['a whooshing transition between scenes', 'whoosh-soft'], ['a woosh', W], ['woosh', W],
   ['a soft impact', IMPACT], ['a deep boom', 'impact-deep-soft'], ['a low thud', THUD], ['a punchy hit', HIT], ['an impact for the reveal', 'impact-deep-soft|impact-soft'],
   ['a dramatic hit', HIT], ['a big reveal', 'pop-reveal|impact-deep-soft'],
-  ['a soft riser', 'riser-soft'], ['a tension riser', 'riser-soft'], ['a riser into the reveal', 'riser-soft'], ['a build-up', 'riser-soft'], ['a buildup', '∅'], // recall (fix 3): no clip carries "buildup" (riser-soft says build-up)
+  ['a soft riser', 'riser-soft'], ['a tension riser', 'riser-soft'], ['a riser into the reveal', 'riser-soft'], ['a build-up', 'riser-soft'], ['a buildup', '∅'], // recall (fix 3): no clip carries "buildup" (riser-soft says build / building)
   ['a soft click', CLICK], ['a button click', CLICK], ['a UI click', CLICK], ['a menu click', 'ui-click-soft'], ['a toggle sound', 'ui-toggle-on'], ['a send sound', 'ui-send'],
   ['a success chime', 'chime-reward'], ['a reward chime', 'chime-reward'], ['a magic chime', 'chime-magic'], ['a positive chime', 'chime-reward'], ['a notification chime', CHIME],
   ['a pop', POP], ['a soft pop', POP], ['a bubble pop', 'pop-reveal'], ['a party popper', 'party-popper'], ['confetti', 'party-popper'],

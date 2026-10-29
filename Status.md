@@ -186,7 +186,7 @@
     "shutting off" / "a shutting down sound", `flame-snuff` on the three "wind blowing" rows, `page-flip` on "when the / a
     card flips a whoosh". Accepted on purpose (stated): "a running whoosh" → `W|dash-zip` (dash-zip's description IS "a
     quick zippy whoosh" with footsteps — it ranks first at 0.60 through its `run` tag + the description's whoosh, the
-    whooshes at 0.41), "a whoosh going down" → `W|power-down`, "a softer whoosh" / "a whoosh but softer" → W. **Red on
+    whooshes at 0.38), "a whoosh going down" → `W|power-down`, "a softer whoosh" / "a whoosh but softer" → W. **Red on
     `09e81ea`** (`574edbc` = the rows only): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
     src/main/services/library/sound-match-corpus` → `Test Files 4 failed | 1 passed (5)` · `Tests 88 failed | 726 passed
     (814)` — **88 / 659 rows** (`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\fix3-corpus-red.log`, `Start at
@@ -210,9 +210,9 @@
     (the silent-e drop alone made hop = hope, bit = bite — gone; rung ≠ run, sparkle ≠ spark, riser ≠ rise, shutter ≠ shut
     stay). `hitOf()` (`sound-match.ts`) = field weight × strength; **the head rule needs an EQUAL hit** (:159 `word === head
     && hit.equal`), so "a tap running" (head `running`, a stem hit on dash-zip's `run`) cannot match through the 0.30 head
-    rule — dash-zip 0.26 on "a tap running", 0.30 on "running water" (no head), 0.32 on "a running stream", trap-snap 0.32 on
+    rule — dash-zip 0.26 on "a tap running", 0.30 on "running water" (no head), 0.32 on "a running stream", trap-snap 0.34 on
     "shutting down", chess-piece-thock 0.38 on "moving air" — all under the 0.5 line, NOT offered (the `not` rows green);
-    stream-soft 0.50 / 0.46, power-down 0.46, wind-soft 0.60 first. The pinned pair `run` / `running`
+    stream-soft 0.50 / 0.46, power-down 0.43, wind-soft 0.60 first. The pinned pair `run` / `running`
     (`sound-match-words.test.ts:12`) STAYS a match, at 0.6 (:31): the corpus decided — "a running sound" / "running" /
     "someone running fast" / "running footsteps" → dash-zip are right by plain meaning, and single -ing words ("whooshing",
     "clicking", "chiming", "humming", "hitting") still match through the 0.5 line (coverage = 0.6 on their one term).
@@ -302,7 +302,7 @@
     all five corpus files (the 150-row `sound-match-corpus.test.ts` 208 → 192, its own runner removed). **Ten rows → `∅`**
     — plain-meaning corrections, each with a comment in its file: the named clip carries NO word of the prompt, so no rule
     can reach it (a synonym gap, not a ranking fault): r3 "taking a picture" (camera-shutter says photo / capture;
-    chess-piece-capture is the one near miss), "a buildup" (riser-soft says build / build-up), "a runner" (runner ≠ run —
+    chess-piece-capture is the one near miss), "a buildup" (riser-soft says build / building), "a runner" (runner ≠ run —
     no -er), "eaten" (crunch-bite's `eat`; no -en), "a tap running" and "running creek" (stream-soft: stream / brook /
     water / trickle / babbling — neither word; dash-zip is the one near miss and still never a MATCH — `NO_DASH` kept),
     "woooosh" (an elongated spelling); the 150-row file "a ding", "a ding if correct", "a ding when the answer is right"
@@ -403,11 +403,14 @@
     **No "worse" first in E-d15's sense** (an ordinary phrasing where the library has the sound and the new first is
     clearly wrong, or the sound lost from matches AND nearest) **→ no code change.** **The one class to note** (a NOTE, not a
     FAIL — item (16) below): an adjective the clip's own text does not hold + a verb-form head word → a near miss with the
-    right clip FIRST in the nearest list the tool now answers (`E3\probe-fix3.txt`, 22 phrasings, 788 / 09e / HEAD; driver
+    right clip in the nearest list the tool now answers — SECOND in four of the seven adjective + verb-form phrasings ('a
+    soft / gentle / loud knocking' list chess-piece-capture first on an exact tie, 'a slow ticking' ui-click-soft first, a
+    0.20 tie; corrected in fix round 4 after verifier round 4's note 1) (`E3\probe-fix3.txt`, 22 phrasings, 788 / 09e / HEAD; driver
     `probe-fix3.e3.test.ts`, `1 passed`): "a soft knocking" ∅ (nearest knock-solid 0.49; 788 / 09e 0.82), "a gentle
     knocking" 0.44 (old 0.72 / 0.73), "a loud knocking" 0.22 (old 0.36), "a soft knocking when the door opens" 0.49 (old
     0.82), "a soft breaking" 0.49 (old 0.82), "a slow ticking" 0.20 (old 0.43 / 0.34), "a loud crashing" 0.24 (old 0.39) —
-    each ∅ with the right clip FIRST in the nearest; while "a soft knock" 0.82, "a gentle knock" 0.73, "a knocking" 0.60, "a
+    each ∅ with the right clip in the nearest — SECOND in four of the seven (the three knocking rows without a door
+    clause, chess-piece-capture first on an exact tie; "a slow ticking", ui-click-soft first); while "a soft knock" 0.82, "a gentle knock" 0.73, "a knocking" 0.60, "a
     soft knocking at the door" knock-solid 0.67, "a soft / quick / gentle whooshing" 0.68 / 0.60 / 0.60, "a soft ticking /
     clicking" 0.68, "a soft popping / chiming", "a gentle sparkling", "a quiet humming" 0.60 and "a soft typing" 1.00 still
     MATCH (the clip's text holds the adjective, or the head is a noun). Candidate corpus rows for the verifier / Hasan's
@@ -777,7 +780,9 @@
   particles excluded; negation still only drops words, never demotes (item 4). (16) **Fix round 3 — the one noted class**
   (`E3\probe-fix3.txt`, 22 phrasings): an adjective the clip's own text lacks + a verb-form head — "a soft knocking" (0.49,
   was a 0.82 match at `788c8d2` and `09e81ea`), "a gentle knocking" 0.44, "a soft breaking" 0.49, "a slow ticking" 0.20, "a
-  loud crashing" 0.24 — is a near miss at `7967c6f`: the right clip FIRST in the nearest list the tool answers, nothing
+  loud crashing" 0.24 — is a near miss at `7967c6f`: the right clip in the nearest list the tool answers — SECOND in four of the seven
+  adjective + verb-form phrasings ('a soft / gentle / loud knocking' list chess-piece-capture first on an exact tie, 'a
+  slow ticking' ui-click-soft first) — nothing
   generated; E-d15 (ii) / (iii) do not reach it. The mechanism is F3a's own: a 0.6 stem hit on the head cannot carry an
   adjective over the 0.5 line, and the head rule asks for an equal hit. A possible later fix (NOT done — outside the fix
   clause; it would need the corpus + both probe sets re-run): a verb-form head hit at a higher floor (coverage ≥ 0.4); the
