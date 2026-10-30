@@ -18,7 +18,7 @@
 | Part | Status | Builders spawned | Verifier result | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` `b382288` | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:57 |
-| T2 — build (red-first, hand-off-sized) | BUILDING | 4 | — | step 1 `307f96f` · step 2 `99c35b1` · step 3 `cf4fb0c` `021a2d6` | — | 2026-10-30 15:58 / |
+| T2 — build (red-first, hand-off-sized) | BUILDING | 5 | — | step 1 `307f96f` · step 2 `99c35b1` · step 3 `cf4fb0c` `021a2d6` | — | 2026-10-30 15:58 / |
 | T3 — verify (independent; ≤ 3 FAILs) | TODO | — | — | — | — | |
 
 ## Answers in force (Hasan's paste-in, 2026-10-30)
@@ -124,7 +124,23 @@
   `round3`, the 1 ms mapping check, the fixed fallback, the label); the mapping refactor diff read (the same loop, moved); 14 files → 14
   passed / 133 tests (16:31:43); 0 `electron.exe`; C: 28.6 GB, D: 39.3 GB, headroom 33.9 GB. T2 builder #4 (§9 step 4 — build, the smoke,
   the gates) to spawn.
-- 16:33 · T2 builder #4 spawned (HEAD = this commit; the same brief).
+- 16:33 · T2 builder #4 spawned (HEAD = this commit; the same brief). (Clock: `8b1c2e5` landed at 16:32:17.)
+- 16:45 · **T2 builder #4 HANDOFF** (65 calls, ~12 min; **§9 step 4 part 1 DONE — the §8.3 1 smoke**; the §8.2 gates NOT run, stopped at
+  its call limit): docs `424eb18` `4a3101c`, no `src/` change. Guard 16:33 (C: 28.58 GB, D: 39.3 GB, headroom 32.06 GB; Hasan's app not
+  running); **16:40 another session's Electron instance appeared on CDP 9341 (its own scratchpad profile; not ours, not 9300–9309,
+  nothing rendering) — never touched;** `wt/out` built at `8b1c2e5` (rc 0, 4 m 3 s, `…\timeline\T2\build.log`); tsc 25 / 10; profile
+  `timeline-T` = `search-S4-verify` copied WITHOUT `settings.db*` (2,252 files, 421.3 MB), CDP 9296, Studio root first; the editor opened
+  `e3v-whoosh` (V1 `e3v-c1` 0–3, `e3v-c2` 3–6 src 4, A1 empty; `smoke-editor.png`; 0 error / warn / exception lines in `app.log` and the
+  profile log); its 5 processes stopped; the REAL `get_timeline` handler, app stopped (`.vidtsx-temp\timeline\T2\tools.t2.test.ts` +
+  `vitest.t2.config.ts`) → `smoke-get-timeline.json` `"equal": true` (design §3's six lines), `isError` false, the project file's sha1 the
+  same before / after. Deviation (kept behaviour): only the pristine `project.json` copied (asset path → the copied clip), no cached
+  thumbs / proxies / waveforms. Left: the gates, scripted in `.vidtsx-temp\timeline\T2\gate-all.sh` (never run). **Orchestrator re-check
+  (16:45):** tree clean at `4a3101c`; `8b1c2e5..HEAD -- src` empty; 0 `electron.exe` main processes (ours or the 9341 one); the smoke
+  JSON read (answer == expected); the still opened (2 clips on V1, A1 empty, "Saved"); `gate-all.sh` read (full run with the guard's
+  flags; failed files vs the 25 LS-r1c + 3 E-d2a list; the 25 here and in a fresh detached worktree, removed after; the E-d2a esbuild walk
+  over `0df9e9c..HEAD`; tsc; the matcher diff; §9.1; house rules) — its inputs exist (`search\S3\step-f\ls-r1b-files.txt` 25 lines,
+  `ed2a-graph.cjs`). T2 builder #5 (run the gates, fix the script where it misbehaves, then DONE) to spawn.
+- 16:47 · T2 builder #5 spawned (HEAD = this commit; the same brief).
 
 ## Builder brief (T2; every builder gets it unchanged)
 
