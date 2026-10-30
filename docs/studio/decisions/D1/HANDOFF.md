@@ -1,5 +1,5 @@
 # D1 — the spike: decision models (hosted × 2, local, keyless LLM baseline) on three small task sets (no product code)
-status: IN PROGRESS — step 1 DONE (builder #1, 2026-10-30 15:58); step 2 next
+status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 next
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -144,6 +144,17 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   `LiquidAI/d1-omni-600M-GGUF` Q8_0 (407 MB) as the d1 attempt; the node-llama-cpp call is
   `LlamaContextSequence.evaluateWithMetadata(tokens, { probabilities: true }, options)` (first yield's `probabilities: Map<Token, number>`)
   or `controlledEvaluate` with `generateNext.probabilities` — see a-sources §7.
+- **Step 2 (b) — DONE** (builder #2, 2026-10-30 16:02–16:12; tree as of `57c27f8`, recorded in the commit that adds this line). Kit files
+  (outside the tree, `K` = `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\`): `build-t1.cjs` → `fixtures\t1-pick.json`; `build-t2-t3.cjs` →
+  `fixtures\t2-routing.json` + `fixtures\t3-verify.json`; `measures.cjs` (its header = the answer-file format `vidtsx-d1-answers/1` + every
+  definition); `score.cjs <answers.json> [--out <base>]` → md + json; `selfcheck.cjs` → `answers\synthetic\*.json`,
+  `answers\s1-pick-top20-t1-choice.json`, `reports\b-selfcheck\<name>.md|json`, `reports\b-selfcheck.md|json|log`; logs
+  `reports\b-build-t1.log`, `reports\b-build-t2-t3.log`; the write-up **`reports\b-tasksets.md`** (composition, format, measures, self-check).
+  Result: **T1** 240 rows = 187 named / 53 ∅ (31 `'x|∅'`, 10 Arabic), (c) top-1 135 / 187 = 72.2 %, clips = S1's corpus (0 mismatches),
+  **4,632** noul questions (music rows have 6 candidates) + 240 choice questions (20 + "none"); **T2** 40 rows, 10 Arabic, 7 two-family rows,
+  families mapped to 18 of the 29 `STUDIO_TOOL_IDS` with group file:line; **T3** 40 rows, 20 yes / 20 no, 7 Arabic, 12 source files, every
+  file:line checked; **self-check 17 / 17 PASS** incl. S1's own top-20 picks reproducing R@1 151 / 187 = 80.7 %, wrong-confident 15 / 240 =
+  6.3 %, correct none 42 / 53 = 79.2 % (and pick acc 170 / 187, false none 13 / 156, the CORPUS / HELD-OUT rows) exactly at every τ.
 
 ## Verified (exact commands + outputs)
 
@@ -153,12 +164,25 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   `dist\evaluator\LlamaContext\LlamaContext.d.ts:221` (`evaluateWithMetadata`), `:256` (`controlledEvaluate`);
   `dist\evaluator\LlamaContext\types.d.ts:415-468` (`SequenceEvaluateMetadataOptions` / `SequenceEvaluateOutput.probabilities`).
 - No download, no install, no app launch, no provider / model API call in step 1 (WebSearch / WebFetch of public docs only).
+- Step 2 (builder #2, as of `57c27f8`, Node v22.14.0, from `K`): `node build-t1.cjs > reports/b-build-t1.log` → `"named": 187`, `"null": 53`,
+  `"xNull": 31`, `"arabic": 10`, `"cTop1Right": 135`, `"cTop1Acc": 0.7219251336898396`, `"ceilingMissIds": [1487]`, `"noulQuestions": 4632`,
+  `"noulTrue": 321`, `"clips": 51`, `"s1CorpusMismatches": []`; `node build-t2-t3.cjs > reports/b-build-t2-t3.log` → exit 0, t2 `rows 40`,
+  `arabic 10`, `twoFamily 7`, byFamily cut 8 / audio 7 / shots 8 / captions 7 / export 5 / none 5; t3 `rows 40`, `yes 20`, `no 20`, `arabic 7`,
+  `sources 12`, `"problems": []`; `node selfcheck.cjs > reports/b-selfcheck.log` → exit 0, last line `**17 / 17 PASS.**`.
+  `wc -l` of the kit scripts: build-t1 113, build-t2-t3 196, measures 133, score 91, selfcheck 106; `reports/b-tasksets.md` 223.
+  `git status --short` → (clean) before this hand-off's edits. `date '+%Y-%m-%d %H:%M'` → `2026-10-30 16:12`.
+- No download, no install, no app launch, no model / provider call in step 2; S1's kit read only (nothing written under `…\search\S1\`).
 
 ## Next step (ONE concrete instruction)
 
-Step 2: build `K\fixtures\t1-pick.json`, `t2-routing.json`, `t3-verify.json` and the measures lib (self-checked on synthetic answers:
-oracle → Brier 0 / ECE 0, constant 0.5 on a balanced binary set → Brier 0.25) and write `K\reports\b-tasksets.md`, per the step-2
-text above (T1 from the S1 kit files named under "Plan context", READ-ONLY; T2 / T3 from repo files only).
+Step 3 per D-r3: run Laya multilingual on T1 noul (4,632 questions), T1 choice (20 + "none", or say in `notes` how it was fitted), T2
+choice and T3 noul — first via the official `laya-ts` npm wrapper of `github.com/NandhaKishorM/laya` under `B\npm-scratch\` only
+(`--ignore-scripts`, name / version / integrity / size recorded) if it runs the multilingual checkpoint on `onnxruntime-node`, else a
+community ONNX conversion of `convaiinnovations/laya-multilingual` into its own folder under `B\models\` checked against the card's / repo's
+worked examples first (no pip, no own export); sizes stated first, the resource guard before any download / load; write each run as a
+`vidtsx-d1-answers/1` file under `K\answers\` (format: `K\measures.cjs` header / `K\reports\b-tasksets.md` §4) with cold + warm request
+latencies, peak RSS, disk and the CPU load beside each timing in `env`; score each with `node K\score.cjs <file>` and write
+`K\reports\c-laya-*.md|json`. If neither route runs, say "did not run" with the reason (the English `@receptron/laya` only as a NOTE).
 
 ## Open problems
 
@@ -177,12 +201,23 @@ text above (T1 from the S1 kit files named under "Plan context", READ-ONLY; T2 /
   will look worse than a fitted one; D1 reports raw.
 - **P5 (step 4) — catalog size mismatch:** `qwen2.5-0.5b-q8` is 531,000,000 B in `model-registry.ts:31` but Qwen's GGUF card lists Q8_0 at
   676 MB → state the HTTP Content-Length before the download.
+- **P6 (steps 3–4, not a block) — T1 noul is 4,632 questions, not the 4,800 of step 3's text:** the 12 music rows' (c) pool is the library's 6
+  music clips, so their top-20 is 6 long (228 × 20 + 12 × 6). Their choice question has 7 options (6 + "none").
+- **P7 (review, not a block) — T2 / T3 labels and texts are one builder's plain-meaning judgement** (requests / script lines written for D1;
+  the repo has no narration fixture). The judgement calls are listed in `b-tasksets.md` §2 (a question about Auto Cut, "Remember …", notes →
+  `none`; `transcribe_asset` under captions). The orchestrator or Hasan may overrule a row before step 7; a change means re-running
+  `build-t2-t3.cjs` + `selfcheck.cjs` and re-scoring.
 
 ## Do-not-redo
 
 - Step 1's web reading (P1–P22 in a-sources.md). Later steps add a source only for a gap the table marks "unknown" / "not read"
   that their step needs (e.g. step 6: OpenRouter's Decisions API reference; step 3: `laya-ts`'s weight source).
+- Step 2's fixtures, measures, answer-file format and self-check (`K\fixtures\*`, `K\measures.cjs`, `K\score.cjs`, `K\selfcheck.cjs`,
+  `K\reports\b-*`). Use them as they are; rebuild only if a T2 / T3 label is overruled (P7). Never re-derive T1 from S1 by hand —
+  `build-t1.cjs` is the one path, and S1's kit stays read-only.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-30 · builder #1 · ~38 tool calls · step 1 (a) primary docs → a-sources.md; hand-off at the step boundary.
+- 2026-10-30 · builder #2 · ~33 tool calls · step 2 (b) task sets + measures + self-check → b-tasksets.md (17 / 17 PASS); hand-off at the
+  step boundary.
