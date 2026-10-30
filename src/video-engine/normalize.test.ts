@@ -28,14 +28,22 @@ describe('normalizeVideoRequest — Kling', () => {
     expect(normalize('kling-3-pro', { durationSeconds: 20 }).durationSeconds).toBe(15);
   });
 
-  it('Kling 4 runs to 30 s, takes no audio, and defaults to 720p', () => {
+  it('Kling 4 runs to 30 s, takes no audio, and defaults to 1080p', () => {
     expect(normalize('kling-4', { durationSeconds: 40, generateAudio: true })).toMatchObject({
       durationSeconds: 30,
       generateAudio: false,
-      resolution: '720p',
+      resolution: '1080p',
       lastFrame: LAST,
     });
-    expect(normalize('kling-4', { resolution: '1080p' }).resolution).toBe('1080p');
+    expect(normalize('kling-4', { resolution: '720p' }).resolution).toBe('720p');
+    // A model without 4k falls back to its default rather than failing.
+    expect(normalize('kling-4', { resolution: '4k' }).resolution).toBe('1080p');
+  });
+
+  it('prices Kling 4 at the resolution it runs at, 1080p when none is named', async () => {
+    const { estimateVideoClipCost } = await import('../shared/presets/video-model-prices');
+    expect(estimateVideoClipCost('kling-4', 16)).toBe(3.76);
+    expect(estimateVideoClipCost('kling-4', 16, '720p')).toBe(2.512);
   });
 
   it('Kling 2.5 Turbo snaps 6 s to 5 s — it takes only 5 or 10', () => {

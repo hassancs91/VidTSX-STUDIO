@@ -125,10 +125,11 @@ describe('fal-kling-4', () => {
     });
   });
 
-  it('text-to-video: aspect ratio, and 720p when the caller names no resolution', () => {
+  it('text-to-video: aspect ratio, and the catalog default (1080p) when the caller names no resolution', () => {
     const { endpoint, body } = buildVideoPayload(entry('kling-4'), request({ aspectRatio: '21:9' }));
     expect(endpoint).toBe('kling/v4/text-to-video');
-    expect(body).toEqual({ prompt: 'a calm lake at dawn', duration: 5, resolution: '720p', aspect_ratio: '21:9' });
+    expect(body).toEqual({ prompt: 'a calm lake at dawn', duration: 5, resolution: '1080p', aspect_ratio: '21:9' });
+    expect(buildVideoPayload(entry('kling-4'), request({ resolution: '720p' })).body.resolution).toBe('720p');
   });
 });
 

@@ -135,9 +135,13 @@ export const FAL_VIDEO_MODELS: readonly VideoModelCatalogEntry[] = [
     allowedDurations: [3, 5, 6, 8, 10, 12, 15, 20, 25, 30],
     durationRange: { min: 3, max: 30 },
     allowedAspectRatios: ['16:9', '9:16', '1:1', '21:9'],
-    resolutions: ['720p', '1080p'],
+    // 1080p first = the default, as on fal: Kling 4 is the premium pick, and
+    // at 720p it would look softer than Kling 3 Pro's native 1080p (Hasan,
+    // 2026-10-30). The headline rate follows the default, so an estimate
+    // with no resolution named prices 1080p.
+    resolutions: ['1080p', '720p'],
     // The pricing API returns only the 720p rate; 1080p is from fal's page.
-    pricePerSecondUsd: 0.157,
+    pricePerSecondUsd: 0.235,
     pricePerSecondByResolutionUsd: { '720p': 0.157, '1080p': 0.235 },
   },
   {

@@ -121,15 +121,16 @@ const falKling3: VideoDialectBuilder = (model, request) => ({
 
 /**
  * Kling 4 on fal (schema read 2026-10-30): Kling 3's frame keys, but the
- * duration is an integer, the resolution is 720p or 1080p (fal's default is
- * 1080p, so it is always sent), and there is no audio field or seed.
+ * duration is an integer, the resolution is 720p or 1080p (always sent, the
+ * catalog's first when the request names none), and there is no audio field
+ * or seed.
  */
 const falKling4: VideoDialectBuilder = (model, request) => ({
   endpoint: pickEndpoint(model, request),
   body: {
     prompt: request.prompt,
     duration: request.durationSeconds,
-    resolution: request.resolution ?? '720p',
+    resolution: request.resolution ?? model.resolutions?.[0] ?? '1080p',
     ...(request.firstFrame ? startEndFrames(request) : { aspect_ratio: request.aspectRatio }),
   },
 });
