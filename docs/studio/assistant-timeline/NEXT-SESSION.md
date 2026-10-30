@@ -1,5 +1,8 @@
 # Next session — ASSISTANT TIMELINE READ: `get_timeline`, the cuts line, the cut anchor (Hasan 2026-10-30: "lets do the 3, but in a new session")
 
+> **SPENT — this paste-in ran 2026-10-30 15:45–17:43 and stopped on T3 PASS** (all three items built; 4 / 4 live turns placed; LS-r8
+> settled by measurement; records `84f8537`). State: `docs/studio/assistant-timeline/ORCHESTRATOR.md` ("Stops"). Do not paste it again.
+
 > Written 2026-10-30 after the library-search run (S4 PASS, `cf7d550`; ruling LS-r8 open). "The 3" is read as **all three items** the
 > orchestrator proposed: (1) a `get_timeline` read tool, (2) a cuts line in the prompt's "State of the edit", (3) a cut anchor in
 > `insert_asset`. If Hasan meant the cut anchor ONLY, edit the paste-in's SCOPE line before pasting. Paste the fenced block into a new
