@@ -184,11 +184,19 @@ in `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\`):
 
 ## Next step
 
-Design §9 step 4, the rest: the §8.2 gates at the records commit's HEAD, app stopped, resource guard + CPU top-5 recorded first —
-the worktree full vitest run (`bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/gate.sh 1`; green except the 25 LS-r1c suites
-with the fresh-detached-worktree proof at that HEAD and the 3 E-d2a suites with `ed2a-graph.cjs` over `git diff --name-only
-0df9e9c..HEAD`), tsc web ≤ 25 / node ≤ 10, the matcher diff vs `7967c6f`, library search §9.1's files, the house rules over
-`0df9e9c..HEAD`; record them here and return DONE.
+Design §9 step 4, the rest — the §8.2 gates, app stopped: run `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/gate-all.sh`
+(Bash, `run_in_background`, from a clean tree at the HEAD you will record), then read
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\summary.txt` and the logs it names, record every gate under Verified
+(commands + outputs + log paths) and return DONE. The script (written by builder #4, `bash -n` clean, NOT yet run — fix it if a
+step misbehaves, keep its logs) does, in order: `guard.ps1` (C: / D: / commit headroom + CPU top 8 over 5 s; adds `--maxWorkers=2`
+when headroom < 10 GB and the python-models exclusion when C: < 4 GB; stops under 3 GB); the worktree full vitest run
+(`gates\vitest-full-1.log`, failed files → `failed.tsv`, compared with the 25 LS-r1c (S3's `ls-r1b-files.txt`) + the 3 E-d2a);
+the 25 here + in a fresh `git worktree add --detach …\timeline\T2\f-head-wt HEAD` (then `git worktree remove --force`); the E-d2a
+esbuild walk (`ed2a-graph.cjs`) over `git diff --name-only 0df9e9c..HEAD`; tsc web / node; the matcher diff vs `7967c6f`; library
+search §9.1's files (`ls91.log`); the house rules over `0df9e9c..HEAD` (`house.log`: created-file lines, the over-300 files' growth,
+`any` hits on added lines, package diff, renderer → main / main → features imports, the `index.ts` diff). A failure outside the 28
+named suites: DRIVING's load rule / E-d13 first (rerun the file alone; a 2nd full run with `--maxWorkers=4`, then E-d13's flags),
+else it is real.
 
 ## Open problems
 
@@ -228,6 +236,8 @@ with the fresh-detached-worktree proof at that HEAD and the 3 E-d2a suites with 
 - §9 step 3 entirely (`cf4fb0c` + `021a2d6`): the characterization file (never edit it), source-span-map + the wrapper, cut-anchor,
   `atLabel` / `insertClipLength`, the `{ cut }` path, the prompt line and description, their tests (red run recorded above).
 - The stream tracer (`.vidtsx-temp/timeline/T2/stream-chain.mjs`) — reuse it, don't rewrite it.
+- §9 step 4 part 1 (`424eb18`): the `wt/out` build, the scratch project / clip / profile `timeline-T`, the app smoke and the real-handler
+  `get_timeline` call — all recorded under Verified; no `src/` changed since, so no rebuild or re-smoke unless `src/` changes.
 
 ## Agents so far
 
@@ -235,4 +245,5 @@ with the fresh-detached-worktree proof at that HEAD and the 3 E-d2a suites with 
 - Builder #2 (2026-10-30 16:12–16:17): ruling AT-r1 + §9 step 2 → `99c35b1`; handed off at the end of a numbered step.
 - Builder #3 (2026-10-30 16:19–16:31): §9 step 3 → `cf4fb0c` (characterization, alone) + `021a2d6`; handed off at the end of a
   numbered step.
-- Builder #4 (2026-10-30 16:32–): §9 step 4 — `wt/out` built, the §8.3 1 smoke done (records commit, no code change); then the gates.
+- Builder #4 (2026-10-30 16:32–16:45): §9 step 4 part 1 — `wt/out` built, the §8.3 1 smoke done → records `424eb18`; wrote the gate
+  kit (`gate-all.sh`, `guard.ps1`); handed off at the ~40-call limit before the gates.
