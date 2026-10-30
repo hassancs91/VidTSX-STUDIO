@@ -1,5 +1,6 @@
 # T2 — build: `get_timeline`, the cuts line, the cut anchor
-status: IN PROGRESS — design §9 steps 1 (`307f96f`), 2 (`99c35b1`) and 3 (`cf4fb0c` characterization + `021a2d6`) DONE; step 4 next
+status: IN PROGRESS — design §9 steps 1 (`307f96f`), 2 (`99c35b1`) and 3 (`cf4fb0c` characterization + `021a2d6`) DONE; step 4: `wt/out`
+built + the §8.3 1 smoke DONE (builder #4, at `8b1c2e5`); the §8.2 gates next
 
 ## Goal (the paste-in's T2 row verbatim + the exit)
 
@@ -89,7 +90,44 @@ gates run and recorded.
   - Renderer test `features/studio/services/apply-insert-proposal-cut.test.ts` (2 tests, item written by hand, no `src/main` import):
     `insertItemPlacement` 3 on the 2-clip timeline, 2 after the trim; `applyInsertProposal` puts the whoosh at 2 on A1.
 
+- **§9 step 4, part 1 — `wt/out` + the §8.3 1 smoke (builder #4; no `src/` change, so no code commit; as of `8b1c2e5`, whose
+  `src/` = `021a2d6`'s).** Kit (outside the repo) `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\`: `build.sh`, `prep.cjs` (the
+  pristine copy + clip, asset path rewritten), `make-profile.ps1` (robocopy `/XF settings.db* DevToolsActivePort`), `launch.sh` (CDP
+  9296), `restore.ps1`, `smoke-open.mjs` (root FIRST, open the project, read the editor), `vitest.t2.config.ts` + `tools.t2.test.ts`
+  (the real `get_timeline` handler, adapted from S4's harness: `electron` + `settings-db` mocked so `project-store` resolves MY root;
+  nothing else mocked), `inspect-project.cjs`, `ed2a-graph.cjs` (S4's, header line only changed), `gate.sh`. Scratch (outside the repo)
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\`: `pristine\` (copy of `S4\r1\p2\pristine\`), `media\e3v-clip.mp4` (842,353 B,
+  = the source), `root\projects\e3v-whoosh\`, logs. Profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\timeline-T\profile`
+  (copy of `search-S4-verify\profile` without `settings\settings.db*`: 2,252 files, 421.3 MB; its `settings\` was empty before launch).
+  Deviation (behaviour-keeping): only the pristine `project.json` went into the project folder (`index.json` = the S4 library index and
+  `project.orig.json` = S4's pre-clean copy stay in `T2\pristine\`); the asset's cached derivatives (thumbs / proxies / waveforms) were
+  not copied — the editor opened without them and logged no error.
+
 ## Verified
+
+Step 4 part 1 (builder #4), 2026-10-30 16:33–16:42, worktree root, HEAD `8b1c2e5`, tree clean:
+
+- Guard 16:33:20: C: 28.58 GB free, D: 39.3 GB, commit headroom 32.06 GB (limit 99.70, committed 67.64); no `electron.exe` running
+  (Hasan's dev app NOT running; nothing on 9222 / 5173). Re-checked 16:40:09 before the launch: C: 27.36, D: 39.15, headroom 33.60 GB;
+  one other session's instance had appeared (`electron.exe .` port 9341, profile under another session's `…\scratchpad\part2\profile`,
+  started 16:38:38 — not Hasan's, not 9300–9309, no ffmpeg / remotion process running) → launched; never touched (it was gone by 16:41).
+- Build 16:33:40–16:38:12: `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/build.sh` (= DRIVING's recipe step 1) → `rc 0`,
+  `✓ built in 4m 3s`, the only warnings the 3 "use client" lines (`build.log`). `out/main/index.js` holds `get_timeline` and the footer
+  string.
+- Types at `8b1c2e5` (16:37–16:39): `tsc -p tsconfig.web.check.json --noEmit` → 25 `error TS` (`tsc-web-step4.log`); `-p
+  tsconfig.node.check.json` → 10 (`tsc-node-step4.log`).
+- App (launch 16:40:2x, `bash …\T2\launch.sh` in the background): `node smoke-open.mjs` → Studio root set FIRST (`{"set":{"success":true},
+  "got":{"root":"C:\\Users\\hasan\\AppData\\Local\\vidtsx-e2e\\timeline\\T2\\root"}}`), visible project cards `["e3v-whoosh"]`, editor up:
+  `v1Options 1`, tracks `V1 video [["e3v-c1",0,3,0],["e3v-c2",3,3,4]]` + `A1 audio []`, rendered clip ids `["e3v-c1","e3v-c2"]`
+  (`smoke-open.json`); screenshot `smoke-editor.png` (V1: two `e3v-clip.m…` clips, A1 empty, `00:00.00 / 00:06.00`, "Saved"). The app
+  saved `project.json` at 16:40:35 (timeline identical to the pristine one). Logs: `app.log` 25 lines, 0 matching
+  `error|fail|exception|uncaught|warn`; the profile's `logs\vidtsx-2026-10-30.log` 22 lines, 0 such lines. Stopped 16:41:24 (my 5
+  `electron.exe` by profile path + Name; 0 left; the launcher's exit 127 = the killed `exec`, expected).
+- Real handler, app stopped, 16:41:30: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config
+  D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/vitest.t2.config.ts` (from the worktree root) → `Test Files  1 passed (1)` · `Tests  1
+  passed (1)`, rc 0 (`smoke-get-timeline.log`); record `smoke-get-timeline.json`: `"equal": true` (the answer = design §3's six lines
+  exactly), `isError false`, emitted chip `{ kind: "tool", tool: "get_timeline" }`, `project.json` sha1 `72005dba…` before = after (the
+  read wrote nothing). No model call anywhere.
 
 All from the worktree root `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt`, 2026-10-30 ~16:00–16:08 (C: 29.12 GB free, D: 39.58 GB, commit
 headroom 39.15 GB):
@@ -146,13 +184,11 @@ in `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\`):
 
 ## Next step
 
-Design §9 step 4: resource guard (C: ≥ 3 GB free, C: + commit headroom ≥ 6 GB; record), check Hasan's dev app (electron.exe from
-`D:\repos\VidTSX-STUDIO`, CDP 9222) is not rendering, then build `wt/out` (DRIVING "Track E" launch recipe step 1, log to
-`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\build.log`), copy the 2-clip `S4\r1\p2\pristine\` project + `e3v-clip.mp4` into
-`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\root\` (asset path → the copied clip), make profile `profiles\timeline-T\profile`
-(copy of `profiles\search-S4-verify\profile` WITHOUT `settings\settings.db*`), launch on CDP 9296, `studioRootSet` first, open the
-project (V1 shows 2 clips, no renderer error in the app log), stop the instance, run `get_timeline` through the real handler on the
-copy's saved file with an adapted copy of the S4 kit in `.vidtsx-temp/timeline/T2/` (answer = §3 text exactly), then the §8.2 gates.
+Design §9 step 4, the rest: the §8.2 gates at the records commit's HEAD, app stopped, resource guard + CPU top-5 recorded first —
+the worktree full vitest run (`bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/gate.sh 1`; green except the 25 LS-r1c suites
+with the fresh-detached-worktree proof at that HEAD and the 3 E-d2a suites with `ed2a-graph.cjs` over `git diff --name-only
+0df9e9c..HEAD`), tsc web ≤ 25 / node ≤ 10, the matcher diff vs `7967c6f`, library search §9.1's files, the house rules over
+`0df9e9c..HEAD`; record them here and return DONE.
 
 ## Open problems
 
@@ -199,3 +235,4 @@ copy's saved file with an adapted copy of the S4 kit in `.vidtsx-temp/timeline/T
 - Builder #2 (2026-10-30 16:12–16:17): ruling AT-r1 + §9 step 2 → `99c35b1`; handed off at the end of a numbered step.
 - Builder #3 (2026-10-30 16:19–16:31): §9 step 3 → `cf4fb0c` (characterization, alone) + `021a2d6`; handed off at the end of a
   numbered step.
+- Builder #4 (2026-10-30 16:32–): §9 step 4 — `wt/out` built, the §8.3 1 smoke done (records commit, no code change); then the gates.
