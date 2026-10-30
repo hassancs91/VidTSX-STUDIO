@@ -81,7 +81,11 @@ replace), the agent-tools registry and the flow step registry (where a `decide` 
 
 FIRST: say in one line whether the main checkout's uncommitted work is still there and whether my dev app
 runs; check which of JEV_API_KEY / OPENAI_API_KEY / OPENROUTER_API_KEY are SET (print only set / unset, never a
-value); then cut the branch + worktree and create docs/studio/decisions/ORCHESTRATOR.md.
+value); then cut the branch + worktree and create docs/studio/decisions/ORCHESTRATOR.md. ANOTHER SESSION may run
+at the same time: the assistant-timeline slice in the library-search worktree (.vidtsx-temp\search\wt, branch
+library-search, CDP 9296 / 9297, profiles timeline-T / timeline-verify) — never touch its worktree, branch,
+profiles, ports or electron.exe instances; cut decision-models from the commit D-g names, not from that branch's
+moving head.
 
 PARTS, in order, no stop between them unless a STOP rule fires:
 D1 — THE SPIKE (no product code; scratch kits outside the tree). (a) Verify from PRIMARY docs (provider docs,
@@ -129,7 +133,8 @@ OVERRIDES for the whole run
   WITHOUT settings\settings.db*; Studio root set in the first CDP call; CDP ports 9300–9309); never my
   %APPDATA%\VidTSX Studio library, projects or stations.
 - Resource guard (DRIVING): before any launch, download, model load or full run check C: free AND memory commit
-  headroom; C: ≥ 3 GB and (C: + headroom) ≥ 6 GB; local model runs one at a time.
+  headroom; C: ≥ 3 GB and (C: + headroom) ≥ 6 GB; local model runs one at a time; timings are measured with the
+  other session's CPU load recorded beside them (repeat a latency run if it was loaded).
 - Every builder brief adds: "Work only in the worktree; never npx/npm there, never git stash, never touch the
   main checkout. Read docs/studio/end-to-end/DRIVING.md. Edit HANDOFF.md and the docs with the Edit/Write tools
   only — no Python, node, sed or heredoc for doc edits. Never hand back while a job you started is still running.
