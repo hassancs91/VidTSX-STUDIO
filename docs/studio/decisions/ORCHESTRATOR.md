@@ -113,7 +113,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 
 (one line per stop: what was reported, what Hasan said)
 
-- 2026-10-30 20:04 · **STOP — D1 BLOCKED by the paste-in's STOP rules** (`docs/studio/decisions/D1-spike-report.md` §11–§14). Reported: no hosted
+- 2026-10-30 20:02 · **STOP — D1 BLOCKED by the paste-in's STOP rules** (`docs/studio/decisions/D1-spike-report.md` §11–§14). Reported: no hosted
   key was set, so Jev / OpenAI / Microsoft-Decision-1 are DEFERRED-HASAN (runners built + dry-run, 138 requests ≤ $0.334); no local candidate
   passes the rule's evaluable terms (both Qwen GGUFs fail warm p95 ≤ 300 ms; d1-omni does not load in node-llama-cpp; Laya's community
   export failed its card's example — NOTE only); no measured decision model beats the keyless baseline on T1 (best R@1 48.7 % at
@@ -292,7 +292,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   a different runtime (an option-logit reader without the vocabulary map, `llama-server` for d1-omni, or an official Laya export). §13
   DEFERRED-HASAN (the hosted runs: one-call probe per provider, then 138 requests ≤ $0.334); §14 six questions for Hasan. Calls: keyless 16 /
   40, hosted 0; no scratch npm install (`B\npm-scratch\` never created); one app launch (step 5).
-- 20:01–20:03 · **Orchestrator re-check:** HEAD `753711b`, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty, 0 model processes,
+- 20:01–20:02 · **Orchestrator re-check:** HEAD `753711b`, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty, 0 model processes,
   0 `electron.exe`; the report read (§0, §4, §5, §8–§15); spot checks against the kit's score files — Qwen3.5-0.8B T1 noul accuracy 0.8703 at
   τ 0.5 (= 87.0 %), the baseline's T1 choice accuracy 0.8875 (= 88.8 %), `c-llama.md` :190 / :194 hold 482.7 and 353.3 ms. **STOP 3 wording
   accepted as written** (it separates the measured local leg from the unmeasured hosted leg). **D1 → STOP (BLOCKED by Hasan's own STOP
