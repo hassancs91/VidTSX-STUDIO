@@ -211,3 +211,9 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   builder until a file lands (a builder must not idle on a download); the next spawns when the d1-omni job reports. **While waiting, the
   orchestrator drafts D2's sections that do not depend on D1's numbers** (contract, adapters, processes, keys, IPC, users, tool / step) —
   marked DRAFT; the recommendation, the local default and THE ACCEPTANCE BAR are written only after D1 is DONE and its STOP judged.
+- 17:02 · `docs/studio/DECISION_MODELS_DESIGN.md` DRAFT committed (`99def5d`, 278 lines: contract, layout, adapters, ladder, processes, keys,
+  timeouts / cache / usage, the first users without claims, the `decide` tool = flow node, IPC, not-in-slice, build order; §2 / §5.3 / §15 /
+  §16 PENDING D1).
+- 17:38 · **d1-omni landed:** the job ended 17:37:55 — `ok … 407207584`, sha256 `cd94463f…3d3` = expected (four curl resets / one DNS failure
+  on the way, absorbed by the per-part retries). Qwen 518.5 / 675.7 MB (~126 KB/s since 17:03 → ≈ 18:00), Laya 840.0 / 1,324.7 MB (~208 KB/s
+  → ≈ 18:17). D1 builder #6 (d1-omni `--info` + self-test, then Qwen when it lands) to spawn.
