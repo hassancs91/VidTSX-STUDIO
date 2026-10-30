@@ -17,8 +17,8 @@
 
 | Part | Status | Builders spawned | Verifier result | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` (commit: see Log 15:59) | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:59 |
-| T2 — build (red-first, hand-off-sized) | TODO | 0 | — | — | — | |
+| T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` `b382288` | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:57 |
+| T2 — build (red-first, hand-off-sized) | BUILDING | 1 | — | — | — | 2026-10-30 15:58 / |
 | T3 — verify (independent; ≤ 3 FAILs) | TODO | — | — | — | — | |
 
 ## Answers in force (Hasan's paste-in, 2026-10-30)
@@ -73,4 +73,63 @@
   turns with the [2.00, 3.10] s window and ≥ 3 / 4 placing). Facts checked for it: `mapCutItemToTimeline`
   (`features/studio/services/cut-proposal.ts:44-67`) ignores speed and takes the first region over ALL tracks — hence the mapping check;
   no `insert-tools.test.ts` exists — hence the characterization tests first; video-14's copy = V1 35 video clips + 55 TSX shots on one
-  overlay lane + A1 empty (the caps fit it in one page). `T2/HANDOFF.md` + `LOG.md` created. T2 builder #1 to spawn.
+  overlay lane + A1 empty (the caps fit it in one page). `T2/HANDOFF.md` + `LOG.md` created. T2 builder #1 to spawn. (Clock: the
+  commit `b382288` landed at 15:56:49; this entry first said "15:59", an estimate — corrected.)
+- 15:58 · T2 builder #1 spawned (HEAD = this commit). Brief: END_TO_END_RUN's builder brief adapted to this slice + the paste-in's "every
+  builder brief adds" (kept below under "Builder brief" so a resumed session reuses it verbatim).
+
+## Builder brief (T2; every builder gets it unchanged)
+
+```
+You are building part T2 of the ASSISTANT TIMELINE READ slice in the worktree D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt
+(branch library-search). Read, in order: CLAUDE.md (the worktree's); docs/studio/assistant-timeline/T2/HANDOFF.md (your state:
+continue from "Next step", never redo anything under "Done"); docs/studio/ASSISTANT_TIMELINE_DESIGN.md in full (the design and THE
+ACCEPTANCE BAR, §8, which an independent verifier will hold you to); docs/studio/end-to-end/DRIVING.md (all of it — "Never touch" and
+"Track E", the worktree recipe).
+
+Work only in the worktree; never npx/npm there, never git stash, never touch the main checkout (D:\repos\VidTSX-STUDIO itself holds
+another session's uncommitted work: never edit, stage, build or launch there, never its out/ or node_modules). Read
+docs/studio/end-to-end/DRIVING.md. Edit HANDOFF.md, Status.md and TESTING.md with the Edit/Write tools only — no Python, node, sed or
+heredoc for doc edits. Never hand back while a job you started is still running. Select your own processes by
+--remote-debugging-port or profile path plus Name='electron.exe'. Write HANDOFF.md as you go and commit early (explicit paths). Every
+git / tree / build statement in the records is 'as of <hash>' and re-checked after the commit. Numbers in prose come from the report
+files.
+
+Rules. House rules (CLAUDE.md): feature isolation, IPC-only bridge, services own logic, ~300 lines per file, no `any`, no new npm
+package, exact-pinned Remotion. Red first: write the failing tests, run them, see them fail (record the counts), then the code. Design
+§8.1 5: the insert_asset number / word characterization tests are written, GREEN on the unchanged insert-tools.ts, and committed BEFORE
+you change that file. Tests from the worktree root: node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run <files>; types:
+node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit (and -p tsconfig.node.check.json),
+count `error TS` lines — baseline web 25 / node 10, never above. No Status.md / TESTING.md records in T2. No model call of any kind (no
+assistant turn, no provider call); never read, copy or open a credential store (settings.db*, ~/.claude, any profile's).
+
+Live work (design §9 step 4 only). Resource guard before any build / launch / copy / full run: C: ≥ 3 GB free and C: + memory commit
+headroom ≥ 6 GB; --maxWorkers=2 while headroom < 10 GB; DRIVING's load rules / E-d13 (measure and record). Check whether Hasan's dev
+app runs (electron.exe from D:\repos\VidTSX-STUDIO, CDP 9222, his profile): if it does, never kill it, never run electron-vite dev, and
+launch our own instance only after checking he is not rendering (DRIVING's startup-sweep rule). Never the decision-models session's
+worktree (.vidtsx-temp\decisions\wt), profiles or ports 9300–9309. Your profile: C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\
+timeline-T\profile, CDP 9296 — a copy of profiles\search-S4-verify\profile WITHOUT settings\settings.db* (or a fresh copy of
+profiles\source\profile); profiles\search-*, profiles\source, profiles\E3 are read-only; never Hasan's %APPDATA%\VidTSX Studio, his
+projects, his stations (B1-verify-root, profiles\B1-verify, B5-station-root, profiles\B5-station) or B6 / B7 scratch. Studio root set
+in the first CDP call. The 2-clip test project: copy C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S4\r1\p2\pristine\ (+ its clip
+C:\Users\hasan\AppData\Local\vidtsx-e2e\search\S4\r1\media\e3v-clip.mp4) into your own scratch root under
+C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\ (read-only sources; point the copy's asset path at your copied clip). Kits and
+drivers: D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\ (you may copy and adapt the S4 kit in
+D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S4\r1\ — read-only originals: tools.s4.test.ts + vitest.s4.config.ts for the real-handler
+get_timeline call, launch.sh / cdp.mjs for the app). Big outputs (full-run logs): C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\.
+Stop only your own instance.
+
+Hand off when ANY of: about 40 tool calls made; about 2,500 lines of source read; a numbered step of design §9 finished; you notice
+you are re-reading a file. To hand off: update HANDOFF.md fully (Done with file:line and commit hashes · Verified with the exact
+commands and their output · Next step as ONE concrete instruction · Open problems · Do-not-redo · Agents so far), append one dated
+line (real clock) to docs/studio/assistant-timeline/T2/LOG.md, commit if at a green checkpoint (message "<type>(studio): assistant
+timeline T2 — <what>", ending with the line "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"), and return a short report
+that ends with `status: HANDOFF`.
+
+When design §9 step 4 is done — every §8.1 test in the tree and green, the §8.3 1 smoke done, the §8.2 gates run and recorded
+(commands + outputs + log paths) — update HANDOFF.md, commit, and return `status: DONE` with the evidence.
+
+If you hit a decision the design leaves open, or find a design fact wrong (a string that cannot hold, a file:line that moved), do not
+guess: write it under Open problems and return `status: BLOCKED` with the question in one paragraph. A small deviation that keeps the
+behaviour (a helper's name, a file split) is yours — record it in HANDOFF.md.
+```
