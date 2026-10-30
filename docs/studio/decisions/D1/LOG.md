@@ -26,3 +26,9 @@
   + `K\temp-oof.cjs` (2-fold OOF temperature NOTE, checked on the synthetic files); GPU probe: Vulkan only (CUDA `NoBinaryFoundError`),
   Vulkan VRAM state misread → `--gpu-layers max` (P13). No model loaded: neither GGUF had landed at 16:56:49 (d1 51 %, Qwen 32 %).
   Hand-off with the next step = d1 `--info` + self-test, then Qwen's four runs.
+- 2026-10-30 18:23 · builder #6 · step 4 PART 2 DONE: **d1-omni-600M DID NOT RUN** (Vulkan and CPU: `missing tensor 'blk.16.ffn_gate.weight'` —
+  an `lfm2-d1-omni` encoder + 2 decision blocks + `cls` head, only a `systemone` template; b8390 cannot load it); **Qwen2.5-0.5B Q8_0** self-test
+  PASS (map 151,936 = vocab, Σ 1.00001, 0 missing; Vulkan 25 layers with `--gpu-layers max`), four full runs + 2 CPU NOTE runs + OOF-T, all
+  scored → `K\reports\c-llama.md`: T1 noul 43.2 % (wrong-confident 71.7 % at τ 0.5, R@1 36.4 %), T1 choice 27.1 % (R@1 0 %), T2 75.0 %,
+  T3 67.5 %; warm question p95 274.5–722.1 ms (the full-vocabulary JS map ≈ 5/6 of it), peak RSS ≤ 1,087 MB; does NOT beat the baseline
+  (D-r2). Kit fixes in `llama-run.cjs` (cold timers; context safety bypass). Open: CPU NOTE ran at 4 threads + loaded → repeat.

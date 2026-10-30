@@ -4,7 +4,9 @@ settled, runner `K\laya-run.cjs` written; weights downloading under the orchestr
 keyless baseline 16 / 40 calls, scored; hosted runners dry-run, no network)**; **step 4 PART 1 (builder #5, 16:57): adapter
 `K\llama-run.cjs` + OOF-temperature script `K\temp-oof.cjs` written, NOT yet run on a model (no GGUF had landed at 16:56:49)**;
 **step 4 PART 2 (builder #6, 17:39–): d1-omni-600M DID NOT RUN (`missing tensor 'blk.16.ffn_gate.weight'` — an encoder + decision
-head, not loadable by b8390's `lfm2`); Qwen2.5-0.5B self-test PASS on Vulkan (25 layers with `--gpu-layers max`), full runs started 17:46**
+head, not loadable by b8390's `lfm2`); Qwen2.5-0.5B DONE (self-test PASS; 4 full runs + CPU NOTE + OOF-T scored → `K\reports\c-llama.md`;
+T1 unusable: noul 43.2 %, choice 27.1 %, R@1 ≤ 36.4 %; does NOT beat the baseline per D-r2)** — step 4 DONE except the optional
+`qwen3.5-0.8b-q8` (D-r5) and a fair CPU NOTE repeat; **step 3 (Laya) is next when its files land**
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -233,7 +235,17 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   "--limit 10 NOTE probe as a plain LM" has nothing to run either (no causal LM path). Its documented path stays llama-server's
   `/v1/systemone` (a llama.cpp build with `lfm2-d1-omni` support — which build is not stated on the card; the app ships neither).
   Licence LFM Open License v1.0 (revenue-capped < $10 M; P3).
-- **Step 4 part 2 (b) — Qwen2.5-0.5B-Instruct Q8_0: self-test PASS; full runs started 17:46** (builder #6). File
+- **Step 4 part 2 (b) — Qwen2.5-0.5B-Instruct Q8_0: DONE** (builder #6, 17:40–18:22; runs 17:45:52 → 18:21:40; write-up
+  **`K\reports\c-llama.md`**, recorded in the commit that adds this line). Results (from `c-llama.md` / the score files
+  `K\reports\c-llama-qwen2.5-0.5b-<t1-noul|t1-choice|t2-choice|t3-noul>[-oofT|-cpu].md|json`; answers `K\answers\qwen2.5-0.5b-q8-*.json`), Vulkan
+  25 layers: **T1 noul 43.2 %** (4,632 q; Brier 0.336, ECE 0.488; P(Yes) ≥ 0.5 on 2,796 while 321 are true; OOF T = 20 / 20 = the grid max →
+  no usable signal), **T1 choice 27.1 %** (top = "none of these" on 180 / 240, letter J on 56), **T2 75.0 %** (Arabic 80.0 %; Brier 0.155, ECE
+  0.119), **T3 67.5 %** (Arabic 57.1 %; Brier 0.218, ECE 0.256); T1 per D-r2: noul τ 0.5 R@1 68 / 187 = 36.4 %, wrong-confident 172 / 240 =
+  71.7 %, correct none 0 / 53; choice τ 0.5 R@1 0 / 187, wrong-confident 3 / 240, correct none 53 / 53 (abstains) → **does NOT beat the
+  baseline** (no τ with R@1 ≥ 75.7 %). Warm question p50 / p95: T1 noul 208.0 / 388.7, T1 choice 569.0 / 722.1, T2 229.5 / 274.5, T3 222.0 /
+  350.6 ms (quiet CPU load beside each); cold load 4,866–6,942 ms; peak RSS ≤ 1,087 MB; VRAM 800 → ~1,700 MiB. CPU NOTE (`--gpu false`): T2
+  72.5 %, warm 9,806.5 / 12,157.2 ms; T3 67.5 %, 7,515.4 / 18,221.8 ms — at node-llama-cpp's default **4 threads**, T3-cpu LOADED at its end
+  (P17). Self-test detail below. File
   `B\models\qwen2.5-0.5b-q8\qwen2.5-0.5b-instruct-q8_0.gguf` 675,710,816 B, sha256 `ca59ca7f…44e` (log `ok` + `sha256sum` = expected + `end
   17:39:34`). `--info --gpu auto` → loads, chat wrapper `Qwen`, **`gpuLayers 0` under Vulkan "auto" (P13 confirmed)**, map size 151,936,
   plain probe "sky blue?" → Yes 0.998. Self-test `--task t1 --mode noul --limit 3` (60 questions): Vulkan auto / 0 layers →
@@ -349,8 +361,29 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   Downloads (read only, never touched): at 16:56:49 `d1-omni-600M-gguf\*.part*` = 207,941,632 / 407,207,584 B, `qwen2.5-0.5b-q8\*.part*` =
   212,905,984 / 675,710,816 B; `d1-download.log` / `qwen-download.log` hold only their `start` line (no `ok` / `sha256sum` / `end`) → NOT landed.
   No model loaded, no app launch, no provider call. `date '+%Y-%m-%d %H:%M:%S'` → `2026-10-30 16:56:49`.
+- Step 4 part 2 (builder #6, as of `aca2ca3`, Node v22.14.0, from `K`): landed-file rule read from the logs — `d1-download.log` `ok …
+  407207584` + `cd94463f…3d3 *d1-omni-600M-Q8_0.gguf` + `end 17:37:55`; `qwen-download.log` `ok … 675710816` + `ca59ca7f…44e
+  *qwen2.5-0.5b-instruct-q8_0.gguf` + `end 17:39:34`; `sha256sum <d1 gguf>` → `cd94463f4cac9c70…`. `node llama-run.cjs --model <d1> --info --gpu
+  auto` → rc 1 (17:39:22–35), `--gpu false` → rc 1 (17:40:05–09), stderr `llama_model_load: error loading model: missing tensor
+  'blk.16.ffn_gate.weight'`. `node llama-run.cjs --model <qwen> --info --gpu auto` → `gpuLayers 0`, `mapSize 151936`, Yes 0.9979. Self-test
+  `--task t1 --mode noul --limit 3 --gpu auto [--gpu-layers max]` → rc 0 ×2 (the `max` run first failed `InsufficientMemoryError` → kit fix 2,
+  re-run rc 0: `gpuLayers 25`, `mapSum 1.00001`, `missing 0`). `node llama-mapcost.cjs --model <qwen> --gpu auto --gpu-layers max --out
+  reports/c-llama-mapcost-qwen2.5-0.5b-vulkan.json` → withMap p50 174.7 / p95 279.0, tokenOnly p50 30.0 / p95 61.6 ms. `bash
+  c-llama-run-all.sh > B\logs\c-llama-run.log` (background) → every `run` / `score` / `oofT` line `rc=0`, `ALL DONE 18:21:40`; 16 files
+  `answers\qwen2.5-0.5b-q8-*` (6 answer + 4 oofT + 6 stdout), 21 `reports\c-llama-*`. Guards: 17:45 C: 25.47 GB, headroom 32.18 GB, 0 model
+  processes; 18:21 C: 24.22 GB, headroom 24.24 GB, 0 model processes left. `sha256sum` (first 16): `llama-run.cjs` `70572d7193a309a2` (152
+  lines), `llama-mapcost.cjs` `6c14f24a89c87ffe` (33), `c-llama-run-all.sh` `597e262df2dec9cc` (23). No download started / touched (the
+  orchestrator's Laya job: `restart encoder 17:39:49` in its log), no app launch, no provider call. `date '+%Y-%m-%d %H:%M'` → `2026-10-30 18:23`.
 
 ## Next step (ONE concrete instruction)
+
+**Builder #6, 18:23 — the ONE next instruction: step 3 (Laya multilingual) when its files land.** When `B\models\laya-download.log` shows
+the landed-file rule for the encoder (its `ok … encoder.onnx 1230282662` + a `sha256sum` line for encoder / head / tokenizer /
+rl_agent_config each equal to `B\models\laya-multilingual-desplega-fp32\manifest.json`'s + an `end` line), run builder #3's plan items
+(3)–(5) below (hashes vs manifest; `node K\laya-run.cjs --model <M> --examples` must give `billing` on E1 / E2 before any measured run; the
+`--limit 3` smoke; the four full runs → `K\answers\laya-multilingual-<task>-<mode>.json`; `score.cjs` + `temp-oof.cjs` + its score on each,
+as `K\c-llama-run-all.sh` does for Qwen; `K\reports\c-laya.md`). Step 4 is DONE for the brief's purpose (`K\reports\c-llama.md`); its two
+optional leftovers are under P17 / P18 — do them only after step 3, one model process at a time.
 
 **Builder #5, 16:57 — the ONE next instruction (step 4 parts 2–3; `K\llama-run.cjs` is written, read its header first):** when
 `B\models\d1-download.log` shows the landed-file rule (an `ok … 407207584` line, a `sha256sum` line equal to `cd94463f…3d3`, an `end` line),
@@ -459,8 +492,27 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   the `Yes` / `No` tokens WITHOUT a leading space (the first token after the template's assistant header). The raw option mass +
   `topTokenNotAnOption` show whether a model wanted another token (e.g. `yes`, ` Yes`, `**`); a low mass is a validity finding to report,
   not something to patch mid-run.
+- **P15 (step 4 / D2, Hasan) — Liquid d1-omni-600M cannot run in the app's runtime:** node-llama-cpp 3.18.1's bundled llama.cpp b8390
+  refuses its GGUF (`missing tensor 'blk.16.ffn_gate.weight'`; arch `lfm2-d1-omni` = encoder + 2 decision blocks + `cls` scalar head +
+  `systemone` template). Running it needs a llama.cpp build with `lfm2-d1-omni` support (`llama-server` `/v1/systemone`, build not named on
+  the card) or the community ONNX export (`onnx-community/d1-omni-600M-ONNX`, a-sources §8, not downloaded) — both new runtime pieces + a
+  revenue-capped licence (P3). D1 reports it "did not run". The GGUF does list `ar` among 15 languages and carries fitted temperatures.
+- **P16 (step 4 / D2) — the adapter's warm latency is mostly node-llama-cpp's probability `Map`:** the 151,936-entry JS map per read costs
+  ~145 ms of a ~175 ms warm question (`c-llama-mapcost-…json`: with map p50 174.7 / p95 279.0 ms vs token-only p50 30.0 / p95 61.6 ms). As
+  measured, the 300 ms warm-p95 term fails on T1 noul / T3 / T1 choice and passes on T2 (`c-llama.md` §6). A D2 runtime reading only the
+  option logits would not pay it — not measured as a product path.
+- **P17 (step 4, optional) — the CPU NOTE is not a fair CPU number:** `--gpu false` ran at node-llama-cpp's default **4 threads** (Vulkan
+  runs: 16), and T3-cpu ended under another session's load (`ffmpeg`, `chrome-headless-shell`, `electron` 4.8–6.4 % each). A repeat needs
+  a `--threads N` flag in `llama-run.cjs` (`createContext({ threads })`) on a quiet machine. Low value: Qwen2.5-0.5B already fails T1.
+- **P18 (step 4, optional, orchestrator) — `qwen3.5-0.8b-q8` (812 MB, D-r5 "second, if the first runs"):** the first ran but is unusable on
+  T1; a 0.8B is unlikely to close a 44-point R@1 gap (SemIf's ladder: 0.6B 0.440 vs 4B 0.813 balanced accuracy) — the orchestrator decides
+  whether to download it; nothing started.
 
 ## Do-not-redo
+
+- Step 4 part 2: d1-omni's load test (Vulkan + CPU, same error) and its metadata read; Qwen2.5-0.5B's self-tests, the four Vulkan runs, the
+  two CPU NOTE runs, the OOF-T files and every score (`K\answers\qwen2.5-0.5b-q8-*`, `K\reports\c-llama-*`, `K\reports\c-llama.md`). Re-score
+  only by `node score.cjs` on the saved answer files.
 
 - Step 4 part 1: `K\llama-run.cjs` and `K\temp-oof.cjs` are written and syntax-checked (temp-oof also run on the synthetic files) — run them,
   do not rewrite them; fix only what a model run shows broken (and say what). The GPU backend probe (Vulkan only, CUDA `NoBinaryFoundError`)
@@ -492,3 +544,6 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
 - 2026-10-30 · builder #5 · ~27 tool calls · step 4 part 1: `K\llama-run.cjs` (SemIf-style option probabilities on node-llama-cpp 3.18.1,
   sampler chain read in the native source) + `K\temp-oof.cjs` (OOF temperature NOTE); GPU backend probe (Vulkan only); hand-off because
   no GGUF had landed (d1 51 %, Qwen 32 % at 16:56).
+- 2026-10-30 · builder #6 · ~42 tool calls · step 4 part 2: d1-omni load test (did not run — b8390 lacks `lfm2-d1-omni`) + metadata;
+  Qwen2.5-0.5B self-test, two kit fixes in `llama-run.cjs`, map-cost probe, four Vulkan runs + two CPU NOTE runs + OOF-T, all scored →
+  `K\reports\c-llama.md`; hand-off at the step boundary / call budget (Laya not landed).
