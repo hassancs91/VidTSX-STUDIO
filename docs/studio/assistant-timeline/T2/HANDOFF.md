@@ -1,6 +1,7 @@
 # T2 — build: `get_timeline`, the cuts line, the cut anchor
-status: IN PROGRESS — design §9 steps 1 (`307f96f`), 2 (`99c35b1`) and 3 (`cf4fb0c` characterization + `021a2d6`) DONE; step 4: `wt/out`
-built + the §8.3 1 smoke DONE (builder #4, at `8b1c2e5`); the §8.2 gates next
+status: DONE — design §9 steps 1 (`307f96f`), 2 (`99c35b1`), 3 (`cf4fb0c` characterization + `021a2d6`) and 4 DONE: `wt/out` built +
+the §8.3 1 smoke (builder #4, at `8b1c2e5`); the §8.2 gates run and green at `123ffed` (builder #5, 16:47–16:58; `src/` = `021a2d6`'s).
+T3 (the independent verifier) next.
 
 ## Goal (the paste-in's T2 row verbatim + the exit)
 
@@ -102,8 +103,75 @@ gates run and recorded.
   Deviation (behaviour-keeping): only the pristine `project.json` went into the project folder (`index.json` = the S4 library index and
   `project.orig.json` = S4's pre-clean copy stay in `T2\pristine\`); the asset's cached derivatives (thumbs / proxies / waveforms) were
   not copied — the editor opened without them and logged no error.
+- **§9 step 4, part 2 — the §8.2 gates (builder #5; no `src/` change, so no code commit; as of `123ffed`, whose `src/` = `021a2d6`'s:
+  `git diff --stat 021a2d6 123ffed -- src scripts package.json package-lock.json electron.vite.config.ts vitest.config.ts` empty).** All
+  gates green — see Verified "Step 4 part 2". Kit additions (outside the repo): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\gate-rerun.sh`
+  (guard + named files ALONE + full run `<n>` with optional flags + a FAIL → error map `failed-with-error-<n>.tsv`). Logs:
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\`.
 
 ## Verified
+
+Step 4 part 2 — the §8.2 gates (builder #5), 2026-10-30 16:47–16:58, worktree root, HEAD `123ffed` (src / scripts / package clean
+throughout; HANDOFF.md alone edited during the runs). App stopped: 0 `electron.exe` at every guard. Logs in
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\` (`summary.txt` = `gate-all.sh`'s one-page record):
+
+- Guard 16:47:07 (`guard.log`): C: 27.04 GB free, D: 39.15 GB, commit limit 99.70 / committed 66.43 → headroom 33.27 GB → no
+  `--maxWorkers` / exclusion flags; CPU top 8 over 5 s (% of all 16 cores): `code` 6.6, `wmiprvse` 3.7, `vmmemwsl` 2.5, the rest ≤ 1.8.
+  Before runs 2 / 3 / 4: headroom 29.89 / 29.13 / 32.49 GB, C: 26.66 / 26.50 / 26.81 GB (`guard-2/3/4.log`; the 2 and 3 CPU samples
+  partly failed with Get-Counter's "data … not valid" — run 4's: `node` 7.6, `wmiprvse` 5.7, the rest ≤ 2.4).
+- `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/gate-all.sh` (background) → exit 0, `end 2026-10-30 16:50:14`.
+- **The worktree full run — DRIVING's load rule, the COUNTED run = run 4** (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run`,
+  default flags, the third default try):
+  - Run 1 16:47:16 (`vitest-full-1.log`, default): `Test Files  29 failed | 517 passed | 6 skipped (552)` · `Tests  10 failed | 5433 passed
+    | 37 skipped (5480)`, 55.65 s = the 28 + `shot-module-resolver.test.ts > … a changed transpiler fingerprint misses every tier`
+    `Test timed out in 5000ms` at `:151:3` (DRIVING's named load timeout).
+  - Alone 16:51:27 (`alone-2.log`): `… vitest.mjs run src/main/services/studio/shot-module-resolver.test.ts` → `1 passed (1)` · `Tests  10
+    passed (10)`.
+  - Run 2 16:51:32 (`vitest-full-2.log`, default; `bash …\T2\gate-rerun.sh 2 <the file>`): `33 failed | 513 passed | 6 skipped (552)` ·
+    `Tests  16 failed | 5427 passed`, 121.10 s = the 28 + five `Test timed out in 5000ms` in files NOT on DRIVING's list:
+    `packs-through-tools.test.ts:125`, `agent-memory.test.ts:108`, `snapshot-store.test.ts:189`, `tsx-builder/build-check.test.ts:41`,
+    `tsx-builder/tsx-builder.test.ts:416` + `:450` (shot-module-resolver green this time). None of the five is in `0df9e9c..HEAD`
+    (`diff-0df9e9c-HEAD.txt`, 30 paths); all green alone and in runs 1, 3 and 4 — see Open problems.
+  - Alone 16:54:21 (`alone-3.log`): those five + `shot-module-resolver.test.ts` → `Test Files  6 passed (6)` · `Tests  57 passed (57)`.
+  - Run 3 16:54:28 (`vitest-full-3.log`, `--maxWorkers=4`): `29 failed | 517 passed | 6 skipped (552)` · `Tests  10 failed | 5433 passed`,
+    114.63 s = the 28 + the same `:151` test, this time `Error: never written: …\shot-module-cache-…\intro\v1.json` from the test's own
+    `waitForFile` (`shot-module-resolver.test.ts:45-56`: 100 polls × 10 ms for a background write, called at :158) — the same named
+    load-sensitive test.
+  - Alone 16:56:59 (`alone-4.log`): `shot-module-resolver.test.ts` → `1 passed (1)` · `Tests  10 passed (10)`.
+  - **Run 4 16:57:01 (`vitest-full-4.log`, default — COUNTED): `Test Files  28 failed | 518 passed | 6 skipped (552)` · `Tests  9 failed |
+    5434 passed | 37 skipped (5480)`, 61.35 s, rc 1.** The failed set (`failed-with-error-4.tsv`, each FAIL mapped to the next error line)
+    `diff`s EMPTY against `expected-28.txt` (S3's `ls-r1b-files.txt` 25 + the 3 E-d2a). Errors: 15 × `Cannot find module '<wt>\stream'`
+    + 10 × `'<wt>\stream\promises'` (the 25 LS-r1c, nothing else); E-d2a `builder-libraries.test.ts` (stderr `Error: @remotion/paths
+    (builder-libraries.ts) is not installed`), `shot-bundle.test.ts` (`Could not resolve "roughjs"` / `"@remotion/shapes"` /
+    `"@react-three/fiber"` / `"chroma-js"` / `"@remotion/google-fonts/SpaceGrotesk"`), `shot-bundle-in-place.test.ts` (`Could not resolve
+    "chroma-js" (v1.tsx:1)` inside the assertion) — package resolution only.
+  - (`gate-all.sh`'s own `failed.tsv` / "failed files: 7" line in `summary.txt` UNDERCOUNTS — its awk keeps only the first file of a
+    vitest group that shares one error; the per-file map `failed-with-error.tsv` (run 1: 29 files) is the correct one.)
+- **LS-r1c proof at `123ffed`:** this worktree `… vitest.mjs run <the 25>` 16:48:13 (`ls-r1c-this-wt.log`) → `Test Files  25 failed (25)`
+  · `Tests  no tests`, each FAIL mapped to `Cannot find module '<wt>\stream'` (15) / `'<wt>\stream\promises'` (10), no other error; fresh
+  `git worktree add --detach D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/f-head-wt HEAD` (16:48:23, `HEAD is now at 123ffed`) →
+  `cd …\f-head-wt && … vitest.mjs run <the 25>` (`ls-r1c-fresh-wt.log`) → `Test Files  25 passed (25)` · `Tests  239 passed (239)`, rc 0;
+  `git worktree remove --force …\f-head-wt` rc 0, `git worktree list` after: no `f-head-wt` (`fresh-wt.log`).
+- **E-d2a independence:** `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/ed2a-graph.cjs <wt> …\gates\diff-0df9e9c-HEAD.txt`
+  (esbuild metafile walk, platform node, packages external, vitest aliases, `vi.mock` targets followed) → `builder-libraries.test.ts: 2
+  src inputs; range files in graph: NONE` · `shot-bundle.test.ts: 9 … NONE` · `shot-bundle-in-place.test.ts: 302 … NONE` (`e-d2a-graph.log`;
+  the range = `git diff --name-only 0df9e9c..HEAD`, 30 paths).
+- **tsc:** `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` → 25 `error TS`; `-p
+  tsconfig.node.check.json` → 10 (`tsc-web.log` / `tsc-node.log`; baseline 25 / 10).
+- **Matcher:** `git diff 7967c6f -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+  src/main/services/library/sound-match-vocab.ts` → 0 bytes (3 / 3 files present).
+- **Library search §9.1:** `… vitest.mjs run src/main/services/library-search src/library-search-engine
+  src/main/services/studio/agent-tools/audio-tools-no-claim.test.ts src/main/services/studio/agent-tools/list-assets-library.test.ts`
+  (`ls91.log`) → `Test Files  17 passed | 1 skipped (18)` · `Tests  159 passed | 2 skipped (161)`, rc 0 (the skip = the gated live test).
+- **House rules over `0df9e9c..HEAD` (`house.log`):** 14 created `src/` files, the largest 248 lines (`timeline-listing.test.ts`; the
+  largest source file `timeline-listing.ts` 188); the pre-existing over-300 files' growth: `EditorShell.tsx` 1674 → 1676,
+  `useStudioAgent.ts` 336 → 340, `studio-handlers.ts` 672 → 673, `src/shared/ipc/types/studio.ts` 972 → 986; added lines matching
+  `\bany\b`: 3, all the English word in the empty-timeline string / test title (`no clips on any lane`) — 0 `any` types;
+  `package.json` / `package-lock.json` diff 0 bytes (Remotion pins untouched); renderer → `src/main` imports 0, main → `src/features`
+  imports 0; `agent-tools/index.ts` diff: 0 removed lines (`STUDIO_TOOL_IDS` append-only: `'get_timeline'` added last).
+- §8.1 in the tree (green in the counted run): `timeline-cuts.test.ts` (1), `timeline-listing.test.ts` (2), `studio-agent-prompt-timeline.test.ts`
+  (3, 6), `cut-anchor.test.ts` + `apply-insert-proposal-cut.test.ts` (4), `insert-tools-cut.test.ts` + `insert-tools-anchor.test.ts` (5),
+  `timeline-tools.test.ts` (6), `source-span-map.test.ts` + the untouched `cut-proposal.test.ts` (7).
 
 Step 4 part 1 (builder #4), 2026-10-30 16:33–16:42, worktree root, HEAD `8b1c2e5`, tree clean:
 
@@ -184,23 +252,24 @@ in `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\`):
 
 ## Next step
 
-Design §9 step 4, the rest — the §8.2 gates, app stopped: run `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/gate-all.sh`
-(Bash, `run_in_background`, from a clean tree at the HEAD you will record), then read
-`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\summary.txt` and the logs it names, record every gate under Verified
-(commands + outputs + log paths) and return DONE. The script (written by builder #4, `bash -n` clean, NOT yet run — fix it if a
-step misbehaves, keep its logs) does, in order: `guard.ps1` (C: / D: / commit headroom + CPU top 8 over 5 s; adds `--maxWorkers=2`
-when headroom < 10 GB and the python-models exclusion when C: < 4 GB; stops under 3 GB); the worktree full vitest run
-(`gates\vitest-full-1.log`, failed files → `failed.tsv`, compared with the 25 LS-r1c (S3's `ls-r1b-files.txt`) + the 3 E-d2a);
-the 25 here + in a fresh `git worktree add --detach …\timeline\T2\f-head-wt HEAD` (then `git worktree remove --force`); the E-d2a
-esbuild walk (`ed2a-graph.cjs`) over `git diff --name-only 0df9e9c..HEAD`; tsc web / node; the matcher diff vs `7967c6f`; library
-search §9.1's files (`ls91.log`); the house rules over `0df9e9c..HEAD` (`house.log`: created-file lines, the over-300 files' growth,
-`any` hits on added lines, package diff, renderer → main / main → features imports, the `index.ts` diff). A failure outside the 28
-named suites: DRIVING's load rule / E-d13 first (rerun the file alone; a 2nd full run with `--maxWorkers=4`, then E-d13's flags),
-else it is real.
+None in T2 — the exit is met (design §9 steps 1–4; §8.1 in the tree and green, the §8.3 1 smoke, the §8.2 gates recorded above). The
+orchestrator spawns T3, the independent verifier, on design §8 (the verifier repeats the smoke and the gates at its own HEAD; the kit
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\` and the profile `timeline-T` stay in place for reuse or copying).
 
 ## Open problems
 
 - (none blocking) Ruling AT-r1 is DONE in `99c35b1` (see Done).
+- **For the orchestrator / T3 — run 2's five extra timeouts (a NOTE, not counted):** the second default full run (121 s vs 55–61 s for
+  runs 1 / 4, the machine otherwise quiet by the guard samples) timed out at 5000 ms in five suites NOT on DRIVING's named load list
+  (`agents/tools/packs-through-tools.test.ts:125`, `studio/agent-memory.test.ts:108`, `studio/snapshot-store.test.ts:189`,
+  `tsx-builder/build-check.test.ts:41`, `tsx-builder/tsx-builder.test.ts:416,450`). None is in `0df9e9c..HEAD`; all six (with
+  shot-module-resolver) green alone (`alone-3.log`, 57 tests) and green in runs 1, 3 and 4. The counted run is run 4 (DRIVING's rule
+  (b): a default full run green within 3 tries); run 2 is recorded, not hidden. Same pattern as MEMORY's "full run flakes with 5000 ms
+  timeouts in disk-heavy suites (different set each run)".
+- `shot-module-resolver.test.ts:151` failed in run 3 through its own `waitForFile` (~1 s of polling), not the 5000 ms timeout — DRIVING
+  names the test by its line; recorded so a verifier is not surprised by the different message.
+- `gate-all.sh`'s `failed.tsv` parse undercounts (see Verified); `gate-rerun.sh`'s map is the one to trust — a T3 copy of the kit
+  should take the `gate-rerun.sh` awk.
 - **LS-r1c trap for any new test that imports `agent-tools/index.ts`:** `index.ts`'s graph reaches `stream/promises` ONLY through
   `./flow-tools` (→ `agents/tools/run-flow` → … → `packages/zip-reader.ts` and `studio/project-package-zip.ts`); in this worktree that
   fails as `Cannot find module '<wt>\stream\promises'` = a 26th stream suite = a REAL gate failure. `studio-agent-prompt-timeline.test.ts`
@@ -238,6 +307,8 @@ else it is real.
 - The stream tracer (`.vidtsx-temp/timeline/T2/stream-chain.mjs`) — reuse it, don't rewrite it.
 - §9 step 4 part 1 (`424eb18`): the `wt/out` build, the scratch project / clip / profile `timeline-T`, the app smoke and the real-handler
   `get_timeline` call — all recorded under Verified; no `src/` changed since, so no rebuild or re-smoke unless `src/` changes.
+- §9 step 4 part 2 (the gates, at `123ffed`): runs 1–4, the alone runs, the LS-r1c fresh-worktree proof, E-d2a walk, tsc, matcher,
+  §9.1, house — all recorded under Verified; rerun only if `src/` changes.
 
 ## Agents so far
 
@@ -247,3 +318,5 @@ else it is real.
   numbered step.
 - Builder #4 (2026-10-30 16:32–16:45): §9 step 4 part 1 — `wt/out` built, the §8.3 1 smoke done → records `424eb18`; wrote the gate
   kit (`gate-all.sh`, `guard.ps1`); handed off at the ~40-call limit before the gates.
+- Builder #5 (2026-10-30 16:46–17:00): §9 step 4 part 2 — the §8.2 gates at `123ffed` (`gate-all.sh` + `gate-rerun.sh` runs 2–4;
+  counted = run 4, default, exactly the 28); T2 DONE.
