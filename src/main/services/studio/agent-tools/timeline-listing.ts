@@ -5,11 +5,13 @@
 // master rows, 20 per other lane — and the "+N more" line says the fromSec
 // that continues. Cut numbers come from the shared model (timeline-cuts.ts),
 // so they stay counted from the start of the timeline on every page.
+// Also the "State of the edit" cuts line (§4, formatMasterCutsLine).
 
 import {
   formatTimelineTc as tc,
   masterTimelineModel,
   timelineLength,
+  type MasterCutsSummary,
   type MasterTimelineModel,
 } from '../../../../shared/studio/timeline-cuts';
 import type { StudioClip, StudioMediaAsset, StudioShot, StudioTimeline, StudioTrack } from '../../../../shared/types/studio';
@@ -100,13 +102,16 @@ function masterRows(model: MasterTimelineModel, win: Window, names: Names): stri
   for (let i = 0; i < clips.length; i++) {
     const clip = clips[i];
     const inside = inWindow(win, clip.timelineStart, clipEndOf(clip));
-    if (inside && listed === MASTER_ROW_CAP) {
-      out.push(moreLine(visible - listed, clip.timelineStart));
-      break;
-    }
+    // The gap row comes before the cap check (ruling AT-r1): the gap right
+    // before the first unlisted clip ends that page — the next page starts at
+    // the gap's end, so it would otherwise fall between the two.
     const gap = gapBefore.get(i);
     if (gap && inWindow(win, gap.start, gap.end)) {
       out.push(`  gap ${tc(gap.start)}–${tc(gap.end)} (${(gap.end - gap.start).toFixed(2)} s, nothing on this track)`);
+    }
+    if (inside && listed === MASTER_ROW_CAP) {
+      out.push(moreLine(visible - listed, clip.timelineStart));
+      break;
     }
     if (!inside) continue;
     const join = joinAt.get(i);
@@ -162,4 +167,22 @@ export function formatTimelineListing(input: TimelineListingInput): TimelineList
   }
   if (model && model.cuts.length > 0) lines.push(CUT_FOOTER);
   return { text: lines.join('\n'), isError: false };
+}
+
+/** Cut times the state line spells out before "+N more". */
+export const CUTS_LINE_SHOWN = 5;
+
+/** The "State of the edit" cuts line (§4); undefined when there is no master
+ *  track or it has no clips. Same model as get_timeline (summarizeMasterCuts). */
+export function formatMasterCutsLine(summary: MasterCutsSummary | undefined): string | undefined {
+  if (!summary || summary.clipCount === 0) return undefined;
+  const gaps = summary.gapCount > 0 ? ` · ${plural(summary.gapCount, 'gap')}` : '';
+  const k = summary.cuts.length;
+  let cuts = 'no cuts';
+  if (k > 0) {
+    const shown = summary.cuts.slice(0, CUTS_LINE_SHOWN).map((t, i) => `cut ${i + 1} at ${tc(t)}`);
+    const more = k > CUTS_LINE_SHOWN ? `, +${k - CUTS_LINE_SHOWN} more (get_timeline lists them)` : '';
+    cuts = `${plural(k, 'cut')} — ${shown.join(', ')}${more}`;
+  }
+  return `- ${summary.trackName} (master track): ${plural(summary.clipCount, 'clip')}${gaps} · ${cuts}.`;
 }

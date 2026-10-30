@@ -468,6 +468,17 @@ export interface StudioAgentAssetInfo {
   sourceKeeps?: Array<{ start: number; end: number }>;
 }
 
+/** The master track's cuts as the renderer's live document has them — the
+ *  shape of `summarizeMasterCuts` (`@shared/studio/timeline-cuts`), the same
+ *  model `get_timeline` reads from the saved copy. */
+export interface StudioAgentTimelineCuts {
+  trackName: string;
+  clipCount: number;
+  gapCount: number;
+  /** Every cut's timeline time, in order (cut 1 first). */
+  cuts: number[];
+}
+
 export interface StudioAgentSendRequest {
   projectId: string;
   /** Display name for the system prompt (main never re-loads the document). */
@@ -493,6 +504,9 @@ export interface StudioAgentSendRequest {
   captions?: { templateId: string; enabled: boolean };
   /** Length of the current edit, timeline seconds (0 = empty). */
   timelineDurationSeconds?: number;
+  /** The master track's cuts (the state block's cuts line). Absent = no master
+   *  track (or an older renderer). */
+  timelineCuts?: StudioAgentTimelineCuts;
   /** W4: the project script as the renderer holds it (the live copy — the
    *  save debounce may lag). The opening rides the system prompt;
    *  `get_script` reads the rest. */

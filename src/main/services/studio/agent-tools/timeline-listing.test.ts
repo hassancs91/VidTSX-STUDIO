@@ -42,11 +42,11 @@ describe('formatTimelineListing — the 2-clip project', () => {
   });
 });
 
-/** 60 master clips (2 s each, one 0.5 s gap before #11, every join a cut),
- *  a hidden 25-shot overlay lane, a 2-clip audio lane, a muted + locked lane. */
-function synthetic(): { timeline: StudioTimeline; assets: Array<{ id: string; path: string }>; shots: Array<{ id: string; name: string }> } {
+/** 60 master clips (2 s each, one 0.5 s gap before #11 — or before #(gapAt+1) —
+ *  every join a cut), a hidden 25-shot overlay lane, a 2-clip audio lane, a muted + locked lane. */
+function synthetic(gapAt = 10): { timeline: StudioTimeline; assets: Array<{ id: string; path: string }>; shots: Array<{ id: string; name: string }> } {
   const master: StudioClip[] = Array.from({ length: 60 }, (_, k) => ({
-    id: `m${k + 1}`, kind: 'video', assetId: 'talk', timelineStart: k * 2 + (k >= 10 ? 0.5 : 0), duration: 2, sourceIn: k * 3,
+    id: `m${k + 1}`, kind: 'video', assetId: 'talk', timelineStart: k * 2 + (k >= gapAt ? 0.5 : 0), duration: 2, sourceIn: k * 3,
   }));
   const shotsLane: StudioClip[] = Array.from({ length: 25 }, (_, k) => ({
     id: `o${k + 1}`, kind: 'tsx', timelineStart: k * 4, duration: 1, tsx: { shotId: `s${k + 1}`, mode: 'overlay' },
@@ -131,6 +131,25 @@ describe('formatTimelineListing — caps and paging', () => {
       '  (nothing in this window)',
       FOOTER,
     ]);
+  });
+
+  it('ruling AT-r1: a gap right before the first unlisted clip ends page 1 (then "+N more"); page 2 does not repeat it', () => {
+    const page1 = formatTimelineListing(synthetic(40)).text.split('\n');
+    expect(page1[0]).toBe(SYN_LINE_1);
+    expect(page1[41]).toBe('  #40 1:18.00–1:20.00 "talk.mp4" (video) src 117.00–119.00 ← cut 39 at 1:18.00');
+    expect(page1.slice(42, 45)).toEqual([
+      '  gap 1:20.00–1:20.50 (0.50 s, nothing on this track)',
+      '  … +20 more — get_timeline(fromSec: 80.5) continues from 1:20.50.',
+      'Shots (overlay, hidden):',
+    ]);
+    expect(page1.filter((l) => /^ {2}#\d+ /.test(l))).toHaveLength(40);
+    const page2 = formatTimelineListing({ ...synthetic(40), fromSec: 80.5 }).text.split('\n');
+    expect(page2.slice(2, 5)).toEqual([
+      'V1 (master track):',
+      '  #41 1:20.50–1:22.50 "talk.mp4" (video) src 120.00–122.00',
+      '  #42 1:22.50–1:24.50 "talk.mp4" (video) src 123.00–125.00 ← cut 40 at 1:22.50',
+    ]);
+    expect(page2.filter((l) => l.startsWith('  gap '))).toEqual([]);
   });
 
   it('a toSec window lists what overlaps [0, toSec)', () => {
