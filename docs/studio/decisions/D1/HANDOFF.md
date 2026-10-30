@@ -1,5 +1,6 @@
 # D1 — the spike: decision models (hosted × 2, local, keyless LLM baseline) on three small task sets (no product code)
-status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 next
+status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 IN PROGRESS (builder #3: route settled,
+weights downloaded + hash-checked, runner `K\laya-run.cjs` written; the measured runs are next)
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -155,6 +156,36 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   families mapped to 18 of the 29 `STUDIO_TOOL_IDS` with group file:line; **T3** 40 rows, 20 yes / 20 no, 7 Arabic, 12 source files, every
   file:line checked; **self-check 17 / 17 PASS** incl. S1's own top-20 picks reproducing R@1 151 / 187 = 80.7 %, wrong-confident 15 / 240 =
   6.3 %, correct none 42 / 53 = 79.2 % (and pick acc 170 / 187, false none 13 / 156, the CORPUS / HELD-OUT rows) exactly at every τ.
+
+- **Step 3 (c) Laya multilingual — PART DONE** (builder #3, 2026-10-30 16:15–; see "Step 3 so far" below for the route + files).
+
+### Step 3 so far (builder #3)
+
+- **Route (1) `laya-ts` — did not run, two reasons (read 2026-10-30 16:16):** (a) its npm name is `laya-ts` (upstream
+  `laya-ts/package.json`: `"name": "laya-ts"`, `"version": "0.1.0"`, Apache-2.0, `optionalDependencies` onnxruntime-node / -web `^1.20.0`,
+  `"files": ["dist", "scripts/export_onnx.py"]`, `prepack` = tsc build) but **`https://registry.npmjs.org/laya-ts` → `{"error":"Not found"}`**
+  — it is not published; the GitHub releases (v0.4.4 … v0.4.18, 2026-10-12 … 10-30) carry only the Python wheel + sdist, and git holds
+  TS source with no `dist/` (a tsc build = a new toolchain step); nothing was installed, `B\npm-scratch\` stays empty. (b) Its weights
+  come only from `python laya-ts/scripts/export_onnx.py` (laya-ts README.md:5-10) — the HF repos `convaiinnovations/laya` (incl.
+  `multilingual/`) and `convaiinnovations/laya-multilingual` hold `model.safetensors` only, no ONNX (HF API tree, 16:17) — and no pip /
+  no own export (D-r3). `Agent.load("convaiinnovations/laya", { subfolder: "multilingual" })` would therefore find no `encoder.onnx`.
+- **Route (2) taken — community conversion `desplega/laya-onnx` `multilingual/fp32/`** (split `encoder.onnx` + `head.onnx` +
+  `tokenizer.json` + `rl_agent_config.json` = laya-ts's own `Agent.load(dir)` layout; its `manifest.json` names `hfRepo
+  convaiinnovations/laya-multilingual`, `hfRevision e4e9ddf2…`, a sha256 per file, exported with laya 0.3.21 / torch 2.14 / onnx 1.23,
+  opset 18). Why this one over `verdict-models/laya-multilingual` (one 1,290,694,968 B `laya-multilingual.onnx`, "marker_head" family):
+  the split layout's pre / post-processing is in the OFFICIAL laya-ts source, so no third-party server code is needed. Its
+  `tokenizer.json` sha256 `609d8f4c…` = the official repo's LFS oid.
+- **Sizes stated first (HTTP HEAD Content-Length, 16:17):** encoder.onnx 1,230,282,662 · head.onnx 60,101,236 · tokenizer.json 34,363,188 ·
+  rl_agent_config.json 472 · manifest.json 1,069 = **1,324,748,627 B**. Resource guard 16:17: C: 29.04 GB free, commit limit 99.70 GB,
+  committed 65.53 GB → headroom 34.17 GB, 0 `electron.exe` → pass. Folder: `B\models\laya-multilingual-desplega-fp32\` (new); log
+  `B\models\laya-download.log`. One connection ran at ~80 KB/s → stopped; `K\dl-parallel.sh` (ranged parts, 8 / 32 connections) ≈ 0.4 MB/s.
+- **Kit files (outside the tree):** `K\dl-parallel.sh` (download only); `K\laya-run.cjs` — Laya's pre / post-processing ported from the
+  official laya-ts source (`common.ts` buildQuestionPrefix / sequenceWithState / renderOptions / collateItems, `agent.ts` _encodeItems /
+  _decodeRow, `providers.ts` feed / feedHead), `onnxruntime-node` 1.24.3 + `@huggingface/tokenizers` 0.1.3 from the main checkout's
+  node_modules (read-only); `--examples` = the worked-example check; `--task t1|t2|t3 --mode noul|choice --out <file> [--limit N]
+  [--ep dml]` writes a `vidtsx-d1-answers/1` file with cold load / first answer, per-request latencies, peak RSS and the CPU load (top
+  6 processes over 5 s, before + after) in `env`, and the framing in `notes`. The laya-ts source read for it is under
+  `B\src-read\laya-ts-main\` (agent.ts, common.ts, tokenizer.ts, providers.ts — reference text, never run).
 
 ## Verified (exact commands + outputs)
 
