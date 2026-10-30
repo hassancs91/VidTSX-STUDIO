@@ -2,7 +2,9 @@
 status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 PART DONE (builder #3, 16:27: route
 settled, runner `K\laya-run.cjs` written; weights downloading under the orchestrator, D-r5); **steps 5 + 6 DONE (builder #4, 16:47:
 keyless baseline 16 / 40 calls, scored; hosted runners dry-run, no network)**; **step 4 PART 1 (builder #5, 16:57): adapter
-`K\llama-run.cjs` + OOF-temperature script `K\temp-oof.cjs` written, NOT yet run on a model (no GGUF had landed at 16:56:49)**
+`K\llama-run.cjs` + OOF-temperature script `K\temp-oof.cjs` written, NOT yet run on a model (no GGUF had landed at 16:56:49)**;
+**step 4 PART 2 (builder #6, 17:39–): d1-omni-600M DID NOT RUN (`missing tensor 'blk.16.ffn_gate.weight'` — an encoder + decision
+head, not loadable by b8390's `lfm2`); Qwen2.5-0.5B self-test PASS on Vulkan (25 layers with `--gpu-layers max`), full runs started 17:46**
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -213,6 +215,40 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
     `used` (`18446744058302345000`) → see P13. The bundled llama.cpp is `b8390` (`node-llama-cpp\llama\binariesGithubRelease.json`); the CPU and
     CUDA `llama*.b8390.dll` contain the `lfm2` arch string (the CPU one also `lfm2moe`), and the CPU one has NO `systemone` string (a
     library, not `llama-server`) — whether d1-omni's GGUF loads is still for the `--info` run.
+
+- **Step 4 part 2 (a) — Liquid d1-omni-600M: DID NOT RUN (does not load in node-llama-cpp 3.18.1 / llama.cpp b8390)** (builder #6,
+  2026-10-30 17:39–17:40; tree as of `ce296e6`). File `B\models\d1-omni-600M-gguf\d1-omni-600M-Q8_0.gguf` 407,207,584 B, sha256
+  `cd94463f4cac9c70…3d3` (= the log's, = expected). `node K\llama-run.cjs --model <it> --info --gpu auto` → rc 1 in 13 s, and the same with
+  `--gpu false` (rc 1, 4 s), the EXACT error both times: `llama_model_load: error loading model: missing tensor 'blk.16.ffn_gate.weight'`
+  → `Error: Failed to load model` (`LlamaModel._create`, LlamaModel.js:516). Logs `B\logs\d1-info-<vulkan|cpu>.<json|err>`. **Why (its GGUF
+  metadata, read with `readGgufFileInfo`, no load — `B\logs\d1-gguf-meta.json`):** `general.architecture lfm2` BUT `lfm2.decision.type
+  lfm2-d1-omni`, `lfm2.attention.causal false` (a bidirectional ENCODER, base "LFM2.5 Encoder 350M"), `lfm2.block_count 18` of which
+  blocks 16–17 are `lfm2.decision.block_count 2` plain transformer blocks (`attn_qkv` + biases, LayerNorm with bias, `ffn_up` / `ffn_down`, NO
+  `ffn_gate` — what b8390's `lfm2` loader demands), plus a scalar head `cls.weight [1024,1024]` / `cls.norm.*` / `cls.output.weight [1024]` +
+  `cls.output.bias [1]` and `token_types.weight [1024,3]`; NO `tokenizer.chat_template` — only `tokenizer.chat_template.systemone`
+  (1,631 chars, `B\logs\d1-systemone-template.jinja`: state + instructions, then per option `<|reserved_9|><|mask|> … <|reserved_10|>` — one
+  scored mask position per option, i.e. the head scores options, it is not next-token text); fitted temperatures in the metadata
+  (`lfm2.decision.temperature.noul.2` 1.666, `choice.2` 1.747, `choice.3_5` 1.400, `choice.6_10` 1.175, `choice.11` 1.373, `score.3_5` 1.730);
+  `general.languages` lists 15 incl. **`ar`** (the GGUF says Arabic: yes — a-sources §8 had "unknown"). So it is NOT a plain LM: the brief's
+  "--limit 10 NOTE probe as a plain LM" has nothing to run either (no causal LM path). Its documented path stays llama-server's
+  `/v1/systemone` (a llama.cpp build with `lfm2-d1-omni` support — which build is not stated on the card; the app ships neither).
+  Licence LFM Open License v1.0 (revenue-capped < $10 M; P3).
+- **Step 4 part 2 (b) — Qwen2.5-0.5B-Instruct Q8_0: self-test PASS; full runs started 17:46** (builder #6). File
+  `B\models\qwen2.5-0.5b-q8\qwen2.5-0.5b-instruct-q8_0.gguf` 675,710,816 B, sha256 `ca59ca7f…44e` (log `ok` + `sha256sum` = expected + `end
+  17:39:34`). `--info --gpu auto` → loads, chat wrapper `Qwen`, **`gpuLayers 0` under Vulkan "auto" (P13 confirmed)**, map size 151,936,
+  plain probe "sky blue?" → Yes 0.998. Self-test `--task t1 --mode noul --limit 3` (60 questions): Vulkan auto / 0 layers →
+  `K\answers\selftest\qwen2.5-0.5b-q8-t1-noul-limit3.json` (warm question p50 777 / p95 1,341 ms, first question 21 s); `--gpu-layers max`
+  → **25 layers on the RTX A3000** → `…-limit3-gpumax.json`: `mapSize 151936` (= Qwen2.5's vocabulary), `mapSum 1.00001`, option tokens
+  `Yes` 9454 / `No` 2753 present (0 MISSING), raw option mass min 0.99965, top token never off the options (0 / 60),
+  `prefixReuse.check.maxAbsDiffRenorm` 0.0066 (CPU-ish run: 0.0125), warm question p50 251 / p95 396 ms, request (20 q) ≈ 5.3–5.6 s, cold
+  load 5,878 ms, cold first answer 7,553 ms, peak RSS 1,055 MB, VRAM (nvidia-smi) 801 → 1,666 MiB; max |P(Yes) GPU − CPU| over the 60 =
+  0.028. **Map cost NOTE** (`K\llama-mapcost.cjs` → `K\reports\c-llama-mapcost-qwen2.5-0.5b-vulkan.json`, 78 warm questions, same prompts /
+  prefix reuse): WITH the 151,936-entry probability map p50 174.7 / p95 279.0 ms vs token-only (same forward pass, no map) p50 30.0 /
+  p95 61.6 ms → node-llama-cpp's JS `Map` of the whole vocabulary is ~5/6 of a warm question (P16).
+  **Kit fixes (builder #6, `K\llama-run.cjs`):** (1) cold load / cold first answer no longer include the guard's PowerShell probe or the
+  5 s CPU-load probe (`env.excludedFromCold` records both); (2) `createContext` also gets `ignoreMemorySafetyChecks` with `--gpu-layers
+  max|N` — without it `--gpu-layers max` died with `InsufficientMemoryError: A context size of 4096 is too large for the available VRAM`
+  at 803 / 6,144 MiB used (the broken Vulkan VRAM reading, P13). Runner `K\c-llama-run-all.sh` (log `B\logs\c-llama-run.log`).
 
 ### Step 3 so far (builder #3)
 
