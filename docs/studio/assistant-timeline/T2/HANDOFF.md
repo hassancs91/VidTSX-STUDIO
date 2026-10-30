@@ -1,5 +1,5 @@
 # T2 — build: `get_timeline`, the cuts line, the cut anchor
-status: IN PROGRESS — design §9 steps 1 (`307f96f`) and 2 (`99c35b1`) DONE; step 3 next
+status: IN PROGRESS — design §9 steps 1 (`307f96f`), 2 (`99c35b1`) and 3 (`cf4fb0c` characterization + `021a2d6`) DONE; step 4 next
 
 ## Goal (the paste-in's T2 row verbatim + the exit)
 
@@ -63,6 +63,31 @@ gates run and recorded.
   - Tests in `studio-agent-prompt-timeline.test.ts` :44 (absent / 0 clips → none; 1 clip 0 cuts; 2 clips 1 cut via `summarizeMasterCuts`
     of the 2-clip timeline; exactly 5; 6 → `+1 more (get_timeline lists them)`; 1 and 2 gaps) and :94 (`buildAgentSystemPrompt`: the
     line right after `- Timeline: 0:06 long.`; absent / 0 clips → `- Captions: none set.` follows).
+- **§9 step 3 (§8.1 4, 5, 6's insert_asset half, 7) — commits `cf4fb0c` (characterization, alone) then `021a2d6`** (as of `021a2d6`;
+  `git diff --stat cf4fb0c 021a2d6` → 13 files, +752 / −36):
+  - `cf4fb0c` = ONLY `agent-tools/insert-tools-anchor.test.ts` (219 lines, 7 tests, real `insert_asset` handler; mocks
+    `../asset-transcriber`, `../agent-actions`, `../project-store`, `./library-import`): the number path (item, headline `at 0:03.0`,
+    answer, chip `audio at 3s`; gain / note / asked duration clipped; a negative time → `timelineStart` 0 with the existing
+    `-1:59.0` label), the `{ word, take }` path (item `{ assetId, sourceStart 4.2, sourceEnd 4.2 + 0.7 }`, headline `where the footage
+    reaches 0:04.2 (source)`, chip `audio at "hello"`; take default 1 + explicit footage id), the four word errors, the three guards.
+    GREEN on the unchanged `insert-tools.ts`; not edited since.
+  - `src/shared/studio/source-span-map.ts` (48 lines): `mapSourceSpanToTimeline` :30 (the moved core); exported `index.ts:40-41`.
+    `features/studio/services/cut-proposal.ts:44-53` `mapCutItemToTimeline` = the guard + the shared call + `itemId` (import :12);
+    `cut-proposal.test.ts` untouched and green. Test `source-span-map.test.ts` (4 tests).
+  - `agent-tools/cut-anchor.ts` (104 lines): `cutAnchorLabel` :37, `resolveCutAnchor` :68 (`MAP_EPS` 0.001 :29; footage kinds
+    video / audio / sfx :31; §5's three exact errors; the candidate kept only when `mapSourceSpanToTimeline(...)[0].start` is within
+    0.001 of `t`). Test `cut-anchor.test.ts` (16 tests: cut 1 / −0.25 / 0.5 / −3 exact; global numbering over a through edit + gap;
+    TSX / image / speed-2 offset 0.5 / same-source-earlier → fixed; cut 2 "1 cut", plural, 1-clip + empty "(0 cuts)", offset past
+    after + before; labels; the trim survival: item `{ e3v, 4, 4.7 }` maps 3 → 2 after the trim).
+  - `timeline-insert.ts`: `atLabel?` :84 (used :143), `insertClipLength` :97 (the clipping rule, now the one `buildInsertProposal`
+    uses — behaviour unchanged). Tests appended to `timeline-insert.test.ts` (new describe at the end; no existing line changed).
+  - `insert-tools.ts` (138 → 172 lines): the `{ cut, offset? }` union member :34-37 (the design's two describes), `atChip` :43,
+    `resolveCutAt` :50 (`loadProject` :11; failure → `Could not read the timeline to find cut <n>: <message>`), the branch :100-106,
+    `atLabel` passed :141; the description's clause. Test `insert-tools-cut.test.ts` (10 tests, real handler, `loadProject` mocked).
+  - `studio-agent-prompt-tools.ts:21` the §7 `insert_asset` `at` sentence; pin in `studio-agent-prompt-timeline.test.ts` (new describe
+    `prompt pins — insert_asset`: the line exact + right after the get_timeline line).
+  - Renderer test `features/studio/services/apply-insert-proposal-cut.test.ts` (2 tests, item written by hand, no `src/main` import):
+    `insertItemPlacement` 3 on the 2-clip timeline, 2 after the trim; `applyInsertProposal` puts the whoosh at 2 on A1.
 
 ## Verified
 
@@ -93,16 +118,41 @@ Step 2 (builder #2), same root, 2026-10-30 16:13–16:16 (C: 29.04 GB free, D: 4
 - `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/stream-chain.mjs src/main/services/studio/studio-agent-prompt.ts` → `direct stream
   importers: []` (its new import of `agent-tools/timeline-listing` adds no stream suite).
 
+Step 3 (builder #3), same root, 2026-10-30 16:21–16:29 (no build / launch / full run in step 3, so no resource guard was needed; logs
+in `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\`):
+
+- Tracer before: `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/stream-chain.mjs src/main/services/studio/agent-tools/insert-tools.ts`
+  → `direct stream importers: []`.
+- CHARACTERIZATION 16:21:35, on the UNCHANGED `insert-tools.ts` (`git diff HEAD -- …/insert-tools.ts` empty): `node
+  D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/studio/agent-tools/insert-tools-anchor.test.ts` →
+  `Test Files  1 passed (1)` · `Tests  7 passed (7)`; committed alone as `cf4fb0c`.
+- RED 16:24:52 (tests written, no code; `step3-red.log`): `… vitest.mjs run src/shared/studio/source-span-map.test.ts
+  src/main/services/studio/agent-tools/cut-anchor.test.ts src/features/studio/services/apply-insert-proposal-cut.test.ts
+  src/main/services/studio/agent-tools/insert-tools-cut.test.ts src/main/services/studio/timeline-insert.test.ts
+  src/main/services/studio/studio-agent-prompt-timeline.test.ts src/main/services/studio/agent-tools/insert-tools-anchor.test.ts` →
+  `Test Files  5 failed | 2 passed (7)` · `Tests  12 failed | 25 passed (37)`: `Cannot find module './source-span-map'` (and via
+  `cut-anchor.test.ts`); the insert_asset line `expected -1 to be greater than 0`; `atLabel` headline `as audio whe…` vs `as audio 0.2…`;
+  `insertClipLength is not a function`; the 10 `{ cut }` handler tests (the word path's `No transcribed footage …`, no `{ cut` in the
+  description, no cut form in the schema). The 2 passing files = the characterization file and the renderer placement file
+  (`apply-insert-proposal-cut.test.ts` pins EXISTING renderer behaviour — green by design, a guard for the move).
+- GREEN 16:26:52 (`step3-green.log`): the same 7 + `cut-proposal.test.ts`, `cut-proposal-qa.test.ts`, `apply-insert-proposal.test.ts`,
+  `apply-shot-proposal.test.ts`, `studio-agent-prompt.test.ts`, `timeline-tools.test.ts`, `timeline-listing.test.ts`,
+  `timeline-cuts.test.ts`, `audio-tools.test.ts`, `audio-tools-no-claim.test.ts`, `audio-tools-reuse.test.ts`, `library-import.test.ts`,
+  `flow-tools.test.ts` → `Test Files  20 passed (20)` · `Tests  178 passed (178)`.
+- Types 16:27–16:29 (tree = `021a2d6`'s content): `tsc -p tsconfig.web.check.json --noEmit` → 25 `error TS`; `-p tsconfig.node.check.json`
+  → 10 (none in a new or touched file; `tsc-web-step3.log` / `tsc-node-step3.log`). Tracer after: `insert-tools.ts` and `cut-anchor.ts`
+  → `direct stream importers: []`.
+- Existing test files: `git diff -U0` of `timeline-insert.test.ts` / `cut-proposal.test.ts` shows no removed line; 0 `any` in the new files.
+
 ## Next step
 
-Design §9 step 3, characterization FIRST: check `src/main/services/studio/agent-tools/insert-tools.ts` with the stream tracer, then write
-`agent-tools/insert-tools-anchor.test.ts` (imports `insert-tools.ts` directly — there is no `insert-tools.test.ts`; the suites that
-already drive `insert_asset` (`audio-tools.test.ts`, `library-import.test.ts`) show the mocking pattern; today `insert-tools.ts` loads no
-project — the word path reads the transcript through `readTranscriptFile` (import :9), mock that) pinning the number path and the
-`{ word, take }` path's emitted proposal item + answer text exactly, run it
-GREEN on the UNCHANGED `insert-tools.ts`, and commit it alone ("test(studio): assistant timeline T2 — insert_asset number / word
-characterization (green on the unchanged code)") before any red test for `source-span-map`, `cut-anchor`, the `{ cut }` path, `atLabel`
-or the prompt line / description.
+Design §9 step 4: resource guard (C: ≥ 3 GB free, C: + commit headroom ≥ 6 GB; record), check Hasan's dev app (electron.exe from
+`D:\repos\VidTSX-STUDIO`, CDP 9222) is not rendering, then build `wt/out` (DRIVING "Track E" launch recipe step 1, log to
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\build.log`), copy the 2-clip `S4\r1\p2\pristine\` project + `e3v-clip.mp4` into
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\root\` (asset path → the copied clip), make profile `profiles\timeline-T\profile`
+(copy of `profiles\search-S4-verify\profile` WITHOUT `settings\settings.db*`), launch on CDP 9296, `studioRootSet` first, open the
+project (V1 shows 2 clips, no renderer error in the app log), stop the instance, run `get_timeline` through the real handler on the
+copy's saved file with an adapted copy of the S4 kit in `.vidtsx-temp/timeline/T2/` (answer = §3 text exactly), then the §8.2 gates.
 
 ## Open problems
 
@@ -124,14 +174,28 @@ or the prompt line / description.
   `StudioAgentTimelineCuts` is its own interface in the IPC types (not an alias of `MasterCutsSummary`, so the IPC types import nothing
   from `shared/studio`); the hook spreads `timelineCuts` only when defined (as its other optional fields). No handler test: the
   pass-through at `studio-handlers.ts:552` is one spread (tsc-checked); the §8.3 smoke does not exercise it (no model turn).
+- Step 3 choices (behaviour-keeping): the description keeps the word sentence byte-identical and drops its leading "or" so the cut
+  clause reads "`at` is timeline seconds, { word, take } … survives cuts), or { cut, offset? } …"; the chip for a positive offset is
+  `audio at cut 1 +0.5s` (the design shows only `-0.25s`; offset 0 → no suffix); the clipping rule is extracted as
+  `insertClipLength` in `timeline-insert.ts` (the design's "the `buildInsertProposal` clipping rule"); the anchor result carries
+  `atLabel` so the handler passes it straight through; `source-span-map` is also exported through `src/shared/studio/index.ts`
+  (main imports it by relative path, like `timeline-cuts`, so `index.ts`'s React exports never reach main); a cut anchor on a side
+  that joins with an overlap / a ≤ 2 ms gap whose mapped start differs from `t` by > 0.001 s falls back to the fixed time (total by
+  design); the renderer test is a GUARD (green before the move), not red-first — the behaviour already existed.
+- Not a test: zod's `int().min(1)` on `cut` is not exercised through `.handler` (the SDK validates before the handler; the direct
+  handler calls bypass zod) — `resolveCutAnchor` treats any `cut` not among the cuts (incl. < 1) as "does not exist".
 
 ## Do-not-redo
 
 - §9 step 1 entirely (`307f96f`): the model, the listing, the tool, the id, the `TOOL_LINES` line, their tests (red run recorded above).
 - §9 step 2 entirely (`99c35b1`): the cuts line, the request field and its plumbing, ruling AT-r1, their tests (red run recorded above).
+- §9 step 3 entirely (`cf4fb0c` + `021a2d6`): the characterization file (never edit it), source-span-map + the wrapper, cut-anchor,
+  `atLabel` / `insertClipLength`, the `{ cut }` path, the prompt line and description, their tests (red run recorded above).
 - The stream tracer (`.vidtsx-temp/timeline/T2/stream-chain.mjs`) — reuse it, don't rewrite it.
 
 ## Agents so far
 
 - Builder #1 (2026-10-30 15:58–16:10): §9 step 1 → `307f96f`; handed off at the end of a numbered step.
 - Builder #2 (2026-10-30 16:12–16:17): ruling AT-r1 + §9 step 2 → `99c35b1`; handed off at the end of a numbered step.
+- Builder #3 (2026-10-30 16:19–16:31): §9 step 3 → `cf4fb0c` (characterization, alone) + `021a2d6`; handed off at the end of a
+  numbered step.
