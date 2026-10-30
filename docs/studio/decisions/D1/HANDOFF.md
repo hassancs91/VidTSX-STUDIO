@@ -270,6 +270,15 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
 
 ## Next step (ONE concrete instruction)
 
+**Orchestrator, 16:50 — how a builder knows a weight file landed (no message needed):** each orchestrator download job logs to
+`B\models\<name>-download.log`; a file is ON DISK AND USABLE only when its log holds an `ok <path> <bytes>` line with the full size, a
+`sha256sum` line, and an `end HH:MM:SS` line — and that sha256 equals the expected one (the `expect sha256` in the log's first line for the
+two GGUFs; `manifest.json` in the model folder for Laya's four files). Read the logs only; never touch the jobs. At 16:48 (16 min in,
+~0.41 MB/s in all): d1-omni 155.6 / 407.2 MB, Qwen2.5-0.5B 157.3 / 675.7 MB, Laya 243.7 / 1,324.7 MB (tokenizer + head done, encoder
+running) — expect d1-omni ≈ 17:15, Qwen ≈ 17:40, Laya ≈ 18:00 (rough). **Order for builder #5:** write `K\llama-run.cjs` (below, no load),
+then the d1-omni GGUF load test when it lands, then step 4's Qwen runs when that lands; Laya (step 3) when its files land. One model process
+at a time.
+
 **Builder #4, 16:47 — steps 5 and 6 are DONE (see Done).** Next: write the step-4 adapter `K\llama-run.cjs` (node-llama-cpp 3.18.1 option
 probabilities per a-sources §7 — `evaluateWithMetadata(tokens, { probabilities: true })`, the next-token distribution over the option
 tokens renormalised — with the SAME CLI shape as `K\laya-run.cjs`: `--model <gguf> --task t1|t2|t3 --mode noul|choice --out <file>

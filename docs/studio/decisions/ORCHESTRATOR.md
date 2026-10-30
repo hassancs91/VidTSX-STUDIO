@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | BUILDING (step 5; weights downloading, D-r5) | 3 | steps 1–2 re-checked (16:00, 16:13); step 3 part 1 (16:31) | docs `ce3f9e4` `71aa0c5` `bfff9d7` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
+| D1 — the spike (no product code) | BUILDING (step 4; weights downloading, D-r5) | 4 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | TODO | — | — | — | — | — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -172,3 +172,24 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   74,305 B/s; Content-Length 675,710,816. `dl-parallel.sh` read. Resources 16:31: C: 28.5 GB, headroom 33.2 GB → ruling D-r5.
 - 16:32 · orchestrator background downloads started (3 jobs: Laya resume, Qwen2.5-0.5B Q8_0, d1-omni Q8_0; logs `B\models\*-download.log`).
   HANDOFF "Next step" amended for builder #4 (steps 5 → 6, then the adapter).
+- 16:33 · D1 builder #4 spawned (HEAD `b905295`).
+- 16:47 · D1 builder #4 HANDOFF (64 calls, ~15 min; **steps 5 + 6 DONE**, docs `7f72203`): `wt/out` built 16:36–16:39 (rc 0); profile
+  `decisions-D1` (0 `settings.db*` in the copy), CDP 9300, Studio root `B\studio-root` set first; other sessions' instances seen at 16:41 (CDP
+  9341, and 9296 on `timeline-T`) never touched; **16 / 40 keyless calls** (probe + T1 × 12 + T2 + T3 + one counted re-ask of t1-06, whose
+  `success: true` text was cut mid-JSON at 792 chars), all `claude-sonnet-5-5`; its instance stopped. **Baseline (`K\reports\c-baseline.md`):**
+  T1 hard — R@1 151 / 187 = 80.7 %, pick acc 173 / 187 = 92.5 %, **wrong-confident 17 / 240 = 7.1 %**, correct none 40 / 53 = 75.5 %, false none
+  10 / 156 = 6.4 % (S1: 80.7 / 90.9 / 6.3 / 79.2 / 8.3; same pick on 225 / 240 rows); verbalised confidence (NOTE) at τ 0.5 wrong-confident
+  5.8 %, R@1 80.2 %; **T2 100.0 % (Arabic 10 / 10), T3 97.5 % (Arabic 7 / 7)**; T1 call (20 rows) p50 10,424 ms / p95 23,370 ms. **Step 6:**
+  `K\hosted-run.cjs` (Jev System One; OpenAI `/v1/decisions` with `input` + `questions[]`; Microsoft-Decision-1 via OpenRouter's Decisions API —
+  OpenRouter's own reference read: `criteria` {true, false} REQUIRED on `noul` there, optional at TypeSafe), keys from `process.env` only,
+  each refuses when unset (exit 2 ×3), shared counter `K\hosted-calls.jsonl` ≤ 600 + the $3 check before any call; dry-run bodies (first in
+  `K\hosted-dryrun\`, all 12 MB in `B\hosted-dryrun\`): 138 requests (46 per provider), upper-bound $0.334. Open problems: **P10** (Hasan) —
+  D-e's "600 hosted decision calls" read as HTTP requests; if he meant questions, T1 noul (4,632 per provider) cannot run hosted; **P11** —
+  `llmGenerate` can return truncated text marked success (a D2 note); **P12** — D-r2's reference: beat = wrong-confident < 6.3 % at a τ with
+  R@1 ≥ 75.7 %.
+- 16:48–16:50 · **Orchestrator re-check:** HEAD `7f72203` = HANDOFF + LOG only, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty;
+  `K\c-calls.jsonl` = 16 lines, every one ok, `claude-sonnet-5-5`, 9.0–23.4 s; a key-pattern scan (`sk-…`, `Bearer …`) over `K` and
+  `B\hosted-dryrun\` → nothing; `K\hosted-calls.jsonl` absent (0 hosted calls). P12 checked against D-r2 (6.3 % is the lower of S1's 6.3 % and
+  this run's 7.1 %; R@1 80.7 − 5 = 75.7) — right. Downloads at 16:48: d1-omni 155.6 / 407.2 MB, Qwen 157.3 / 675.7 MB, Laya 243.7 / 1,324.7 MB
+  (~0.41 MB/s in all). HANDOFF Next step: how a builder sees a landed file (log `ok` + `sha256sum` + `end`, hash = expected). D1 builder #5
+  (`llama-run.cjs`, then d1-omni / Qwen runs as they land) to spawn.
