@@ -10,7 +10,11 @@ T1 unusable: noul 43.2 %, choice 27.1 %, R@1 ≤ 36.4 %; does NOT beat the basel
 worked-example gate failed (E2 → `sales` 0.5811 vs the card's `billing`; E1 `billing` at P 0.9929, not 0.86) with the port audited
 line by line against laya-ts and no bug found → `K\reports\c-laya.md`, P19**; **D-r6 Qwen3.5-0.8B DONE (builder #7, 18:30–19:15;
 `K\reports\c-llama.md` §8): T2 82.5 %, T3 85.0 %, T1 noul 87.0 % (< always-No 93.1 %), T1 choice 47.5 %, best R@1 48.7 % → does NOT beat
-the baseline (D-r2); warm p95 ≥ 353 ms** — steps 3–6 are done; **step 7 (the report) is next**
+the baseline (D-r2); warm p95 ≥ 353 ms** — steps 3–6 are done; **D-r7 (builder #8, 19:19–19:57): Laya multilingual's four NOTE runs DONE
+(`K\reports\c-laya.md` §8; T1 noul 17.2 %, T1 choice 50.4 % / best R@1 55.6 % at wc 39.2 %, T2 55.0 %, T3 60.0 % — unverified, never
+eligible)**; **step 7 DONE (builder #8, 19:59): `docs/studio/decisions/D1-spike-report.md` → `status: BLOCKED` — STOP 1 (no local candidate
+passes the evaluable terms), STOP 2 (no measured decision model beats the baseline under D-r2; hosted DEFERRED-HASAN) and STOP 3 for the
+local leg** — D1 waits on Hasan (the report's §13–§14)
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -294,6 +298,29 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   (repeat, chrome 4–6 %); T3 and T1 choice were loaded in BOTH runs (chrome 13–57 %, ffmpeg 55–65 %, another process on the GPU) — answers
   identical in the repeats; cold load 7.1–15.2 s; peak RSS ≤ 1,552 MB; VRAM + ~1.2–1.4 GB. No CPU-only run (D-r6).
 
+- **D-r7 — Laya multilingual NOTE runs: DONE** (builder #8, 2026-10-30 19:19–19:57; tree as of `ad436b8`, recorded in the commit that adds
+  this line). Guard 19:19:54: C: 24.79 GB, commit headroom 50.77 GB, 0 model processes, 0 `electron.exe`. **Kit changes (`K\laya-run.cjs`,
+  now 186 lines, sha256 `c1fd0c561a90bcf3…`; its task path had never run):** `--threads N` → `intraOpNumThreads` + `env.intraOpThreads`;
+  `pkgVersion()` (the first smoke threw `ERR_PACKAGE_PATH_NOT_EXPORTED` on `require('@huggingface/tokenizers/package.json')` after its
+  requests, before writing); the CPU-load probe skips invalid perf-counter samples (`-ErrorAction SilentlyContinue`, `Status -eq 0`); a
+  "NOTE run (D-r7) …" line first in `notes`. Smoke `--task t1 --mode noul --threads 8 --limit 3` → scratchpad only (60 answers, 8.8–8.9 s per
+  20-q request, sampled peak RSS 2,986 MB, ffmpeg 16–20 % of another session). Runner **`K\c-laya-run-all.sh`** (23 lines, sha256
+  `5866035ddca9c99c…`; log `B\logs\c-laya-run.log`, 19:22:51 → `ALL DONE 19:56:59`, every line `rc=0`): CPU EP, **8 intra-op threads**
+  (= onnxruntime's default for the 8 physical cores of the i7-11800H), order T2, T3, T1 choice, T1 noul; answers
+  `K\answers\laya-multilingual-<task>-<mode>[-oofT|.stdout].json` (12 files), scores `K\reports\c-laya-<task>-<mode>[-oofT].md|json` (16
+  files), write-up **`K\reports\c-laya.md` §8** (title + §7 item 2 updated). Results (NOTE, unverified): **T1 noul 17.2 %** (P(true) ≥ 0.5 on
+  4,138 / 4,632; Brier 0.644; OOF T 20 / 20), **T1 choice 50.4 %** (D-r2 τ 0.5 R@1 104/187 = 55.6 %, wc 94/240 = 39.2 %; τ 0.9 R@1 39.6 %, wc
+  16.7 %), **T2 55.0 %** (Arabic 50.0 %), **T3 60.0 %** (Arabic 57.1 %); per question warm p95 T1 noul 469.2, T1 choice 582.4, T2 276.2, T3
+  278.9 ms (quiet: wmiprvse ≤ 3.6 %); OS peak RSS 2,269–3,109 MB. Does NOT beat the baseline (D-r2). Post-run 19:59: C: 24.76 GB, headroom
+  50.30 GB, 0 model processes; both `tail -f` monitors of the log stopped.
+- **Step 7 — the report: DONE** (builder #8, 2026-10-30 19:25–19:59; recorded in the commit that adds this line):
+  **`docs/studio/decisions/D1-spike-report.md`** (422 lines) — §0 headline; §1 task sets; §2 candidates ran / did not run; §3 primary docs +
+  C1–C15; §4 results per candidate × task (+ §4.1 reliability pointers, §4.2 Arabic, §4.3 validity, §4.4 Laya NOTE); §5 T1 under D-r2 at each
+  τ beside S1 / the baseline re-run / (c); §6 OOF-T NOTE; §7 latency with CPU load; §8 cost per 1,000 (hosted from `c-hosted-dryrun.json`
+  `plan[].usdUpper` / `usdStateOnce` ÷ rows; keyless wall time from `c-calls.jsonl`); §9 disk / RAM / VRAM / licence; §10 findings for D2; §11
+  the rule as D-r1 reads it (term by term → no local default); §12 STOP judgement; §13 DEFERRED-HASAN; §14 open questions; §15 provenance;
+  **`status: BLOCKED`** (STOP 1, STOP 2, STOP 3 for the local leg).
+
 ### Step 3 so far (builder #3)
 
 - **Route (1) `laya-ts` — did not run, two reasons (read 2026-10-30 16:16):** (a) its npm name is `laya-ts` (upstream
@@ -418,7 +445,24 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   `cee32cdcd7662fc6` (179), `llama-run.cjs` `56a6e72b1829ee47` (155), `c-llama35-run-all.sh` `065678b1fa4598d5`; `reports\c-laya.md` 99 lines.
   No download, no install, no app launch, no provider call. `date '+%Y-%m-%d %H:%M'` → `2026-10-30 19:15`.
 
+- D-r7 + step 7 (builder #8, as of `ad436b8`, Node v22.14.0, from `K`): guard 19:19:54 (PowerShell `Get-PSDrive C` +
+  `Win32_PerfFormattedData_PerfOS_Memory`) → C: 24.79 GB, headroom 50.77 GB, `cores 8 logical 16 … i7-11800H`, model processes 0, electron 0.
+  `node --check laya-run.cjs` → OK after each change. Smoke 1 → rc 1 (`ERR_PACKAGE_PATH_NOT_EXPORTED`, Get-Counter "data … not valid"); smoke 2
+  → rc 0 (`device: "CPU EP, intra-op threads 8 (set by --threads) …"`, `requests 3`, `answers 60`). `bash c-laya-run-all.sh >
+  B\logs\c-laya-run.log` (background) → 4 × `run … rc=0`, 8 × `score … rc=0`, 4 × `oofT … rc=0`, `ALL DONE 19:56:59`. `ls answers/laya-multilingual-*
+  | wc -l` → 12; `ls reports/c-laya-* | wc -l` → 16; `grep -n "LAYA-" D1-spike-report.md c-laya.md` → nothing (placeholders all filled);
+  `wc -l` → report 422, c-laya.md 177, laya-run.cjs 186, c-laya-run-all.sh 23; `git log --oneline efa5e0b..HEAD -- src scripts package.json
+  package-lock.json | wc -l` → 0; `ls B\npm-scratch` → "No such file or directory". Post-run 19:59:44: C: 24.76 GB, headroom 50.30 GB, model
+  processes 0. No download, no install, no app launch, no provider call, no keyless call (still 16 / 40). `date '+%Y-%m-%d %H:%M'` →
+  `2026-10-30 19:59`.
+
 ## Next step (ONE concrete instruction)
+
+**Builder #8, 19:59 — D1 is at its end: `status: BLOCKED`.** The ONE next instruction is the orchestrator's: put the report's STOP
+(`D1-spike-report.md` §12) and its questions (§13 DEFERRED-HASAN, §14 open questions) to Hasan and record his answers under ORCHESTRATOR.md
+"Stops"; no further D1 builder work until he answers (the hosted runs need his keys: `node K\hosted-run.cjs --provider <p> --task t2 --mode
+choice --max-requests 1` first, then the four runs, each scored, then re-judge §11–§12 with the hosted numbers). Builder #7's instruction
+below is DONE.
 
 **Builder #7, 19:15 — the ONE next instruction: step 7 — write `docs/studio/decisions/D1-spike-report.md`** from the kit's report files only
 (`a-sources.md`, `b-tasksets.md`, `c-baseline.md`, `c-hosted-dryrun.md`, `c-llama.md` §1–8, `c-laya.md`), every number named to its file;
@@ -573,7 +617,17 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   another process on the GPU at 30–47 %). The rule term already fails on the two fair figures (T2 p95 353.3 ms, T1 noul 482.7 ms), so a
   third repeat would not change the verdict; repeat only if step 7 needs those two cells (`--out …-timing3.json`, check the load first).
 
+- **P22 (D-r7, not a block) — Laya's NOTE runs: `cold first answer` includes the 5 s CPU-load probe** (`laya-run.cjs` takes it before the
+  first request; `llama-run.cjs` excludes it) — left as is per D-r7 ("no extra timing work"); the cold REQUEST is in each score file. Laya's
+  RAM: the sampled peak RSS (1,639–3,106 MB) and the OS peak `maxRSS` (2,269–3,109 MB) differ; the report uses the OS peak for the ≤ 2 GB term.
+- **P23 (step 7, Hasan) — STOP 3 is a judgement:** builder #8 judged it FIRED for the local leg (no local default from today's candidates; any
+  local leg is a different runtime — P15, P16, P19) and NOT judgeable for the hosted leg (no keys). The orchestrator may re-word it before it
+  goes to Hasan; the numbers behind it are in the report's §12.
+
 ## Do-not-redo
+
+- D-r7 + step 7 (builder #8): the four Laya NOTE runs + scores + OOF-T (`K\answers\laya-multilingual-*`, `K\reports\c-laya-*`, c-laya.md §8)
+  — re-score only by `node score.cjs`; `D1-spike-report.md` is written — edit it only for a ruling or a hosted run's numbers.
 
 - Step 3 (builder #7): the Laya worked-example check (3 runs) and the port audit (c-laya.md §4–§5) — do not re-run or re-audit; a Laya
   measured run happens only on an orchestrator ruling on P19. D-r6: Qwen3.5-0.8B's info probes, self-test, four runs, OOF-T, scores and the
@@ -619,3 +673,7 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
 - 2026-10-30 · builder #7 · ~56 tool calls · step 3: Laya worked-example gate FAILED (E2 `sales`), port audited vs laya-ts, padding +
   special-token diagnostics, provenance re-checked → did not run (`c-laya.md`, P19); D-r6: Qwen3.5-0.8B (thinking discouraged), self-test,
   four runs + OOF-T + three timing repeats → `c-llama.md` §8; hand-off at the step boundary (over the call budget while the runs finished).
+- 2026-10-30 · builder #8 · ~70 tool calls · D-r7: four `laya-run.cjs` fixes, smoke, Laya's four NOTE runs + OOF-T (CPU EP, 8 threads) →
+  `c-laya.md` §8; step 7: `D1-spike-report.md` drafted from the kit reports while the 31-min T1 noul run went on, then filled → `status:
+  BLOCKED`. Over the ~40-call / ~2,500-line budget (≈ 2,300 lines read) — chose not to hand off at the D-r7 / step-7 boundary because the
+  report was already drafted during the run and a new builder would have re-read the same ~1,500 lines.

@@ -38,3 +38,8 @@
   **Qwen3.5-0.8B Q8_0** with `--thoughts discourage` (thinking token held P 0.9999 otherwise): T1 noul 87.0 % (< always-No 93.1 %), T1
   choice 47.5 %, T2 82.5 %, T3 85.0 %; D-r2 best R@1 48.7 % → does NOT beat the baseline; fair warm p95 353.3 ms (T2) / 482.7 ms (T1 noul);
   peak RSS ≤ 1,552 MB → `K\reports\c-llama.md` §8. Next: step 7 (the report; both STOPs likely).
+- 2026-10-30 20:00 · builder #8 · D-r7 DONE: Laya multilingual's four NOTE runs (CPU EP, 8 intra-op threads; "community export FAILED the
+  worked-example gate (E2) — unverified") → T1 noul 17.2 %, T1 choice 50.4 % (best R@1 55.6 % at wc 39.2 %), T2 55.0 %, T3 60.0 %; OS peak RSS
+  2,269–3,109 MB → `K\reports\c-laya.md` §8. Step 7 DONE: `docs/studio/decisions/D1-spike-report.md` → **status: BLOCKED** — STOP 1 (no
+  local candidate passes warm p95 ≤ 300 ms; d1-omni did not load; Laya NOTE-only), STOP 2 (best measured R@1 48.7 % vs the 75.7 % floor;
+  hosted DEFERRED-HASAN), STOP 3 for the local leg. Next: the orchestrator takes the STOP to Hasan.
