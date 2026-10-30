@@ -18,7 +18,7 @@
 | Part | Status | Builders spawned | Verifier result | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` `b382288` | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:57 |
-| T2 — build (red-first, hand-off-sized) | BUILDING | 2 | — | step 1 `307f96f` | — | 2026-10-30 15:58 / |
+| T2 — build (red-first, hand-off-sized) | BUILDING | 3 | — | step 1 `307f96f` · step 2 `99c35b1` | — | 2026-10-30 15:58 / |
 | T3 — verify (independent; ≤ 3 FAILs) | TODO | — | — | — | — | |
 
 ## Answers in force (Hasan's paste-in, 2026-10-30)
@@ -94,7 +94,20 @@
   §3 caps text already says "Gap rows do not count toward the cap" — unchanged. The builder's other small choices (flagless empty-lane
   line, `(nothing in this window)` for a gap-only window, `<kind> clip`, `String()` numbers) are accepted. T2 builder #2 (AT-r1, then §9
   step 2) to spawn.
-- 16:13 · T2 builder #2 spawned (HEAD = this commit; the same brief).
+- 16:13 · T2 builder #2 spawned (HEAD = this commit; the same brief). (Clock: that commit `71c03cf` landed at 16:11:11 and builder #2
+  spawned right after; "16:12" / "16:13" above were estimates.)
+- 16:17 · **T2 builder #2 HANDOFF** (52 calls, ~6 min; **AT-r1 + §9 step 2 DONE**): `99c35b1` — AT-r1 (`timeline-listing.ts` gap row
+  :105-111 before the cap check :112; test `timeline-listing.test.ts:136`, `synthetic()` gained a `gapAt` default, no assertion edited);
+  `formatMasterCutsLine` `timeline-listing.ts:177` (`CUTS_LINE_SHOWN` 5); `StudioAgentTimelineCuts` `src/shared/ipc/types/studio.ts:474` +
+  `StudioAgentSendRequest.timelineCuts?` :509; `EditorShell.tsx:489` → `useStudioAgent.ts:62,256` → `studio-handlers.ts:552` →
+  `studio-agent-prompt.ts:64,96-97`; tests `studio-agent-prompt-timeline.test.ts:44,94`; red 2 files / 8 failed → green 5 files / 59;
+  tsc 25 / 10; tracer: `studio-agent-prompt.ts` reaches no `stream` importer; docs `32bcf30`. Over-300 files grown: `EditorShell.tsx` +2,
+  `useStudioAgent.ts` +4, `src/shared/ipc/types/studio.ts` +14, `studio-handlers.ts` +1. No handler test for the one-spread pass-through
+  (tsc only) — accepted; the four live turns exercise it. **Orchestrator re-check (16:17):** tree clean at `32bcf30`; `71c03cf..HEAD --
+  src` = 8 files +157 −8; the renderer / handler / prompt diff read (one field, spreads, the line after `- Timeline:`); the 5 files → 5
+  passed / 59 tests (16:17:57); `formatMasterCutsLine` read = §4's strings; 0 `electron.exe`. T2 builder #3 (§9 step 3 — the
+  characterization tests FIRST, then the cut anchor) to spawn.
+- 16:19 · T2 builder #3 spawned (HEAD = this commit; the same brief).
 
 ## Builder brief (T2; every builder gets it unchanged)
 
