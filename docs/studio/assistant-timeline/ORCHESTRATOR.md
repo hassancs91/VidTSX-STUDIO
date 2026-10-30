@@ -19,7 +19,7 @@
 |---|---|---|---|---|---|---|
 | T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` `b382288` | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:57 |
 | T2 — build (red-first, hand-off-sized) | **DONE** | 5 | — (T3 verifies) | code `307f96f` `99c35b1` `cf4fb0c` `021a2d6`; records `424eb18` `34e6bb6` | smoke: real `get_timeline` = §3 exactly, project sha1 unchanged; counted full run #4 `28 failed \| 518 passed \| 6 skipped (552)` = the 25 LS-r1c + 3 E-d2a; fresh-worktree 25 / 239; tsc 25 / 10; matcher 0 B; §9.1 17 + 1 skipped / 159 | 2026-10-30 15:58 / 17:00 |
-| T3 — verify (independent; ≤ 3 FAILs) | **PASS — round 1** (records next) | — | **PASS round 1** (62 calls; report `.vidtsx-temp\timeline\T3\r1\REPORT.md`) | verified at `9e2ff69` (`src/` = `021a2d6`) | counted run `28 failed \| 518 passed \| 6 skipped (552)` = 25 + 3; fresh-wt 25 / 239; tsc 25 / 10; matcher 0 B; §9.1 17 + 1 / 159; probes 9 / 9; **24 / 25 mutants caught** (M22 the `timelineCuts` handler spread survives — NOTE); smoke = §3 exactly; **4 / 4 turns placed**: whoosh-soft 2.70 / 2.75, crash-tumble 3.00 / 3.00; 0 claims, 0 generated, all `claude-subscription` | 2026-10-30 17:02 / 17:24 |
+| T3 — verify (independent; ≤ 3 FAILs) | **DONE — PASS** (round 1; records `84f8537`) | — | **PASS round 1** (62 calls; report `.vidtsx-temp\timeline\T3\r1\REPORT.md`) | verified at `9e2ff69` (`src/` = `021a2d6`) | counted run `28 failed \| 518 passed \| 6 skipped (552)` = 25 + 3; fresh-wt 25 / 239; tsc 25 / 10; matcher 0 B; §9.1 17 + 1 / 159; probes 9 / 9; **24 / 25 mutants caught** (M22 the `timelineCuts` handler spread survives — NOTE); smoke = §3 exactly; **4 / 4 turns placed**: whoosh-soft 2.70 / 2.75, crash-tumble 3.00 / 3.00; 0 claims, 0 generated, all `claude-subscription` | 2026-10-30 17:02 / 17:24 |
 
 ## Answers in force (Hasan's paste-in, 2026-10-30)
 
@@ -56,6 +56,12 @@
 ## Stops
 
 (one line per stop: what was reported, what Hasan said)
+
+- 2026-10-30 17:43 · **STOP — T3 PASS (the protocol stop).** Reported: T1 design + bar (`b382288`), T2 built in 5 builders (code `307f96f`
+  `99c35b1` `cf4fb0c` `021a2d6`), T3 verifier round 1 PASS at `9e2ff69` — 4 / 4 turns placed (whoosh-soft 2.70 / 2.75 s, crash-tumble
+  3.00 / 3.00 s; 0 claims, 0 generated), 24 / 25 mutants caught (M22 survives: the `timelineCuts` handler spread has no test — a NOTE);
+  LS-r8 settled by measurement (`48de8b0`); records `84f8537` (Status.md top entry, TESTING.md §19.5). Open for Hasan: whether to add a
+  test for the `timelineCuts` wiring (M22); the by-ear check; landing `library-search`. Hasan said: (waiting)
 
 ## Log
 
@@ -187,7 +193,16 @@
   4 at 3.00 → 3.00), headlines = §5's format; `agent-chat.json` ×4: 0 of the six claim strings anywhere, 1 `get_timeline` each, 0
   `generate_*`; `turn.json` ×4 provider `claude-subscription`; tree clean at `9e2ff69`, no scratch worktree, 0 `electron.exe`. → **T3 PASS.**
 - 17:25 · LS-r8 recorded as **settled by measurement** in `docs/studio/search/ORCHESTRATOR.md` (after the ruling). Records builder (Status.md
-  entry at the top + TESTING.md §19.5) to spawn.
+  entry at the top + TESTING.md §19.5) to spawn. (Committed `48de8b0` at 17:25:19.)
+- 17:26 · records builder spawned (HEAD `48de8b0`).
+- 17:41 · **records builder DONE** (46 calls, ~16 min): `84f8537` (17:41:20) — `Status.md` +142 (the entry at lines 10–150, above the
+  2026-10-29 library search entry now at 152; result first, LS-r8 in plain words, DEFERRED-HASAN = the by-ear check (the four cards were
+  left `proposed`) + landing the branch; notes M22, AT-r2's non-counted timeouts, §8.4) + `docs/studio/TESTING.md` +21 (`### 19.5` at
+  590–609, inside §19 after 19.4 (583), before "Cut-phase hardening follow-ups" (613); §18 untouched). It left the verifier's call count out
+  (its report says "about 52", the harness counted 62). **Orchestrator re-check (17:41):** `84f8537` = those 2 files, +163 −0; the entry's
+  title and first bullets read; §19.5 placement read; tree clean; `git worktree list` = the 5 worktrees (no scratch); the 5 running
+  `electron.exe` all belong to another session (CDP 9341, its scratchpad profile `…\13c78195-…\scratchpad\part4\profile`) — none ours.
+  → **T3 DONE (PASS). The run stops here (the paste-in: on PASS, records, the LS-r8 line, then STOP).** Not pushed, not merged.
 
 ## Builder brief (T2; every builder gets it unchanged)
 
