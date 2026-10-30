@@ -18,8 +18,8 @@
 | Part | Status | Builders spawned | Verifier result | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` `b382288` | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:57 |
-| T2 — build (red-first, hand-off-sized) | BUILDING | 5 | — | step 1 `307f96f` · step 2 `99c35b1` · step 3 `cf4fb0c` `021a2d6` | — | 2026-10-30 15:58 / |
-| T3 — verify (independent; ≤ 3 FAILs) | TODO | — | — | — | — | |
+| T2 — build (red-first, hand-off-sized) | **DONE** | 5 | — (T3 verifies) | code `307f96f` `99c35b1` `cf4fb0c` `021a2d6`; records `424eb18` `34e6bb6` | smoke: real `get_timeline` = §3 exactly, project sha1 unchanged; counted full run #4 `28 failed \| 518 passed \| 6 skipped (552)` = the 25 LS-r1c + 3 E-d2a; fresh-worktree 25 / 239; tsc 25 / 10; matcher 0 B; §9.1 17 + 1 skipped / 159 | 2026-10-30 15:58 / 17:00 |
+| T3 — verify (independent; ≤ 3 FAILs) | VERIFY (round 1) | — | — | — | — | 2026-10-30 17:02 / |
 
 ## Answers in force (Hasan's paste-in, 2026-10-30)
 
@@ -140,7 +140,34 @@
   flags; failed files vs the 25 LS-r1c + 3 E-d2a list; the 25 here and in a fresh detached worktree, removed after; the E-d2a esbuild walk
   over `0df9e9c..HEAD`; tsc; the matcher diff; §9.1; house rules) — its inputs exist (`search\S3\step-f\ls-r1b-files.txt` 25 lines,
   `ed2a-graph.cjs`). T2 builder #5 (run the gates, fix the script where it misbehaves, then DONE) to spawn.
-- 16:47 · T2 builder #5 spawned (HEAD = this commit; the same brief).
+- 16:47 · T2 builder #5 spawned (HEAD = this commit; the same brief). (Clock: `123ffed` landed at 16:45:46.)
+- 17:00 · **T2 builder #5 DONE** (41 calls, ~14 min; **§9 step 4 part 2 — the §8.2 gates at `123ffed`**, app stopped; records `34e6bb6`, no
+  `src/` change — `git log -1 -- src` = `021a2d6`). Logs `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\` (`summary.txt`).
+  Guard: C: 27.04 GB, D: 39.15 GB, headroom 33.27 GB, no flags, external CPU low. Full runs: #1 default → the 28 + `shot-module-resolver
+  .test.ts:151` (5000 ms; DRIVING's named load test); #2 default → the 28 + five 5000 ms timeouts NOT on DRIVING's list
+  (`packs-through-tools`, `agent-memory`, `snapshot-store`, `build-check`, `tsx-builder`; none in the range; all six green alone, 57
+  tests, and in runs 1 / 3 / 4); #3 `--maxWorkers=4` → the 28 + `shot-module-resolver` (its own `waitForFile`); **#4 default (the third
+  default try) = the counted run: `Test Files 28 failed | 518 passed | 6 skipped (552)` · `Tests 9 failed | 5434 passed | 37 skipped
+  (5480)` = exactly the 25 LS-r1c (`<wt>\stream` 15 / `<wt>\stream\promises` 10) + 3 E-d2a (package resolution)**; LS-r1c proof at
+  `123ffed`: 25 / 25 here with the stream errors only, fresh detached worktree `25 passed (25)` · `239 passed (239)`, removed; E-d2a esbuild
+  walk over the 30 range paths: none in the three graphs (2 / 9 / 302 inputs); tsc 25 / 10; matcher 0 bytes; §9.1 `17 passed | 1 skipped
+  (18)` · `159 passed | 2 skipped`; house: 14 created `src/` files, largest 248 (a test; largest code `timeline-listing.ts` 188), over-300
+  growth `EditorShell.tsx` +2 / `useStudioAgent.ts` +4 / `studio-handlers.ts` +1 / `shared/ipc/types/studio.ts` +14, 0 `any` types (3 word
+  hits "any lane"), package / lock 0 bytes, imports renderer→main / main→features 0 / 0, `index.ts` 0 lines removed. Kit fix: `gate-all.sh`'s
+  `failed.tsv` undercounts grouped failures — `failed-with-error*.tsv` + `gate-rerun.sh` are the truth. **Orchestrator re-check (17:00):**
+  tree clean at `34e6bb6`; `summary.txt` read; `vitest-full-4.log` totals read (16:57:01–16:58:03, HEAD `123ffed`, src clean);
+  `failed-with-error-4.tsv` = 28 files, `comm` against `expected-28.txt` empty; its E-d2a errors = `is not installed` / `Could not resolve
+  "roughjs" | "chroma-js" | "@remotion/shapes" | "@react-three/fiber" | "@remotion/google-fonts/…"` only; `ls-r1c-fresh-wt.log` `25 passed` /
+  `239 passed`, rc 0; `git worktree list` = no scratch left — and a NEW worktree `.vidtsx-temp\interior\wt` (`639b748`, branch
+  `interior-staging-flow`) from another session: not ours, never touched. → **T2 DONE.**
+- **Ruling AT-r2 (orchestrator, 17:01) — which full run counts:** DRIVING's load rule names which runs count ("a full default run green
+  within 3 tries OR a `--maxWorkers=4` run"); run #4 is that run. A 5000 ms timeout in a try that does not count is recorded with its
+  alone-run and is a NOTE when the file passes alone and in the counted run; failing alone or in the counted run is real. Written into the
+  design §8.2 (with AT-r1 into §3) so the verifier holds the same rule. Run #2's five are NOTES.
+- **17:02 · T3 starts.** The verifier gets the bar (design §8, with AT-r1 / AT-r2), the commit range `0df9e9c..HEAD`, DRIVING's safety rules,
+  the rulings LS-r1 / LS-r1b / LS-r1c and LIBRARY_SEARCH_DESIGN §9.1 / §9.3 5 — NOT `docs/studio/assistant-timeline/` or any builder's
+  report. Profile `profiles\timeline-verify` (CDP 9297), kits `.vidtsx-temp\timeline\T3\r1\`, big outputs `…\vidtsx-e2e\timeline\T3\r1\`.
+  ≤ 4 keyless turns (+1 retry each on an API error). It reports as text; the orchestrator saves it as `.vidtsx-temp\timeline\T3\r1\REPORT.md`.
 
 ## Builder brief (T2; every builder gets it unchanged)
 

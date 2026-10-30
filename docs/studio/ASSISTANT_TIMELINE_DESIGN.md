@@ -63,7 +63,8 @@ Then the master track, then every other track in document order (master skipped)
 - **Caps (the paging rule):** at most **40** master clip rows and **20** rows per other track per answer. Over the cap, the track's
   last line is `  … +<N> more — get_timeline(fromSec: <x>) continues from <tc(x)>.` with `N` = that track's clips in the window not
   listed, `x` = the first unlisted clip's start as a plain number (`Number(x.toFixed(2))`: `41`, `41.5`). Gap rows do not count toward
-  the cap. (video-14: 35 master clips + 55 shots on one overlay lane → one page of 35 + 20 rows + one `+35 more` line, ≈ 4 KB.)
+  the cap. A gap right before the first unlisted master clip prints on the page that stops there, before its `… +N more` line, and
+  not again on the next page (ruling AT-r1, 2026-10-30 16:12 — a gap never falls between pages). (video-14: 35 master clips + 55 shots on one overlay lane → one page of 35 + 20 rows + one `+35 more` line, ≈ 4 KB.)
 - Footer, only when the timeline has ≥ 1 cut: `Place at a cut with insert_asset(at: { cut: n, offset }) — offset in seconds, negative = before the cut.`
 - No clip on any track → exactly `The timeline is empty — no clips on any lane.` `toSec ≤ fromSec` → isError
   `toSec must be after fromSec (got <from>–<to>).` A load failure → isError `Could not read the timeline: <message>`.
@@ -193,7 +194,10 @@ no main file imports `src/features`.
   "'<wt>\stream\promises'", each green in a fresh `git worktree add --detach <scratch> HEAD` run — the proof repeated at the gate's
   HEAD, the scratch worktree removed) and the **3 E-d2a suites** (package resolution only; independent of `git diff --name-only
   0df9e9c..HEAD` by an esbuild metafile or static walk — rule (b)); DRIVING's load rules / E-d13. A 26th `stream` suite, or any other
-  failure, is real.
+  failure, is real. *(Ruling AT-r2, 2026-10-30 17:01 — which run counts: the counted run is the first full default run, within three
+  tries, whose failed set is exactly the 25 + 3 (or a `--maxWorkers=4` run, or E-d13's run when its load condition is measured). A
+  5000 ms timeout seen in a try that does not count is recorded with the file's alone-run and is a NOTE when that file passes alone and
+  in the counted run; the same file failing alone, or failing in the counted run, is real.)*
 - `tsc` web ≤ 25 / node ≤ 10.
 - The matcher files byte-identical to `7967c6f` (`git diff 7967c6f -- src/main/services/library/sound-match.ts sound-match-words.ts
   sound-match-vocab.ts` empty).
