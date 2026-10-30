@@ -1,5 +1,5 @@
 # D1 — the spike: decision models (hosted × 2, local, keyless LLM baseline) on three small task sets (no product code)
-status: NEW
+status: IN PROGRESS — step 1 DONE (builder #1, 2026-10-30 15:58); step 2 next
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -134,25 +134,55 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
 
 ## Done (paths, commits)
 
-(nothing yet)
+- **Step 1 (a) — DONE** (builder #1, 2026-10-30 15:52–15:58; tree as of `c14b180`, recorded in the commit that adds this line):
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\reports\a-sources.md` (227 lines, outside the tree) — 22 primary sources (P1–P22,
+  all read 2026-10-30), the secondary list ("not used"), one table per candidate (Jev; OpenAI Decisions; Microsoft-Decision-1; Laya
+  English + multilingual + `@receptron/laya`; SemIf; the catalog GGUFs; node-llama-cpp 3.18.1's probabilities call; Liquid
+  d1-omni-600M + d1-3B note), 15 contradictions with `NEXT-SESSION.md` (C1–C15), the step-4 GGUF pick, open points O1–O5.
+  Result in one line: **no D-a…D-c candidate drops** (each has a primary source); step 4 = `qwen2.5-0.5b-q8` first (catalog
+  `model-registry.ts:25`, official Qwen GGUF, Apache-2.0, Arabic named on its card), `qwen3.5-0.8b-q8` second, then
+  `LiquidAI/d1-omni-600M-GGUF` Q8_0 (407 MB) as the d1 attempt; the node-llama-cpp call is
+  `LlamaContextSequence.evaluateWithMetadata(tokens, { probabilities: true }, options)` (first yield's `probabilities: Map<Token, number>`)
+  or `controlledEvaluate` with `generateNext.probabilities` — see a-sources §7.
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- `date '+%Y-%m-%d %H:%M'` → `2026-10-30 15:58`; `wc -l …\D1\reports\a-sources.md` → `227`; `grep -c '^| C[0-9]' …\a-sources.md` → `15`;
+  `git rev-parse --short HEAD` → `c14b180`; `git status --short` → (clean) before this hand-off's edits.
+- node-llama-cpp facts from the installed files (read-only): `node_modules\node-llama-cpp\package.json:3` `"version": "3.18.1"`;
+  `dist\evaluator\LlamaContext\LlamaContext.d.ts:221` (`evaluateWithMetadata`), `:256` (`controlledEvaluate`);
+  `dist\evaluator\LlamaContext\types.d.ts:415-468` (`SequenceEvaluateMetadataOptions` / `SequenceEvaluateOutput.probabilities`).
+- No download, no install, no app launch, no provider / model API call in step 1 (WebSearch / WebFetch of public docs only).
 
 ## Next step (ONE concrete instruction)
 
-Step 1: write `K\reports\a-sources.md` — the primary-docs table for every D-a…D-c candidate (URL + date read per fact), the
-contradictions with `NEXT-SESSION.md`'s summary, and the pick of the tiny GGUF(s) for step 4 with the reason.
+Step 2: build `K\fixtures\t1-pick.json`, `t2-routing.json`, `t3-verify.json` and the measures lib (self-checked on synthetic answers:
+oracle → Brier 0 / ECE 0, constant 0.5 on a balanced binary set → Brier 0.25) and write `K\reports\b-tasksets.md`, per the step-2
+text above (T1 from the S1 kit files named under "Plan context", READ-ONLY; T2 / T3 from repo files only).
 
 ## Open problems
 
-(none yet)
+- **P1 (step 3) — Laya multilingual has no OFFICIAL ONNX file.** `@receptron/laya` (community, MIT) ships only the ENGLISH checkpoint's
+  ONNX (`receptron/laya-onnx`: 1.69 GB, no `multilingual` subfolder — a-sources C8, C10). Routes for step 3: the official `laya-ts`
+  wrapper in `github.com/NandhaKishorM/laya` (read where it gets weights; D-f's scratch rule) or a community fp32 conversion
+  (`verdict-models/laya-multilingual`, `desplega/laya-onnx`) as untrusted data checked against the card's examples. Not a block —
+  the candidate exists; step 3 states the route it took and why.
+- **P2 (D2) — D-b's "through the app's existing openai-compat / OpenRouter path" does not hold** (a-sources C7): OpenRouter serves decision
+  models on a separate Decisions API (`POST https://openrouter.ai/api/alpha/decisions`, System One body, per OpenRouter's own blog),
+  not the chat endpoint. Step 6 builds its runner on that contract after reading OpenRouter's API reference (not read in step 1:
+  the model page returned 404 to WebFetch). D2 needs a System One adapter, not the openai-compat provider.
+- **P3 (D2, Hasan) — Liquid d1-omni-600M is under LFM Open License v1.0** (commercial use only below $10 M annual revenue — a-sources
+  C12): not permissive; any adoption is Hasan's call. Step 4 still tries its official GGUF.
+- **P4 (step 3 / D2) — Laya multilingual ships with "no fitted temperatures at all" ("over-confident as shipped")**: raw Brier / ECE
+  will look worse than a fitted one; D1 reports raw.
+- **P5 (step 4) — catalog size mismatch:** `qwen2.5-0.5b-q8` is 531,000,000 B in `model-registry.ts:31` but Qwen's GGUF card lists Q8_0 at
+  676 MB → state the HTTP Content-Length before the download.
 
 ## Do-not-redo
 
-(nothing yet)
+- Step 1's web reading (P1–P22 in a-sources.md). Later steps add a source only for a gap the table marks "unknown" / "not read"
+  that their step needs (e.g. step 6: OpenRouter's Decisions API reference; step 3: `laya-ts`'s weight source).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-30 · builder #1 · ~38 tool calls · step 1 (a) primary docs → a-sources.md; hand-off at the step boundary.
