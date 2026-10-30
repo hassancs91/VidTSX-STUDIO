@@ -7,6 +7,148 @@
 
 ---
 
+## 2026-10-30 — ASSISTANT TIMELINE READ: `get_timeline`, the cuts line, the `insert_asset` cut anchor — the Studio assistant reads every lane's clips, the master track's numbered cuts and the gaps, sees the first cuts in "State of the edit", and places at a cut with `at: { cut, offset? }` — DONE (T3 verifier round 1 PASS; LS-r8 settled by measurement)
+
+- **Result: PASS over the whole acceptance bar** (`docs/studio/ASSISTANT_TIMELINE_DESIGN.md` §8, with rulings AT-r1 / AT-r2), T3
+  verifier round 1, no FAIL round (report `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T3\r1\REPORT.md`, "VERDICT: PASS"). The four
+  library-search prompts that in S4 named the right clip and then ASKED for the cut's time now place it: **4 / 4 turns placed** — "Add
+  a soft whoosh at the first cut." → `whoosh-soft` starting at 2.70 s and 2.75 s; "Add the sound of things falling over at the first
+  cut." → `crash-tumble` starting at 3.00 s both times (cut 1 is at 3.00; the bar's window is [2.00, 3.10]); 0 claim strings, 0 files
+  generated, keyless `claude-subscription` usage rows only.
+- **Where / when:** branch `library-search` (worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt`), built on top of library
+  search's records (`cf7d550`) from `0df9e9c` (the NEXT-SESSION paste-in commit). **Not pushed, not merged** (as of `48de8b0`: no
+  upstream configured, not in `main` or `end-to-end-p0-e`). The run, 2026-10-30 (`docs/studio/assistant-timeline/ORCHESTRATOR.md`,
+  table + Log): start checks 15:45; T1, the design note + THE BAR, 15:52–15:57 (`b382288`); T2, the build, 15:58–17:00 (5 builders,
+  hand-offs in `docs/studio/assistant-timeline/T2/HANDOFF.md` + `LOG.md`); T3, the verifier, 17:02–17:24 (verified at `9e2ff69`,
+  `src/` = `021a2d6`); LS-r8 recorded 17:25 (`48de8b0`). Rulings: **AT-r1** (16:12 — a gap row never falls between pages) and **AT-r2**
+  (17:01 — which full vitest run counts), both written into the design (§3, §8.2).
+- **What was built (T2, red first; `git diff --stat 0df9e9c..021a2d6 -- src` = 26 files, +2,046 −36 — 14 created, 12 modified;
+  line counts from the verifier's `house-rules.log`):**
+  - `307f96f` (step 1; 10 files, +926): `src/shared/studio/timeline-cuts.ts` (130 lines — design §2's one model: the master track =
+    `masterLane`, joins, through edits (a continuous split of one asset is not a cut), cuts numbered 1, 2, … over the WHOLE timeline,
+    gaps; `summarizeMasterCuts`, `formatTimelineTc`; exported through `src/shared/studio/index.ts`);
+    `src/main/services/studio/agent-tools/timeline-listing.ts` (188 — the §3 text; caps 40 master clips / 20 per other lane, then
+    `… +N more — get_timeline(fromSec: x) continues from …`); `agent-tools/timeline-tools.ts` (49 — `get_timeline(fromSec?, toSec?)`,
+    read-only, reads the saved project); `'get_timeline'` appended LAST to `STUDIO_TOOL_IDS`; its `TOOL_LINES` line right before
+    `insert_asset`'s.
+  - `99c35b1` (step 2 + AT-r1; 8 files, +157 −8): the cuts line in "State of the edit" — `StudioAgentTimelineCuts` and
+    `StudioAgentSendRequest.timelineCuts?` (`src/shared/ipc/types/studio.ts`), computed by the renderer from the live document
+    (`EditorShell.tsx` → `useStudioAgent.ts`), passed by `studio-handlers.ts` into `studio-agent-prompt.ts` (`formatMasterCutsLine`),
+    right after `- Timeline: …` — e.g. `- V1 (master track): 2 clips · 1 cut — cut 1 at 0:03.00.`; at most five cuts, then
+    `+N more (get_timeline lists them)`. AT-r1: the gap row before the first unlisted master clip prints on the page that stops there.
+  - `cf4fb0c` (1 file, +219): `agent-tools/insert-tools-anchor.test.ts` ALONE — `insert_asset`'s number and `{ word, take }` paths
+    characterized through the real handler, 7 / 7 green on the UNCHANGED `insert-tools.ts`, committed before that file changed.
+  - `021a2d6` (step 3; 13 files, +752 −36): `src/shared/studio/source-span-map.ts` (48 — the source-span → timeline mapping core moved
+    out of `features/studio/services/cut-proposal.ts`, now a thin wrapper, its tests untouched); `agent-tools/cut-anchor.ts` (104 —
+    `resolveCutAnchor`: offset ≥ 0 → the clip after the cut, < 0 → the clip before; kept as `{ anchorAssetId, sourceStart }` only when
+    the shared mapping lands it on the cut time within 1 ms, else the fixed `{ timelineStart }`; the exact errors); `insert-tools.ts`
+    (`at: { cut, offset? }`); `timeline-insert.ts` (`atLabel` in the card headline); the `insert_asset` prompt line and tool description.
+- **What the assistant gets:** (1) `get_timeline` — on the 2-clip test project (`e3v-whoosh`: V1 `e3v-c1` 0–3 s, `e3v-c2` 3–6 s from
+  src 4; A1 empty) it answers design §3's six lines exactly, among them `#2 0:03.00–0:06.00 "e3v-clip.mp4" (video) src 4.00–7.00 ← cut 1
+  at 0:03.00` and the footer `Place at a cut with insert_asset(at: { cut: n, offset }) — offset in seconds, negative = before the cut.`
+  (2) The cuts line in its system prompt. (3) `insert_asset(at: { cut: 1, offset: -0.25 })` → the card `Insert "whoosh-soft.mp3" as
+  audio 0.25 s before cut 1 (0:02.75 on the timeline) · 0.7 s`, the item anchored to the footage so it follows a later trim (unit test:
+  shorten `e3v-c1` to 2 s and move `e3v-c2` to 2.0 → the item lands at 2.00).
+- **T3, the verifier (round 1, 17:02–17:24; independent — the bar, the commit range and DRIVING's rules, not the builders' reports;
+  profile `profiles\timeline-verify`, CDP 9297). Logs under `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T3\r1\`. Per item:**
+  - **§8.2 the gates** (`gates\`; guard C: 26.78 GB free, memory-commit headroom 32.7 GB, CPU 9–27 %, Hasan's app not running; default
+    workers):
+    - Full worktree vitest: try 1 (17:03:31–17:04:38, `full-1.log`) `Test Files 29 failed | 517 passed | 6 skipped (552)` = the 28 +
+      `agent-memory.test.ts:108` (5000 ms) — not counted (AT-r2). **The counted run, try 2** (17:05:04–17:06:00, `full-2.log`):
+      **`Test Files 28 failed | 518 passed | 6 skipped (552)` · `Tests 9 failed | 5434 passed | 37 skipped (5480)`**; the failed set =
+      the 25 LS-r1c + 3 E-d2a suites exactly (`failed-2.txt` against `expected-28.txt`: empty diff). The 25 fail at import only with
+      "Cannot find module '<wt>\stream'" / "'<wt>\stream\promises'"; the 9 failed tests are E-d2a's (`builder-libraries` 1, `shot-bundle`
+      5, `shot-bundle-in-place` 3), package resolution only. T2's own counted run (#4 at `123ffed`, 16:57,
+      `…\timeline\T2\gates\vitest-full-4.log`; `failed-with-error-4.tsv`, 28 rows) has the same totals.
+    - **LS-r1c proof at `9e2ff69`:** a fresh `git worktree add --detach … HEAD` → the 25 files `25 passed (25)` · `239 passed (239)`,
+      rc 0 (`mut\ls-r1c-fresh-wt.log`); removed after (`mut\worktree-remove.log`).
+    - **E-d2a rule (b)** over the 30 paths of `git diff --name-only 0df9e9c..9e2ff69` (`range-files.txt`): the verifier's static walk
+      (type-only imports skipped; `ed2a-walk-notypes.log`) — `builder-libraries` 2 files and `shot-bundle` 12, none in the range;
+      `shot-bundle-in-place` 369, reaching only `src/shared/ipc/types/studio.ts`, which is types only (0 runtime exports, erased at
+      runtime); the esbuild metafile cross-check 2 / 9 / 302 inputs, none in the range (`ed2a-esbuild.log`).
+    - **tsc web 25 / node 10** (bar ≤ 25 / ≤ 10; `tsc-web.log` / `tsc-node.log`), no error in a range file. **Matcher:** `git diff
+      7967c6f --` the three `sound-match*.ts` files = 0 bytes. **Library search §9.1:** `Test Files 17 passed | 1 skipped (18)` ·
+      `Tests 159 passed | 2 skipped (161)` (`lsd-9-1.log`).
+    - **House rules** (`house-rules.log`): 14 created `src/` files, 48–248 lines (largest a test, `timeline-listing.test.ts`; largest
+      code `timeline-listing.ts` 188); pre-existing files over 300 lines grew a little — `EditorShell.tsx` 1,674 → 1,676,
+      `useStudioAgent.ts` 336 → 340, `studio-handlers.ts` 672 → 673, `src/shared/ipc/types/studio.ts` 972 → 986; 0 `any` types (3 hits
+      are the words "any lane" inside strings); renderer / shared → main / electron / Node imports 0, main → features / renderer 0;
+      `package.json` / lock diff 0 bytes, Remotion pins unchanged; `STUDIO_TOOL_IDS` = the 29 ids of `0df9e9c` in order, then
+      `'get_timeline'`.
+  - **§8.1 the unit bar:** every item 1–7 asserted in the tree's tests with the design's exact strings (where each lives: TESTING.md
+    §19.5); the verifier's own probes, typed from the design with its own 60-clip layout (`probe.t3.test.ts` in its kit, below):
+    **9 / 9** (`probe-head.log`). **Mutations: 24 / 25 caught** in a scratch worktree (baseline 125 files / 1,165
+    tests green, `mut\mut-baseline.log`; `mut\summary.json` + one log per mutant) — every example in its brief among them (a through edit
+    counted as a cut, the AT-r1 gap row dropped, cuts numbered per window, a negative offset resolved on the clip after the cut, the
+    mapping check skipped, the > 5 state line (two variants), the `get_timeline` id removed, the ids reordered, the `insert_asset` prompt
+    line changed); the survivor is **M22** (notes).
+  - **§8.3 1 the smoke:** `wt/out` rebuilt from `9e2ff69` with the app stopped (17:13:10–17:16:59, rc 0, `build.meta`; `out/main/index.js`
+    holds `get_timeline`); the isolated app opened the 2-clip project 4 times — V1 with 2 clips (`e3v-c1`, `e3v-c2`), 0 renderer
+    exceptions / console errors; the REAL `get_timeline` handler on the saved file, app stopped (`smoke.t3.test.ts`, `smoke-node.log`
+    1 / 1 passed) answered design §3's text exactly (`smoke-answer.txt`), the project file unchanged. T2 builder #4's smoke matched
+    (`…\timeline\T2\smoke-get-timeline.json` `"equal": true`, the project's sha1 unchanged).
+  - **§8.3 2 the four turns** (≤ 4 keyless turns; 4 used, 0 retries; Smart over the 51-clip library (45 sfx + 6 music), vectors 51 / 51,
+    the stand-in audio provider with its counter, the project restored to pristine bytes and the chat empty before each turn; records
+    `turns\tN\turn.json` + `agent-chat.json` + `project.json`). Every turn called `list_assets(scope library, kind audio)` →
+    `get_timeline({})` (answer = the §3 text) → `insert_asset` with `{ cut }`:
+    - t1 "Add a soft whoosh at the first cut." → query "soft whoosh" → `library:sfx/whoosh-soft.mp3`, `at: { cut: 1, offset: -0.3 }` →
+      `Insert "whoosh-soft.mp3" as audio 0.30 s before cut 1 (0:02.70 on the timeline) · 0.7 s`; the item anchored on `e3v-clip.mp4`
+      src 2.70–3.38 → **starts at 2.70** (on `e3v-c1`).
+    - t2 the same prompt → the same clip, `offset: -0.25` → `… 0.25 s before cut 1 (0:02.75 on the timeline) …` → **2.75**.
+    - t3 "Add the sound of things falling over at the first cut." → query "things falling over crash" → `library:sfx/crash-tumble.mp3`,
+      `at: { cut: 1 }` → `Insert "crash-tumble.mp3" as audio at cut 1 (0:03.00 on the timeline) · 1.2 s`; anchored src 4.00–5.20 →
+      **3.00** (on `e3v-c2`).
+    - t4 the same prompt → the same call → **3.00**.
+    - Per turn (`turn.json`): claim strings in tool answers 0; generated files 0 → 0; library files 51 → 51; stand-in usage rows 0 → 0;
+      renderer errors 0; one usage row — `claude-subscription`, claude-sonnet-5-5, featureSource `auto-cut`; tokens in / out 910 / 481,
+      910 / 491, 912 / 414, 912 / 423; 14.2–19.6 s; the rows' `costUsd` (0.054–0.192) is the SDK's figure on keyless subscription rows.
+      The replies named the clip and the time ("It runs 0:02.70–0:03.38", "a quarter second before the cut at 0:03.00", "at the first
+      cut (0:03.00)"); no turn asked; every card was left `proposed` (not applied). Judgement: (a) no claims, (b) nothing generated, (c)
+      allowed clips starting inside [2.00, 3.10], (d) 4 / 4 placed with each prompt at least once — all PASS.
+- **LS-r8 — settled by measurement:** the same four §9.3 5 prompts that in S4 stopped to ask for the cut's time now place the right clip
+  at the first cut (4 / 4), so library search's S4 PASS no longer rests on LS-r8's NOTE reading (recorded after the ruling in
+  `docs/studio/search/ORCHESTRATOR.md`, 17:25; it answers the 2026-10-29 entry's DEFERRED-HASAN items 3 and 5).
+- **DEFERRED-HASAN (Hasan's list):**
+  1. **The by-ear check of a placed clip** — apply one of the cards (e.g. `crash-tumble` at cut 1) and listen in the timeline; all four
+     T3 cards were left `proposed`.
+  2. **Landing `library-search`** after `end-to-end-p0-e` — his call; not pushed, not merged; the track-E exit waits for it.
+- **Notes (not FAILs):**
+  - **M22 — the `timelineCuts` IPC / renderer wiring has no test:** deleting
+    `...(data.timelineCuts ? { timelineCuts: data.timelineCuts } : {})` in `src/main/ipc/studio-handlers.ts` leaves all 1,165 tests of
+    the slice's set green (`mut\M22.log`,
+    `mut\summary.json`); the renderer side (`useStudioAgent.ts`, `EditorShell.tsx`) has none either. §8.1 3 pins the line's text and its
+    place in `buildAgentSystemPrompt`, not the pass-through (tsc only — accepted at builder #2's re-check). The turn records do not hold
+    the system prompt, so the live turns do not show the line either; each turn called `get_timeline` instead.
+  - **5000 ms timeouts in runs that did not count (AT-r2):** T3 try 1 `agent-memory.test.ts:108` — alone 1 file, 15 / 15
+    (`gates\agent-memory-alone.log`), green in the counted run. T2 (`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\`, per
+    the ORCHESTRATOR Log): run #1 `shot-module-resolver.test.ts:151` (DRIVING's named load test), the `--maxWorkers=4` run #3 the same
+    file (its own `waitForFile`); run #2 five not on DRIVING's list — `packs-through-tools`, `agent-memory`, `snapshot-store`,
+    `build-check`, `tsx-builder` (none in the range; the six alone 6 files / 57 tests, `alone-3.log`; all green in run #4). T2's
+    `summary.txt` reports run #1, and its "failed files: 7" line undercounts grouped failures — `failed-with-error-4.tsv` (28 rows) is
+    the counted run's truth.
+  - **§8.4's items not exercised live:** the by-ear check (above); video-14-size paging (unit-tested only); `run_flow`'s "shot N" counts
+    the FIRST video track while the master is the last non-empty one (they differ only with two video tracks); the fixed-time fallback
+    (every live item was anchored to the footage); markers are not listed; the renderer's mapping ignores speed (pre-existing — the anchor
+    falls back to a fixed time instead). Every live turn used `{ cut }` and `get_timeline`.
+  - **Builder choices accepted at the re-checks** (ORCHESTRATOR Log, 16:31): the tool chip prints `+0.5s` for a positive offset; a
+    near-contiguous join (overlap / gap < 2 ms) falls back to the fixed time when the mapping is > 1 ms off; zod's `cut ≥ 1` is not
+    exercised through the direct handler call (the resolver answers "does not exist" for any unknown n). Known limit (design §5): an
+    anchored point that a later edit removes is skipped at apply, like a word anchor.
+  - The 25 LS-r1c `stream` suites still fail in THIS worktree only (environmental, as in the 2026-10-29 entry). The usage rows say
+    featureSource `auto-cut` for an SFX turn (pre-existing). Each turn's project assets went 1 → 2 (`turn.json` before / after — the
+    card's library clip); nothing was generated.
+- **Evidence / re-run:** the design `docs/studio/ASSISTANT_TIMELINE_DESIGN.md`; the run record `docs/studio/assistant-timeline/ORCHESTRATOR.md`;
+  T2 `docs/studio/assistant-timeline/T2/HANDOFF.md` + `LOG.md`; the verifier's report and kit
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T3\r1\` (`REPORT.md`, `vitest.t3.config.ts`, `probe.t3.test.ts`, `smoke.t3.test.ts`,
+  `mutate.cjs`, `ed2a-walk.cjs`, `setup.cjs`, `reset.cjs`, `launch.sh`, `restore.ps1`, `t3-turn.mjs`, `cdp.mjs`); its logs
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T3\r1\` (`gates\`, `mut\`, `turns\`, `build.*`, `smoke-*`, `probe-head.log`,
+  `setup.log`); T2's kit
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\` (`build.sh`, `gate-all.sh`, `gate-rerun.sh`, `tools.t2.test.ts` +
+  `vitest.t2.config.ts`, `stream-chain.mjs`, `ed2a-graph.cjs`) and logs `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\`
+  (`gates\`, `build.log`, `smoke-get-timeline.json`, `step3-*.log`); profiles `…\vidtsx-e2e\profiles\timeline-T\profile` (CDP 9296)
+  and `…\profiles\timeline-verify\profile` (CDP 9297), each `profiles\search-S4-verify\profile` copied WITHOUT `settings.db*`.
+  TESTING.md §19.5.
+
 ## 2026-10-29 — LIBRARY SEARCH: one shared, meaning-aware search service — keywords + local multilingual-e5-small (RRF60); `generate_sfx` / `generate_music` answer up to 20 candidates with no claim and the assistant picks (`force` to generate); `list_assets` ranked; the Assets box Smart search; the Settings "Library search" row (Download, Basic / Smart / Smart + AI rerank) — DONE (S4 verifier round 1 PASS, in two parts; §9.3 5 read by ruling LS-r8)
 
 - **Result: PASS over the whole acceptance bar** (`docs/studio/LIBRARY_SEARCH_DESIGN.md` §9), verifier round 1, no FAIL round. The
