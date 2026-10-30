@@ -15,3 +15,9 @@
   sha256 manifest; 1,324,748,627 B stated first, guard passed). Kit: `K\laya-run.cjs` (laya-ts pre / post-processing ported, worked
   examples E1–E3, task runs → `vidtsx-d1-answers/1`), `K\dl-parallel.sh`. HF served ~0.4 MB/s → download PAUSED at 150 MB (resumable
   parts, every process stopped); no model run yet; open P8 (speed), P9 (framing review). Hand-off at the call budget.
+- 2026-10-30 16:47 · builder #4 · step 5 DONE: wt/out built (rc 0), profile `decisions-D1` (no settings.db*), CDP 9300, root set first;
+  16 / 40 keyless calls (t1-06's cut response re-asked once as a counted call) → `K\reports\c-baseline.md`: T1 hard R@1 80.7 %, wrong-
+  confident 7.1 % (S1 6.3 %), correct none 75.5 %, same pick as S1 on 225 / 240; T2 100 %, T3 97.5 %; instance stopped (0 left). Step 6
+  DONE: `K\hosted-run.cjs` dry-run → `K\reports\c-hosted-dryrun.md` (138 requests, $0.334 upper, no network; OpenRouter API reference
+  read). Open P10 (D-e "calls" = requests?), P11 (truncated success text), P12 (baseline reference for D-r2). `llama-run.cjs` not written.
+  Hand-off at the call budget.

@@ -1,6 +1,7 @@
 # D1 — the spike: decision models (hosted × 2, local, keyless LLM baseline) on three small task sets (no product code)
-status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 IN PROGRESS (builder #3, 16:27: route
-settled, runner `K\laya-run.cjs` written; the weights download is PAUSED at 150 MB of 1.32 GB (resumable parts); no model run yet)
+status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 PART DONE (builder #3, 16:27: route
+settled, runner `K\laya-run.cjs` written; weights downloading under the orchestrator, D-r5); **steps 5 + 6 DONE (builder #4, 16:47:
+keyless baseline 16 / 40 calls, scored; hosted runners dry-run, no network)**; step 4's adapter `K\llama-run.cjs` NOT written yet
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -158,6 +159,26 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   6.3 %, correct none 42 / 53 = 79.2 % (and pick acc 170 / 187, false none 13 / 156, the CORPUS / HELD-OUT rows) exactly at every τ.
 
 - **Step 3 (c) Laya multilingual — PART DONE** (builder #3, 2026-10-30 16:15–; see "Step 3 so far" below for the route + files).
+- **Step 5 (c) keyless LLM baseline — DONE** (builder #4, 2026-10-30 16:34–16:47; tree as of `b905295`, recorded in the commit that adds
+  this line). Kit files (outside the tree, in `K`): `launch-c.sh` (wt/out, profile `decisions-D1`, CDP 9300), `c-cdp.mjs` (S1's driver,
+  port / root / ledger changed; budget guard 40 counted calls), `c-build-prompts.cjs` → `c-prompts\{probe,t1-01…12,t2,t3}.txt` (T1 = S1's
+  own `top20-NN.txt` + ONE added line asking `{ref, conf}` with a 0–100 confidence; checked: S1 batchIds = the fixture's batches and every
+  request's prompt = the fixture row's), `c-run-all.sh`, `c-rerun-06.sh`, `c-answers.cjs` → `answers\baseline-claude-subscription-<t1-choice|
+  t2-choice|t3-noul>-<hard|verbalised>.json` (6 files), `reports\c-baseline-<task>-<mode>-<hard|verbalised>.md|json` (score.cjs) and the
+  write-up **`reports\c-baseline.md`** + `c-baseline.json`; ledger **`c-calls.jsonl` = 16 counted calls** (probe + 12 T1 + T2 + T3 + the
+  t1-06 re-run; no credential logged); responses `c-responses\`; logs `B\logs\{build,app,c-run,c-rerun-06}.log`. Profile
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D1\profile` (2,324 files, copied without `settings\settings.db*`); Studio root
+  `B\studio-root`. Result (from `reports\c-baseline.md`, model `claude-sonnet-5-5` = S1's): **T1 hard R@1 151 / 187 = 80.7 %, pick acc
+  173 / 187 = 92.5 %, wrong-confident 17 / 240 = 7.1 % (4 named / 13 ∅), correct none 40 / 53 = 75.5 %, false none 10 / 156 = 6.4 %**
+  (S1 §10: 80.7 % · 90.9 % · 6.3 % · 79.2 % · 8.3 %); same pick as S1 on 225 / 240 rows; T1 choice accuracy 88.8 %; verbalised NOTE at τ 0.5
+  wrong-confident 14 / 240 = 5.8 % with R@1 150 / 187 = 80.2 % (τ 0.7: 6 / 240, R@1 127 / 187 = 67.9 %); **T2 100.0 % (40 / 40, Arabic 10 / 10),
+  T3 97.5 %** (Arabic 7 / 7); latency per call T1 p50 10,424 / p95 23,370 ms (12 calls of 20 rows), T2 15,776 ms, T3 10,767 ms.
+- **Step 6 hosted runners — DONE, dry-run only (DEFERRED-HASAN)** (builder #4, 16:41–16:46): `K\hosted-run.cjs` (jev / openai /
+  openrouter-msd1; `--dry-run`, or LIVE with the key from `process.env` only, refuses when unset, shared hard counter `K\hosted-calls.jsonl`
+  ≤ 600, $ upper bound ≤ $3 checked before any call); first bodies `K\hosted-dryrun\*.first-body.json` (12), every body
+  `B\hosted-dryrun\*.json` (12 MB); write-up **`K\reports\c-hosted-dryrun.md`** + `.json`: **138 requests in all (46 per provider), $0.334
+  upper bound** — both caps hold. New primary source read 2026-10-30 16:43: OpenRouter's API reference "Submit a Decisions request"
+  (https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request) — noul `criteria` {true,false} is REQUIRED there.
 
 ### Step 3 so far (builder #3)
 
@@ -229,8 +250,32 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   34363188}`; PowerShell `Invoke-WebRequest -Method Head` per file → the same Content-Lengths; guard (16:17) C: 29.04 GB, headroom 34.17 GB.
   `laya-run.cjs` has NOT been executed (no model file complete yet). No install anywhere (`B\npm-scratch\` empty), no app launch, no
   provider call. `date '+%Y-%m-%d %H:%M'` → `2026-10-30 16:27`.
+- Steps 5–6 (builder #4, as of `b905295`): guard 16:34 C: 28.55 GB, headroom 31.75 GB, 0 `electron.exe`; 16:41 C: 27.35 GB, headroom
+  32.97 GB, 9 `electron.exe` of OTHER sessions (CDP 9341 profile `…\117ddda5…\scratchpad\part2\profile`, CDP 9296 profile `timeline-T`) —
+  never touched (they had exited by 16:45); 16:45 C: 27.29 GB, headroom 33.88 GB. Build: `unset ELECTRON_RUN_AS_NODE; export
+  NODE_OPTIONS=--max-old-space-size=8192; node D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build` from the
+  worktree root → `B\logs\build.log` `rc=0`, 16:36:01–16:39:55, `wt/out` 127 MB, `git status --short` clean after. Profile copy: robocopy
+  `/E /XF settings.db settings.db-shm settings.db-wal DevToolsActivePort` → 371.90 MB, `settings.db* in copy: 0`, 2,324 files. First CDP
+  call `node c-cdp.mjs root` → `{"set":{"success":true},"get":{"root":"C:\\Users\\hasan\\AppData\\Local\\vidtsx-e2e\\decisions\\D1\\studio-root"}}`
+  (again first in `c-rerun-06.sh`, 16:45:55). Probe `node c-cdp.mjs llm probe c-prompts/probe.txt` → `success true`, model
+  `claude-sonnet-5-5`, text `OK`, 9,022 ms. `node c-build-prompts.cjs` → exit 0, `problems: []`. `c-run-all.sh` → `B\logs\c-run.log` `ALL
+  DONE` 16:44:41, 14 calls all `success true`; t1-06's text CUT at 792 chars (rows 15–20 missing) → `c-rerun-06.sh` → call 16
+  `t1-06-rerun` `success true`, 11,077 ms; the 15 rows recoverable from the cut response all match the re-run. `wc -l c-calls.jsonl` → 16,
+  16 `"success":true`. Stop: `Get-CimInstance Win32_Process -Filter "Name='electron.exe'"` whose CommandLine is like
+  `*vidtsx-e2e*profiles*decisions-D1*profile*` → `Stop-Process` (4 pids, 16:45; again in `c-rerun-06.sh` → `left: 0`); `electron.exe`
+  count after → 0. `node c-answers.cjs` → exit 0 (6 answer files, 6 score reports, `c-baseline.md|json`). `node hosted-run.cjs --dry-run` →
+  exit 0, keys all `unset`, `totalCalls 138`, `totalUsdUpper 0.334023296`, `fitsCalls true`, `fitsUsd true`; `node hosted-run.cjs
+  --provider <jev|openai|openrouter-msd1> --task t2 --mode choice` → `DEFERRED-HASAN: <ENV> is unset — refusing to start …`, rc 2 (×3);
+  `hosted-calls.jsonl` absent (no hosted call). `date '+%Y-%m-%d %H:%M'` → `2026-10-30 16:46`.
 
 ## Next step (ONE concrete instruction)
+
+**Builder #4, 16:47 — steps 5 and 6 are DONE (see Done).** Next: write the step-4 adapter `K\llama-run.cjs` (node-llama-cpp 3.18.1 option
+probabilities per a-sources §7 — `evaluateWithMetadata(tokens, { probabilities: true })`, the next-token distribution over the option
+tokens renormalised — with the SAME CLI shape as `K\laya-run.cjs`: `--model <gguf> --task t1|t2|t3 --mode noul|choice --out <file>
+[--limit N] [--gpu auto|false]`, writing `vidtsx-d1-answers/1` with cold load / per-request latency / peak RSS / CPU load in `env`)
+WITHOUT loading any model, unless the orchestrator has reported the weights landed with sha256 checked — then run steps 3 and 4 per the
+plan below (one model process at a time). Never touch the orchestrator's downloads.
 
 **Orchestrator, 16:33 — ruling D-r5 (ORCHESTRATOR.md) re-orders D1:** Hugging Face is slow today for every repo (~75 KB/s per connection,
 measured 16:30 on Qwen's own GGUF), so the ORCHESTRATOR holds the weight downloads as its own background jobs (started 16:32, logs under
@@ -286,7 +331,23 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   `none`; `transcribe_asset` under captions). The orchestrator or Hasan may overrule a row before step 7; a change means re-running
   `build-t2-t3.cjs` + `selfcheck.cjs` and re-scoring.
 
+- **P10 (step 6, Hasan) — D-e's "≤ 600 hosted decision calls" is read as HTTPS REQUESTS** (the runners pack ≤ 400 questions /
+  ≤ 32,000 est. tokens per request → 138 requests for every hosted run). If Hasan meant 600 QUESTIONS, T1 noul alone (4,632 per provider)
+  cannot run on any provider. Not a block now (no key is set); Hasan's reading decides before a live run.
+- **P11 (step 5, not a block) — one keyless response came back `success: true` but cut mid-JSON** (t1-06, 792 chars; rows 15–20 missing).
+  Builder #4 judged it a failed delivery and re-asked the batch ONCE as a NEW counted call (16 of 40), not as a free "API error" retry;
+  the answer files use the re-run; `c-answers.cjs` also parses leniently and says so per label. For D2: the app's `llmGenerate` can return
+  a truncated text marked success — a JSON-reading caller must validate completeness.
+- **P12 (step 7 reference) — "beats the keyless baseline" (D-r2) now has its re-run:** hard reading wrong-confident 17 / 240 = 7.1 % at
+  R@1 151 / 187 = 80.7 % (S1: 6.3 %, 80.7 %). So a decision model beats it with wrong-confident < 6.3 % (the lower of the two) at a τ
+  where its R@1 ≥ 75.7 % (80.7 − 5). The verbalised NOTE (τ 0.5: 5.8 % at R@1 80.2 %) is not the rule's reference (D-r1: no calibrated
+  probability) — step 7 should print it beside, labelled.
+
 ## Do-not-redo
+
+- Step 5's 16 keyless calls (`K\c-calls.jsonl`, `K\c-responses\`) — never re-call; re-score with `node c-answers.cjs` (reads the saved
+  responses only). 24 keyless calls remain for the whole of D1. Step 6's dry-run (`node hosted-run.cjs --dry-run` is free to re-run; no
+  network). The worktree's `out/` is built (as of `b905295`); rebuild only after a `src/` change (D1 makes none).
 
 - Step 1's web reading (P1–P22 in a-sources.md). Later steps add a source only for a gap the table marks "unknown" / "not read"
   that their step needs (e.g. step 6: OpenRouter's Decisions API reference; step 3: `laya-ts`'s weight source).
@@ -304,3 +365,6 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   step boundary.
 - 2026-10-30 · builder #3 · ~52 tool calls · step 3 part 1: route (laya-ts not on npm → desplega split fp32 ONNX), sizes + guard, runner
   `K\laya-run.cjs` + `K\dl-parallel.sh`; download paused at 150 MB / 1.32 GB (slow HF CDN) to hand off at the call budget.
+- 2026-10-30 · builder #4 · ~47 tool calls · step 5 (keyless baseline through the app: build, isolated profile, 16 / 40 calls, 6 answer
+  files scored, `c-baseline.md`) + step 6 (hosted runners, dry-run: 138 requests, $0.334 upper; OpenRouter's API reference read); hand-off
+  at the call budget before `llama-run.cjs`.
