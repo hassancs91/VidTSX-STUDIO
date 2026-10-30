@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | TODO | 0 | — | — | — | — |
+| D1 — the spike (no product code) | BUILDING (step 2) | 1 | step 1 re-checked 16:01 | docs `ce3f9e4` | (a): 22 primary sources, 15 contradictions, no candidate drops | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | TODO | — | — | — | — | — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -84,6 +84,19 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   BOTH 6.3 % (S1) and this run's baseline re-run, at a τ where the model's R@1 is no more than 5 points below the baseline's — so
   abstaining on everything never counts as beating it.
 
+- **D-r3 (orchestrator, 16:02) — Laya multilingual's runtime route (builder #1's O1: no official multilingual ONNX).** Step 3 tries, in
+  order: (1) the official `laya-ts` package of the upstream repo (Laya's own npm wrapper — D-f covers it: under `B\npm-scratch\` only,
+  `--ignore-scripts`, name / version / integrity recorded) if it runs the multilingual checkpoint on `onnxruntime-node`; (2) a community
+  ONNX conversion of `convaiinnovations/laya-multilingual`, downloaded as untrusted weights into its own folder under `B\models\` and
+  checked against the upstream card's / repo's worked examples before any measured run. **No pip install and no own ONNX export** (a
+  new toolchain — Hasan's call). If neither runs, Laya multilingual is "did not run" with the reason, and the ENGLISH checkpoint
+  (`@receptron/laya`, ≈ 1.7 GB, size stated first) may run as a NOTE only (no Arabic rows; never the recommended default).
+- **D-r4 (orchestrator, 16:02) — D-b's "existing openai-compat / OpenRouter path" (builder #1's C7).** OpenRouter serves decision models
+  on its separate Decisions API (`POST https://openrouter.ai/api/alpha/decisions`, System One body — orchestrator spot check 16:01), so
+  the fallback needs a System One adapter with OpenRouter's base URL, not `openai-compat-provider`. Not a block: D-b's order (OpenAI
+  first, if Hasan's account has access) stands; D2 designs both adapters; step 6 dry-runs OpenAI's own shape (`input` + `questions[]`,
+  `predicate`) and the System One shape (Jev, Microsoft-Decision-1 via OpenRouter).
+
 ## Stops
 
 (one line per stop: what was reported, what Hasan said)
@@ -95,3 +108,22 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 - 15:46 · resources: C: 29.4 GB, D: 39.6 GB, headroom 33.7 / 99.7 GB, CPU 64 % (`vmmemWSL`).
 - 15:47 · branch `decision-models` + worktree `.vidtsx-temp\decisions\wt` @ `efa5e0b`; `NEXT-SESSION.md` checked out from `0df9e9c`.
 - 15:50 · this file + `D1/HANDOFF.md` + `D1/LOG.md`; rulings D-r1, D-r2; D1 builder #1 to spawn.
+- 15:51 · D1 builder #1 spawned (HEAD `c14b180`; step 1 only, no download / install / launch / call).
+- 15:58 · D1 builder #1 HANDOFF (48 calls, ~8 min; **step 1 DONE**, docs `ce3f9e4`): `K\reports\a-sources.md` 227 lines — 22 primary sources
+  (P1–P22, read 2026-10-30 via WebFetch, whose page text is a model's extraction — said in the file), secondary sources listed "not used";
+  **no D-a…D-c candidate drops**. Contradictions C1–C15 with NEXT-SESSION's summary, the ones that matter: **C5** OpenAI's Decisions API is
+  GA (`POST /v1/decisions`, `gpt-6-luna` only, `input` + an ARRAY of 1–400 questions, `predicate` / `choice` / `score` — not System One);
+  **C2** Jev 64k per request / 32k per question (262k opt-in), Arabic not named (English "best"); **C7** OpenRouter's decision models live on
+  `/api/alpha/decisions` (System One body), not the chat path; **C8 / C10** NEXT-SESSION's Laya numbers (1.7 GB, 2 GB RAM, 512 tokens,
+  140 ms) are the community `@receptron/laya` wrapper's ENGLISH bundle — Laya multilingual = mmBERT-base 322M, ≈ 647 MB safetensors, 1,024
+  tokens, Arabic weak (0.400 on its card), no fitted temperatures, no official multilingual ONNX; **C12** d1-omni-600M is LFM Open License
+  v1.0 (commercial use only under $10 M revenue — not permissive), official GGUF Q8_0 407 MB served by `llama-server` `/v1/systemone`.
+  Step-4 pick: `qwen2.5-0.5b-q8` (catalog; Apache-2.0; Arabic named; card says Q8_0 676 MB vs the catalog's 531 MB → Content-Length first)
+  → `qwen3.5-0.8b-q8` → d1-omni GGUF. node-llama-cpp 3.18.1: `evaluateWithMetadata(tokens, { probabilities: true })` first yield (or
+  `controlledEvaluate` … `generateNext.probabilities`). SemIf's own ladder: 0.6B → 0.440 balanced acc vs 4B 0.813 (a warning for tiny GGUFs).
+- 15:59–16:01 · **Orchestrator re-check:** HEAD `ce3f9e4` = HANDOFF + LOG only, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty,
+  `B\models\` empty (nothing downloaded); `a-sources.md` read in full. **Independent spot check** (WebFetch, 16:01): P4 confirms GA,
+  `gpt-6-luna` "the only currently supported model", `input` + questions array with `name`, `predicate` / `choice` / `score`, "between 1 and
+  400 questions"; P7 confirms `POST https://openrouter.ai/api/alpha/decisions` with `model` + `state` + keyed `questions`, `typesafe/jev-1.14`
+  $0.042 / M input, Microsoft-Decision-1 "Text only, $0.042 per million input tokens". Rulings D-r3 (Laya route), D-r4 (C7) above. D1
+  builder #2 (step 2 — the task sets + measures) to spawn.
