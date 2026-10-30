@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | WAITING on weights (d1-omni ≈ 17:29, Qwen ≈ 18:07, Laya ≈ 18:30; D-r5) | 5 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
+| D1 — the spike (no product code) | BUILDING (step 3 — Laya; all weights on disk 17:43) | 6 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | TODO | — | — | — | — | — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -217,3 +217,32 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 - 17:38 · **d1-omni landed:** the job ended 17:37:55 — `ok … 407207584`, sha256 `cd94463f…3d3` = expected (four curl resets / one DNS failure
   on the way, absorbed by the per-part retries). Qwen 518.5 / 675.7 MB (~126 KB/s since 17:03 → ≈ 18:00), Laya 840.0 / 1,324.7 MB (~208 KB/s
   → ≈ 18:17). D1 builder #6 (d1-omni `--info` + self-test, then Qwen when it lands) to spawn.
+- 17:38 · D1 builder #6 spawned (HEAD `ce296e6`).
+- 17:39–17:43 · **downloads (orchestrator, while builder #6 ran — logged now):** the network sped up. Qwen2.5-0.5B landed 17:39:34 (`ok …
+  675710816`, sha256 `ca59ca7f…44e` = expected). Laya: tokenizer / head / `rl_agent_config` landed with the manifest's hashes, but the encoder
+  job ended `FAIL … (a part is short)` at 17:39:29 after a burst of DNS failures exhausted some parts' retries; re-run 17:39:49 (same 32
+  parts, resumed) → `ok … encoder.onnx 1230282662`, sha256 `4bf4feb8…` = `manifest.json`, 17:40:41. With the network fast, the orchestrator
+  also fetched builder #1's SECOND GGUF, `qwen3.5-0.8b-q8` (the catalog's own `downloadUrl`, unsloth/Qwen3.5-0.8B-GGUF; 811,843,840 B, sha256
+  `0ad885ff…7a6c` from the HF API, stated first; C: 25 GB free) → landed 17:43:04, hash equal. Every D1 weight file is on disk and checked.
+- 18:24 · D1 builder #6 HANDOFF (51 calls, ~46 min incl. its runs; step 4 part 2 DONE, docs `aca2ca3` `ba41a37`): **d1-omni did not run** —
+  `llama_model_load: error loading model: missing tensor 'blk.16.ffn_gate.weight'` (Vulkan and CPU); its GGUF metadata says encoder + decision
+  head (`lfm2.decision.type lfm2-d1-omni`, `attention.causal false`), only `chat_template.systemone`, `ar` among its 15 languages, fitted
+  temperatures per question type → needs `llama-server /v1/systemone` or the community ONNX (+ the revenue-capped licence): P15 for Hasan.
+  **Qwen2.5-0.5B Q8_0** (self-test: map 151,936 entries = the vocabulary, sum 1.00001, options present, prefix reuse ≤ 0.0066; Vulkan `auto` put
+  0 layers on the GPU → `--gpu-layers max` = 25 / 25 on the RTX A3000): T1 noul 43.2 % (Arabic 18.8 %, Brier 0.336, ECE 0.488; P(Yes) ≥ 0.5 on
+  2,796 questions vs 321 true; OOF T at the grid max 20 both folds), T1 choice 27.1 % (top answer "none" on 180 rows), **T2 75.0 %** (Arabic
+  80.0 %, Brier 0.155), **T3 67.5 %** (Arabic 57.1 %); D-r2: **does not beat the baseline** (best R@1 36.4 %, wrong-confident 71.7 % at τ 0.5;
+  choice R@1 0 % = abstains). Warm per question p50 / p95: T1 noul 208 / 389 ms, T1 choice 569 / 722, T2 230 / 275, T3 222 / 351 ms; peak RSS
+  ≤ 1,087 MB; VRAM 800 → ~1,700 MiB. **P16:** ~5/6 of a warm question is node-llama-cpp building a JS map of the whole vocabulary (forward
+  pass alone p50 30 / p95 62 ms vs 175 / 279 with the map) — a product adapter must read only the option tokens' logits. **P17:** its CPU-only
+  runs (T2 9.8 / 12.2 s, T3 7.5 / 18.2 s per question) ran at node-llama-cpp's default 4 threads and partly under another session's load
+  (`ffmpeg`, `chrome-headless-shell`) — not a fair CPU figure, not repeated. Kit fixes: cold timings exclude the guard probes;
+  `ignoreMemorySafetyChecks` with `max` layers (Vulkan's VRAM reading → `InsufficientMemoryError`); new `llama-mapcost.cjs`,
+  `c-llama-run-all.sh`. P18: run `qwen3.5-0.8b` at all?
+- 18:25 · **Orchestrator re-check:** HEAD `ba41a37`, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty; `K\answers\` holds the 4 + 2
+  CPU + 4 OOF Qwen files and `K\reports\c-llama-*` their scores; `c-llama.md` :33 quotes the load error, :85-87 the D-r2 verdict against both
+  references; 0 `llama-run` / `laya-run` processes. **Ruling D-r6 (18:25) — P18 + P17:** `qwen3.5-0.8b-q8` is already on disk (above), so it
+  runs AFTER Laya with the same four runs (Vulkan `max` layers the headline; cheap: ~20 min), recorded as the second GGUF of the SemIf
+  adapter. A fair CPU figure (`--threads` added to `llama-run.cjs`, e.g. 8 of 16) is taken only for a GGUF candidate still in contention
+  after its T1 run. A larger GGUF (`qwen3.5-2b-q4km`, 1.28 GB, catalog) is NOT run unless the orchestrator asks after Laya and the 0.8B — it
+  would test whether the method scales, not the brief's "tiny GGUF". D1 builder #7 (step 3 — Laya, then the 0.8B) to spawn.
