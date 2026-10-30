@@ -18,7 +18,7 @@
 | Part | Status | Builders spawned | Verifier result | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` `b382288` | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:57 |
-| T2 — build (red-first, hand-off-sized) | BUILDING | 3 | — | step 1 `307f96f` · step 2 `99c35b1` | — | 2026-10-30 15:58 / |
+| T2 — build (red-first, hand-off-sized) | BUILDING | 4 | — | step 1 `307f96f` · step 2 `99c35b1` · step 3 `cf4fb0c` `021a2d6` | — | 2026-10-30 15:58 / |
 | T3 — verify (independent; ≤ 3 FAILs) | TODO | — | — | — | — | |
 
 ## Answers in force (Hasan's paste-in, 2026-10-30)
@@ -107,7 +107,24 @@
   src` = 8 files +157 −8; the renderer / handler / prompt diff read (one field, spreads, the line after `- Timeline:`); the 5 files → 5
   passed / 59 tests (16:17:57); `formatMasterCutsLine` read = §4's strings; 0 `electron.exe`. T2 builder #3 (§9 step 3 — the
   characterization tests FIRST, then the cut anchor) to spawn.
-- 16:19 · T2 builder #3 spawned (HEAD = this commit; the same brief).
+- 16:19 · T2 builder #3 spawned (HEAD = this commit; the same brief). (Clock: `4975581` landed at 16:18:22.)
+- 16:31 · **T2 builder #3 HANDOFF** (68 calls, ~13 min; **§9 step 3 DONE**): `cf4fb0c` = ONLY `insert-tools-anchor.test.ts` (7 tests: the
+  number path, the `{ word, take }` path, the four word errors, three guards — through the real handler; 7 / 7 on the unchanged
+  `insert-tools.ts`); `021a2d6` (13 files +752 −36) — `src/shared/studio/source-span-map.ts` (the mapping core; `cut-proposal.ts:44-53`
+  a thin wrapper, `cut-proposal.test.ts` untouched), `agent-tools/cut-anchor.ts` (`resolveCutAnchor`, `cutAnchorLabel`), `timeline-insert.ts`
+  (`atLabel`, `insertClipLength` = the clipping rule extracted), `insert-tools.ts` (`{ cut, offset? }`, the load-failure text, the chip),
+  `studio-agent-prompt-tools.ts:21` (§7 line) + the tool description clause; tests `source-span-map`, `cut-anchor` (incl. trim
+  survival), `insert-tools-cut`, `timeline-insert` (+`atLabel`), the prompt pin, renderer `apply-insert-proposal-cut.test.ts`; red 5 files
+  / 12 failed → green 20 files / 178 (`…\vidtsx-e2e\timeline\T2\step3-*.log`); tsc 25 / 10; tracer: `insert-tools.ts` / `cut-anchor.ts`
+  reach no stream importer; docs `34de27a`. Its recorded choices (behaviour kept): the chip prints `+0.5s` for a positive offset; a
+  near-contiguous join (overlap / gap < 2 ms) falls back to the fixed time when the mapping is > 1 ms off; zod's `min(1)` not exercised
+  through the direct handler call (the resolver answers "does not exist" for any unknown n) — all accepted. **Orchestrator re-check
+  (16:31):** tree clean at `34de27a`; `cf4fb0c` = 1 file (the characterization test), unchanged since; `insert-tools.ts` untouched in it;
+  `4975581..HEAD` test files: 0 lines removed; `cut-anchor.ts` read (= §5: k = 0 / out-of-range / outside-the-clip errors, the side rule,
+  `round3`, the 1 ms mapping check, the fixed fallback, the label); the mapping refactor diff read (the same loop, moved); 14 files → 14
+  passed / 133 tests (16:31:43); 0 `electron.exe`; C: 28.6 GB, D: 39.3 GB, headroom 33.9 GB. T2 builder #4 (§9 step 4 — build, the smoke,
+  the gates) to spawn.
+- 16:33 · T2 builder #4 spawned (HEAD = this commit; the same brief).
 
 ## Builder brief (T2; every builder gets it unchanged)
 
