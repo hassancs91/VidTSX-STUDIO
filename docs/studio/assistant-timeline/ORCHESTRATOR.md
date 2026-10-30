@@ -17,7 +17,7 @@
 
 | Part | Status | Builders spawned | Verifier result | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| T1 — the design note + THE BAR (orchestrator) | BUILDING | — | — | — | — | 2026-10-30 15:52 / |
+| T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` (commit: see Log 15:59) | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:59 |
 | T2 — build (red-first, hand-off-sized) | TODO | 0 | — | — | — | |
 | T3 — verify (independent; ≤ 3 FAILs) | TODO | — | — | — | — | |
 
@@ -63,3 +63,14 @@
   `.vidtsx-temp\decisions\wt` yet; worktree clean at `0df9e9c`; C: 29.4 GB, D: 39.6 GB, headroom 38.5 GB.
 - 15:52 · `.vidtsx-temp\decisions\wt` now exists (`c14b180`, the parallel session) — not ours, never touched. This file created; T1
   (the design note) starts.
+- 15:52–15:59 · **T1 — the design note** `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` written by the orchestrator: one shared model (§2 —
+  the master = `masterLane`; a cut = a join where the picture changes, a through edit (continuous split) is not one, gaps listed apart,
+  cuts numbered over the whole timeline); `get_timeline(fromSec?, toSec?)` (§3 — the exact text for the 2-clip project; caps 40 master
+  clips / 20 per other lane, the `+N more … get_timeline(fromSec: x)` line); the cuts line from a new request field `timelineCuts`
+  computed by the renderer with the same shared function (§4); the cut anchor (§5 — offset ≥ 0 → the clip after the cut, < 0 → the clip
+  before, kept as `{ anchorAssetId, sourceStart }` only when the shared source→timeline mapping lands it on `t` within 1 ms, else the
+  fixed `{ timelineStart }`; the exact errors); the prompt lines (§7); **§8 THE ACCEPTANCE BAR** (unit 1–7, gates, the smoke, the four
+  turns with the [2.00, 3.10] s window and ≥ 3 / 4 placing). Facts checked for it: `mapCutItemToTimeline`
+  (`features/studio/services/cut-proposal.ts:44-67`) ignores speed and takes the first region over ALL tracks — hence the mapping check;
+  no `insert-tools.test.ts` exists — hence the characterization tests first; video-14's copy = V1 35 video clips + 55 TSX shots on one
+  overlay lane + A1 empty (the caps fit it in one page). `T2/HANDOFF.md` + `LOG.md` created. T2 builder #1 to spawn.
