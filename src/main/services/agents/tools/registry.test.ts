@@ -92,6 +92,8 @@ describe('registry ports and node specs', () => {
     'save_to_library',
     // W8 Stage 4: the agent node.
     'run_agent',
+    // VidTSX 2.0: joins with a dip to black.
+    'join_clips',
   ];
 
   it('the wave-1 node catalogue carries ports; agent-only tools do not', () => {

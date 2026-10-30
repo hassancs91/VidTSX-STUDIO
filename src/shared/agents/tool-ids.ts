@@ -60,6 +60,9 @@ export const AGENT_TOOL_IDS = [
   // §1.5) — the draft from the lineage walk, and the one tool that names it.
   'freeze_session_to_flow',
   'save_flow',
+  // VidTSX 2.0: join clips with a cut or a dip to black at a set size and
+  // frame rate (the interior staging flow). Node-capable; usable by agents.
+  'join_clips',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

@@ -48,6 +48,7 @@ import { proposeFlowTool } from './propose-flow';
 import { readRunTool } from './read-run';
 import { freezeSessionToFlowTool } from './freeze-session-to-flow';
 import { saveFlowTool } from './save-flow';
+import { joinClipsTool } from './join-clips';
 
 // Wave 1 (plan §1.3).
 registerTool(writeDocumentTool);
@@ -96,3 +97,6 @@ registerTool(readRunTool);
 // from the lineage walk, and the one tool that names it.
 registerTool(freezeSessionToFlowTool);
 registerTool(saveFlowTool);
+// VidTSX 2.0: clips joined with a dip to black (the interior staging flow);
+// rendered through Remotion because the bundled ffmpeg has no fade filters.
+registerTool(joinClipsTool);
