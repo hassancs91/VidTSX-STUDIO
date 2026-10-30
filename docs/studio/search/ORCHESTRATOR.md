@@ -401,6 +401,16 @@
   stopped only because it could not locate "the first cut" (a capability outside this range — no tool reads cut points). **Verdict: S4
   PASS, recorded WITH this reading;** Hasan may overrule it (then it is a §9 question for him, not a FAIL round). The first-cut gap goes
   on his list for the real-video test.
+- **LS-r8 SETTLED BY MEASUREMENT (orchestrator of the assistant-timeline slice, 2026-10-30 17:25).** The gap LS-r8 read around — no tool
+  could see a cut — was closed by the follow-up slice `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` (`get_timeline`, the cuts line, the
+  `insert_asset` cut anchor; code `307f96f` `99c35b1` `cf4fb0c` `021a2d6`, verified at `9e2ff69`). Its T3 verifier round 1 re-ran §9.3 5's
+  four prompts on the same 2-clip project (Smart, the 51-clip library, the stand-in counter, pristine bytes per turn, 4 keyless
+  `claude-subscription` turns, 0 retries): **4 / 4 turns PLACED** — t1 / t2 "Add a soft whoosh at the first cut." → `whoosh-soft` at
+  `{ cut: 1, offset: −0.3 }` / `−0.25` → 2.70 / 2.75 s; t3 / t4 "Add the sound of things falling over at the first cut." → `crash-tumble`
+  at `{ cut: 1 }` → 3.00 s (the cut is at 3.00); every turn `list_assets` → `get_timeline` → `insert_asset`; 0 claim strings, 0
+  generated, 0 wrong clips, no turn asked. So §9.3 5's "each prompt is right at least once" now holds as PLACEMENTS, not only in LS-r8's
+  NOTE sense — the S4 PASS stands without needing LS-r8's reading. Report: `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T3\r1\REPORT.md`;
+  records `docs/studio/assistant-timeline/ORCHESTRATOR.md`.
 - 21:55 · records builder spawned (HEAD `12fa661`): the Status.md entry at the top + TESTING.md **§19** (after §18.17), numbers from the
   report files; then the stop report.
 - 22:01 · records builder DONE (38 calls, ~7 min): `cf7d550` — `Status.md` +122 (the entry at lines 10–130, above the 2026-10-28 E3 entry;

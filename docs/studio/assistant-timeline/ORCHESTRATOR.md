@@ -19,7 +19,7 @@
 |---|---|---|---|---|---|---|
 | T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` `b382288` | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:57 |
 | T2 — build (red-first, hand-off-sized) | **DONE** | 5 | — (T3 verifies) | code `307f96f` `99c35b1` `cf4fb0c` `021a2d6`; records `424eb18` `34e6bb6` | smoke: real `get_timeline` = §3 exactly, project sha1 unchanged; counted full run #4 `28 failed \| 518 passed \| 6 skipped (552)` = the 25 LS-r1c + 3 E-d2a; fresh-worktree 25 / 239; tsc 25 / 10; matcher 0 B; §9.1 17 + 1 skipped / 159 | 2026-10-30 15:58 / 17:00 |
-| T3 — verify (independent; ≤ 3 FAILs) | VERIFY (round 1) | — | — | — | — | 2026-10-30 17:02 / |
+| T3 — verify (independent; ≤ 3 FAILs) | **PASS — round 1** (records next) | — | **PASS round 1** (62 calls; report `.vidtsx-temp\timeline\T3\r1\REPORT.md`) | verified at `9e2ff69` (`src/` = `021a2d6`) | counted run `28 failed \| 518 passed \| 6 skipped (552)` = 25 + 3; fresh-wt 25 / 239; tsc 25 / 10; matcher 0 B; §9.1 17 + 1 / 159; probes 9 / 9; **24 / 25 mutants caught** (M22 the `timelineCuts` handler spread survives — NOTE); smoke = §3 exactly; **4 / 4 turns placed**: whoosh-soft 2.70 / 2.75, crash-tumble 3.00 / 3.00; 0 claims, 0 generated, all `claude-subscription` | 2026-10-30 17:02 / 17:24 |
 
 ## Answers in force (Hasan's paste-in, 2026-10-30)
 
@@ -168,6 +168,26 @@
   the rulings LS-r1 / LS-r1b / LS-r1c and LIBRARY_SEARCH_DESIGN §9.1 / §9.3 5 — NOT `docs/studio/assistant-timeline/` or any builder's
   report. Profile `profiles\timeline-verify` (CDP 9297), kits `.vidtsx-temp\timeline\T3\r1\`, big outputs `…\vidtsx-e2e\timeline\T3\r1\`.
   ≤ 4 keyless turns (+1 retry each on an API error). It reports as text; the orchestrator saves it as `.vidtsx-temp\timeline\T3\r1\REPORT.md`.
+- 17:02 · T3 verifier round 1 spawned (HEAD `9e2ff69`, landed 17:02:01).
+- 17:24 · **T3 verifier round 1 — VERDICT: PASS** (62 calls, ~21 min; saved verbatim as `.vidtsx-temp\timeline\T3\r1\REPORT.md`; logs
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T3\r1\`). A gates: guard C: 26.78 GB / headroom 32.7 GB / CPU 9–27 %, Hasan's app not
+  running; try 1 (not counted) = the 28 + `agent-memory.test.ts:108` 5000 ms (alone 15 / 15 — a NOTE under AT-r2); **counted try 2 `Test
+  Files 28 failed | 518 passed | 6 skipped (552)` · `Tests 9 failed | 5434 passed | 37 skipped (5480)` = exactly the 25 LS-r1c + 3 E-d2a**;
+  its fresh detached worktree 25 / 239, removed; E-d2a by its own static walk (type-only imports skipped; `shot-bundle-in-place` reaches only
+  the types-only `src/shared/ipc/types/studio.ts`) + the esbuild cross-check (none in range); tsc 25 / 10; matcher 0 B; §9.1 17 passed + 1
+  skipped / 159 + 2; house rules as T2's. B: every §8.1 item asserted with the pinned strings; its own probes 9 / 9 (its own 60-clip layout);
+  **mutations 24 / 25 caught** (every brief example) — **survivor M22**: deleting the `timelineCuts` spread in `studio-handlers.ts` leaves
+  1,165 tests green (the IPC / renderer wiring has no test; §8.1 3 does not ask for one → NOTE). C: `wt/out` rebuilt from HEAD (17:13–17:17,
+  rc 0); its app (CDP 9297, `timeline-verify` = `search-S4-verify` without `settings.db*`, 51 clips, smart / auto, vectors 51 / 51) opened
+  the project 4×, 0 renderer exceptions; the real handler = §3 exactly, file unchanged. D: **4 / 4 turns placed** (each `list_assets` →
+  `get_timeline({})` → `insert_asset` with `{ cut }`): t1 whoosh-soft `{cut:1, offset:−0.3}` → 2.70, t2 `−0.25` → 2.75, t3 / t4 crash-tumble
+  `{cut:1}` → 3.00; 0 claims, 0 generated (library 51 → 51, stand-in rows 0 → 0), usage rows `claude-subscription` / `auto-cut` /
+  claude-sonnet-5-5. **Orchestrator re-check (17:24):** the four `turns\tN\project.json` read — one insert-plan each; t1 / t2 whoosh-soft
+  anchored to `e3v-clip.mp4` src 2.70 / 2.75 (inside `e3v-c1` 0–3 → timeline 2.70 / 2.75), t3 / t4 crash-tumble anchored src 4 (`e3v-c2` src
+  4 at 3.00 → 3.00), headlines = §5's format; `agent-chat.json` ×4: 0 of the six claim strings anywhere, 1 `get_timeline` each, 0
+  `generate_*`; `turn.json` ×4 provider `claude-subscription`; tree clean at `9e2ff69`, no scratch worktree, 0 `electron.exe`. → **T3 PASS.**
+- 17:25 · LS-r8 recorded as **settled by measurement** in `docs/studio/search/ORCHESTRATOR.md` (after the ruling). Records builder (Status.md
+  entry at the top + TESTING.md §19.5) to spawn.
 
 ## Builder brief (T2; every builder gets it unchanged)
 
