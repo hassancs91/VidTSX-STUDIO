@@ -1,0 +1,390 @@
+{
+  "formatVersion": 2,
+  "id": "vidtsx/interior-staging",
+  "name": "Interior staging reel",
+  "description": "One room photo → a vertical 9:16 reel of the room being furnished: the image model reframes the room upright, empties it and reshoots it at golden hour; the video model makes a 10 s staging clip (empty → furnished) and a 6 s glide; joined with a dip to black at 1080x1920, 24 fps. Typical cost on the defaults: about $0.45 for the stills + $1.80 for the video (needs a fal key). Checkpoints, the default, waits for your OK on each still before the paid video; Unattended runs straight through.",
+  "version": "1.0.0",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "requires": {
+    "tools": [
+      "input_image_file",
+      "input_text",
+      "generate_image",
+      "generate_video",
+      "join_clips"
+    ],
+    "capabilities": [
+      "image-provider",
+      "video-provider"
+    ]
+  },
+  "params": [
+    {
+      "id": "photo",
+      "label": "Room photo",
+      "kind": "image",
+      "required": true,
+      "bind": [
+        {
+          "nodeId": "n-photo",
+          "key": "filePath"
+        }
+      ]
+    },
+    {
+      "id": "imageModel",
+      "label": "Image model",
+      "kind": "select",
+      "description": "Makes the three stills: the room upright, empty, and at golden hour.",
+      "options": [
+        {
+          "value": "nano-banana-pro",
+          "label": "Nano Banana Pro — most faithful · $0.15 a still"
+        },
+        {
+          "value": "seedream-v4.5",
+          "label": "Seedream 4.5 — cheaper · $0.04 a still"
+        }
+      ],
+      "default": "nano-banana-pro",
+      "bind": [
+        {
+          "nodeId": "n-vertical",
+          "key": "model"
+        },
+        {
+          "nodeId": "n-empty",
+          "key": "model"
+        },
+        {
+          "nodeId": "n-golden",
+          "key": "model"
+        }
+      ]
+    },
+    {
+      "id": "videoModel",
+      "label": "Video model",
+      "kind": "select",
+      "description": "Makes the 10 s staging clip and the 6 s glide.",
+      "options": [
+        {
+          "value": "kling-3-pro",
+          "label": "Kling 3 Pro — best value · about $1.80"
+        },
+        {
+          "value": "kling-4",
+          "label": "Kling 4 — newest, 1080p · about $3.75"
+        },
+        {
+          "value": "kling-2.5-turbo-pro",
+          "label": "Kling 2.5 Turbo Pro — cheapest · about $1.05 (5 s glide)"
+        },
+        {
+          "value": "seedance-2.0",
+          "label": "Seedance 2.0 — 720p · about $4.85"
+        }
+      ],
+      "default": "kling-3-pro",
+      "bind": [
+        {
+          "nodeId": "n-staging",
+          "key": "model"
+        },
+        {
+          "nodeId": "n-glide",
+          "key": "model"
+        }
+      ]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "n-photo",
+        "toolId": "input_image_file",
+        "position": {
+          "x": 80,
+          "y": 80
+        },
+        "config": {
+          "filePath": ""
+        },
+        "pause": false
+      },
+      {
+        "id": "n-prompt-vertical",
+        "toolId": "input_text",
+        "position": {
+          "x": 80,
+          "y": 300
+        },
+        "config": {
+          "prompt": "Recreate this exact room as a tall vertical 9:16 photograph. Same interior design, same furniture, same materials, same colours and the same light — nothing redesigned, nothing added, nothing removed. Only the framing changes: a vertical view from about 1.2 m high, wide lens, verticals perfectly straight, centred on the room's main furniture group, with the ceiling and its lights in the upper part of the frame and the floor in the lower part. Every piece stays where it stands. Photoreal architectural photography, high detail, no people, no text."
+        },
+        "pause": false
+      },
+      {
+        "id": "n-prompt-empty",
+        "toolId": "input_text",
+        "position": {
+          "x": 480,
+          "y": 300
+        },
+        "config": {
+          "prompt": "The same photo, the same camera, the same light — the room on the day before it was furnished. Remove every piece of furniture and every loose object: sofas, chairs, stools, tables, beds, desks, rugs, cushions, throws, plants and planters, floor and table lamps, freestanding shelves and cabinets, everything on shelves and counters, vases, books, decor, and the pictures on the walls. Keep everything built into the room exactly where it is: walls, windows and window frames, doors, curtains and blinds, the ceiling and its lights, built-in cabinets, shelves, niches, counters and fireplaces, and the floor. The floor is clean and continuous where the furniture stood, with the same material and the same patches of light. Keep the camera exactly where it is: walls, windows, ceiling and floor lines in exactly the same place and size as in the reference, so the two images line up when overlaid."
+        },
+        "pause": false
+      },
+      {
+        "id": "n-prompt-golden",
+        "toolId": "input_text",
+        "position": {
+          "x": 480,
+          "y": 520
+        },
+        "config": {
+          "prompt": "The same room with all the same furniture, photographed later in the day at golden hour: a low warm sun rakes through the windows, long amber shadows stretch across the floor, and the room's lamps and ceiling lights glow softly. A new camera position: lower (about 70 cm high) and closer, a three-quarter view from the front left toward the main furniture group. Same furniture, same materials, same layout, nothing redesigned, nothing added. Vertical 9:16, photoreal, no people, no text."
+        },
+        "pause": false
+      },
+      {
+        "id": "n-prompt-staging",
+        "toolId": "input_text",
+        "position": {
+          "x": 880,
+          "y": 520
+        },
+        "config": {
+          "prompt": "Locked-off static camera: no camera movement, no zoom, no change of angle. An empty room is furnished piece by piece until it matches the final frame exactly. First the rug appears flat on the floor, then the largest pieces, then the smaller pieces, then the decor, plants and wall pictures, each one settling into its final place before the next begins. Every piece arrives right where it belongs — sliding a short way across the floor or rising smoothly up into place; pictures fade in on the walls. Nothing flies, falls, is thrown, or passes in front of the camera. The walls, windows, ceiling and light stay exactly the same throughout. Calm, smooth, satisfying interior staging. Photoreal."
+        },
+        "pause": false
+      },
+      {
+        "id": "n-prompt-glide",
+        "toolId": "input_text",
+        "position": {
+          "x": 880,
+          "y": 740
+        },
+        "config": {
+          "prompt": "Slow cinematic camera glide: a gentle arc to the right with a slight push in toward the main furniture group. Where there are curtains they sway softly; dust motes drift in the warm sunbeams. The furniture and the room stay perfectly still and unchanged. Smooth gimbal motion, photoreal."
+        },
+        "pause": false
+      },
+      {
+        "id": "n-vertical",
+        "toolId": "generate_image",
+        "position": {
+          "x": 480,
+          "y": 80
+        },
+        "config": {
+          "providerId": "fal",
+          "model": "nano-banana-pro",
+          "width": 1440,
+          "height": 2560,
+          "count": 1
+        },
+        "pause": true
+      },
+      {
+        "id": "n-empty",
+        "toolId": "generate_image",
+        "position": {
+          "x": 880,
+          "y": 80
+        },
+        "config": {
+          "providerId": "fal",
+          "model": "nano-banana-pro",
+          "width": 1440,
+          "height": 2560,
+          "count": 1
+        },
+        "pause": true
+      },
+      {
+        "id": "n-golden",
+        "toolId": "generate_image",
+        "position": {
+          "x": 880,
+          "y": 300
+        },
+        "config": {
+          "providerId": "fal",
+          "model": "nano-banana-pro",
+          "width": 1440,
+          "height": 2560,
+          "count": 1
+        },
+        "pause": true
+      },
+      {
+        "id": "n-staging",
+        "toolId": "generate_video",
+        "position": {
+          "x": 1280,
+          "y": 80
+        },
+        "config": {
+          "providerId": "fal",
+          "model": "kling-3-pro",
+          "aspectRatio": "9:16",
+          "durationSeconds": "10",
+          "resolution": "",
+          "generateAudio": "off"
+        },
+        "pause": false
+      },
+      {
+        "id": "n-glide",
+        "toolId": "generate_video",
+        "position": {
+          "x": 1280,
+          "y": 300
+        },
+        "config": {
+          "providerId": "fal",
+          "model": "kling-3-pro",
+          "aspectRatio": "9:16",
+          "durationSeconds": "6",
+          "resolution": "",
+          "generateAudio": "off"
+        },
+        "pause": false
+      },
+      {
+        "id": "n-join",
+        "toolId": "join_clips",
+        "position": {
+          "x": 1680,
+          "y": 80
+        },
+        "config": {
+          "transition": "dip-to-black",
+          "fadeOutSeconds": 0.25,
+          "fadeInSeconds": 0.3,
+          "width": 1080,
+          "height": 1920,
+          "fps": 24,
+          "fit": "cover",
+          "name": "interior-staging-reel"
+        },
+        "pause": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "n-photo",
+        "sourceHandle": "image",
+        "target": "n-vertical",
+        "targetHandle": "sourceImage"
+      },
+      {
+        "id": "e2",
+        "source": "n-prompt-vertical",
+        "sourceHandle": "text",
+        "target": "n-vertical",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e3",
+        "source": "n-vertical",
+        "sourceHandle": "image",
+        "target": "n-empty",
+        "targetHandle": "sourceImage"
+      },
+      {
+        "id": "e4",
+        "source": "n-prompt-empty",
+        "sourceHandle": "text",
+        "target": "n-empty",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e5",
+        "source": "n-vertical",
+        "sourceHandle": "image",
+        "target": "n-golden",
+        "targetHandle": "sourceImage"
+      },
+      {
+        "id": "e6",
+        "source": "n-prompt-golden",
+        "sourceHandle": "text",
+        "target": "n-golden",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e7",
+        "source": "n-empty",
+        "sourceHandle": "image",
+        "target": "n-staging",
+        "targetHandle": "firstFrame"
+      },
+      {
+        "id": "e8",
+        "source": "n-vertical",
+        "sourceHandle": "image",
+        "target": "n-staging",
+        "targetHandle": "lastFrame"
+      },
+      {
+        "id": "e9",
+        "source": "n-prompt-staging",
+        "sourceHandle": "text",
+        "target": "n-staging",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e10",
+        "source": "n-golden",
+        "sourceHandle": "image",
+        "target": "n-glide",
+        "targetHandle": "firstFrame"
+      },
+      {
+        "id": "e11",
+        "source": "n-prompt-glide",
+        "sourceHandle": "text",
+        "target": "n-glide",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e12",
+        "source": "n-staging",
+        "sourceHandle": "video",
+        "target": "n-join",
+        "targetHandle": "videos"
+      },
+      {
+        "id": "e13",
+        "source": "n-glide",
+        "sourceHandle": "video",
+        "target": "n-join",
+        "targetHandle": "videos"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "outputs": [
+    {
+      "nodeId": "n-join",
+      "handle": "video",
+      "label": "Reel"
+    }
+  ],
+  "origin": null,
+  "files": []
+}

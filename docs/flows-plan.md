@@ -560,6 +560,7 @@ Tools hub screen):
 | `vidtsx/product-ad` | new | input_image_file + input_text → generate_image ×3 (pause, pick) → generate_video → generate_composition → render_composition |
 | `vidtsx/add-effect` | new | input_video_file → extract_frame → generate_image → generate_video (first frame) |
 | `vidtsx/frame-strip` | Frame Extractor | input_video_file → extract_frame (batch) |
+| `vidtsx/interior-staging` | new (VidTSX 2.0) | input_image_file + input_text ×5 → generate_image (vertical 9:16, pause) → generate_image ×2 of that still (empty room, golden hour; pause) → generate_video ×2 (empty → vertical 10 s; golden 6 s) → join_clips (dip to black, 1080x1920, 24 fps); image and video model are run-form selects, fal only |
 
 The tester screens (image, LLM, voice, embedding, moderation) are developer
 tools and stay as screens.

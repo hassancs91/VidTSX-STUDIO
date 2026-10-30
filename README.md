@@ -38,7 +38,7 @@ Installable agents that take a brief to a finished result inside the app.
 ### 🔀 Flows
 Node-based recipes you run yourself or hand to an agent.
 
-- Five built-ins (a 30-second explainer, a product ad, a thumbnail, a frame strip, add an effect) and an editor for your own.
+- Six built-ins (a 30-second explainer, a product ad, a thumbnail, a frame strip, add an effect, an interior staging reel) and an editor for your own.
 - Nodes for LLM calls, image, video and audio generation, transcription and agents; a run pauses for your input where the flow says so. `.vidtsxflow` packages import with a double-click.
 
 ### 🖼️ Images

@@ -20,7 +20,7 @@ const BESIDES: Record<string, FlowToolCard['besides']> = {
 };
 
 /** The hub order: the two that replace a screen first, then the rest by name. */
-const ORDER = ['vidtsx/thumbnail', 'vidtsx/frame-strip', 'vidtsx/explainer-30s', 'vidtsx/product-ad', 'vidtsx/add-effect'];
+const ORDER = ['vidtsx/thumbnail', 'vidtsx/frame-strip', 'vidtsx/explainer-30s', 'vidtsx/product-ad', 'vidtsx/add-effect', 'vidtsx/interior-staging'];
 
 export function builtinFlowTools(flows: readonly FlowProjectSummary[]): FlowToolCard[] {
   const rank = (id: string): number => {
