@@ -1,7 +1,8 @@
 # D1 — the spike: decision models (hosted × 2, local, keyless LLM baseline) on three small task sets (no product code)
 status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 PART DONE (builder #3, 16:27: route
 settled, runner `K\laya-run.cjs` written; weights downloading under the orchestrator, D-r5); **steps 5 + 6 DONE (builder #4, 16:47:
-keyless baseline 16 / 40 calls, scored; hosted runners dry-run, no network)**; step 4's adapter `K\llama-run.cjs` NOT written yet
+keyless baseline 16 / 40 calls, scored; hosted runners dry-run, no network)**; **step 4 PART 1 (builder #5, 16:57): adapter
+`K\llama-run.cjs` + OOF-temperature script `K\temp-oof.cjs` written, NOT yet run on a model (no GGUF had landed at 16:56:49)**
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -180,6 +181,39 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   upper bound** — both caps hold. New primary source read 2026-10-30 16:43: OpenRouter's API reference "Submit a Decisions request"
   (https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request) — noul `criteria` {true,false} is REQUIRED there.
 
+- **Step 4 (c) node-llama-cpp adapter — PART 1 DONE** (builder #5, 2026-10-30 16:50–16:57; tree as of `09f965c`, recorded in the commit
+  that adds this line). Kit files (outside the tree, in `K`), no model loaded yet:
+  - **`K\llama-run.cjs`** (149 lines, sha256 `85ea8de68ccc72d2…`) — `--model <gguf> --task t1|t2|t3 --mode noul|choice --out <file> [--limit N]
+    [--gpu auto|vulkan|false] [--gpu-layers auto|max|N] [--candidate <name>] [--licence <text>] [--ctx 4096]`, or `--model <gguf> --info`
+    (GGUF metadata: architecture, chat template present, every non-`blk.*` tensor, metadata keys naming head / decision / systemone / cls /
+    pool; + one plain-LM Yes / No probe through the chat template). Method: the model's OWN chat template via
+    `resolveChatWrapper(model).generateContextState({ chatHistory: [system, user, model: []] })`; options = single-token letters A… (T1
+    choice 21 = 20 + "none of these", 7 on music rows; T2 6 families A–F) or the tokens `Yes` / `No` (noul); each label is checked to be ONE
+    token (the run throws otherwise); next-token map from `seq.controlledEvaluate([... , [last, { generateNext: { probabilities: true,
+    options: { temperature: 0 } } }]])` — temperature 0 = node-llama-cpp's greedy chain, which adds NO top-k / top-p / min-p sampler
+    (`node-llama-cpp\llama\addon\AddonSampler.cpp:129-135`), and the map is the softmax over the whole candidate array
+    (`AddonContext.cpp:278-320`) → the run records `selfTest.mapSize` / `mapSum` on its first question (must be the vocabulary and ≈ 1);
+    renormalised over the option tokens, `rawMass` per answer + `env.rawOptionMass` (min / p05 / p50 / mean) + `env.topTokenNotAnOption`
+    (how often the vocabulary's top token is not an option, with the tokens); prefix reuse = the longest common token prefix already in
+    the sequence is kept (`eraseContextTokenRanges`, falls back to `clearHistory` per question if the erase fails — e.g. a recurrent / hybrid
+    arch), checked ONCE against a fresh evaluation (`env.prefixReuse.check.maxAbsDiffRenorm`, time taken out of that request's latency);
+    `env`: cold load (process start → model + context ready) and cold first answer, `warmQuestionMs` p50 / p95, per-request `requests[]` (T1
+    noul request = a row's 20 / 6 questions; others 1) and per-answer `ms`, peak RSS + `maxRssKB`, device (`llama.gpu`, `gpuLayers`, devices,
+    threads, chat wrapper), VRAM before / after (node-llama-cpp's + `nvidia-smi`), CPU load (top 6 over 5 s) before / after, the guard
+    result, model bytes, the licence text passed in. **Built-in guard:** refuses to start unless C: ≥ 3 GB, C: + commit headroom ≥ 6 GB and
+    no other `laya-run.cjs` / `llama-run.cjs` node process runs.
+  - **`K\temp-oof.cjs`** (44 lines, sha256 `d164a72ba40e7f9b…`) — the out-of-fold temperature NOTE for ANY model-probability answer file
+    (Laya's too, step 3): 2-fold by row id (fixture order, alternate), T fitted by grid NLL (601 points, 0.05–20) on one fold and applied to
+    the other, both directions; noul `σ(logit p / T)`, choice `p^(1/T)` renormalised (allowed-set likelihood); writes `<candidate>+oofT` with
+    `env.oofT` → score with `score.cjs`. Checked on the synthetic random files (`answers\synthetic\random-*.json` → T → 20 / 8.8, i.e.
+    flattened toward uniform, as uninformative answers should be; outputs only in the scratchpad, not in `K`).
+  - **GPU backend probe (no model, 16:55–16:56):** `getLlamaGpuTypes('supported')` = `["vulkan", false]`; `getLlama({ gpu: 'cuda' })` →
+    `NoBinaryFoundError` (no CUDA toolkit on the laptop; `nvidia-smi`: RTX A3000 Laptop GPU, driver 581.15, 6,144 MiB, 891 MiB used) →
+    **"auto" = Vulkan**, devices `NVIDIA RTX A3000 Laptop GPU` + `Intel(R) UHD Graphics`; its `getVramState()` reads `free 0` and an underflowed
+    `used` (`18446744058302345000`) → see P13. The bundled llama.cpp is `b8390` (`node-llama-cpp\llama\binariesGithubRelease.json`); the CPU and
+    CUDA `llama*.b8390.dll` contain the `lfm2` arch string (the CPU one also `lfm2moe`), and the CPU one has NO `systemone` string (a
+    library, not `llama-server`) — whether d1-omni's GGUF loads is still for the `--info` run.
+
 ### Step 3 so far (builder #3)
 
 - **Route (1) `laya-ts` — did not run, two reasons (read 2026-10-30 16:16):** (a) its npm name is `laya-ts` (upstream
@@ -267,8 +301,34 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   exit 0, keys all `unset`, `totalCalls 138`, `totalUsdUpper 0.334023296`, `fitsCalls true`, `fitsUsd true`; `node hosted-run.cjs
   --provider <jev|openai|openrouter-msd1> --task t2 --mode choice` → `DEFERRED-HASAN: <ENV> is unset — refusing to start …`, rc 2 (×3);
   `hosted-calls.jsonl` absent (no hosted call). `date '+%Y-%m-%d %H:%M'` → `2026-10-30 16:46`.
+- Step 4 part 1 (builder #5, as of `09f965c`, Node v22.14.0, from `K`): `node --check llama-run.cjs && node --check temp-oof.cjs` → `SYNTAX-OK`;
+  `wc -l` → 149 / 44; `sha256sum` → `85ea8de68ccc72d2…` / `d164a72ba40e7f9b…`; `node temp-oof.cjs answers/synthetic/random-<t1-noul|t1-choice|
+  t2-choice|t3-noul>.json --out <scratchpad>` → exit 0 ×4 (fold T: t1-noul 20 / 20, t1-choice 20 / 8.8189, t2-choice 20 / 20, t3-noul 20 / 20);
+  `node score.cjs <scratchpad>/random-t2-choice-oofT.json --out <scratchpad>/rt2` → exit 0. Guard 16:55: C: 28.79 GB, commit headroom
+  35.15 GB (27 `node.exe` of other sessions, 0 `electron.exe`). Backend probe (no model): `node -e` `getLlama({ gpu: 'auto', build: 'never' })` →
+  `{"gpu":"vulkan","devices":["NVIDIA RTX A3000 Laptop GPU","Intel(R) UHD Graphics"],"vram":{"total":40478658560,"used":18446744058302345000,
+  "free":0,"unifiedSize":0},"cpuMathCores":0,"supportsGpuOffloading":true,"ms":10206}`; `getLlamaGpuTypes('supported')` → `["vulkan",false]`,
+  `('allValid')` → `["cuda","vulkan",false]`; `getLlama({ gpu: 'cuda' })` → `NoBinaryFoundError`; `nvidia-smi` → `NVIDIA RTX A3000 Laptop GPU,
+  581.15, 6144 MiB, 891 MiB`. `grep -a -o` on `@node-llama-cpp\win-x64\bins\win-x64\llama.b8390.dll` → `lfm2` 78, `lfm2moe` 1, no `systemone`.
+  Downloads (read only, never touched): at 16:56:49 `d1-omni-600M-gguf\*.part*` = 207,941,632 / 407,207,584 B, `qwen2.5-0.5b-q8\*.part*` =
+  212,905,984 / 675,710,816 B; `d1-download.log` / `qwen-download.log` hold only their `start` line (no `ok` / `sha256sum` / `end`) → NOT landed.
+  No model loaded, no app launch, no provider call. `date '+%Y-%m-%d %H:%M:%S'` → `2026-10-30 16:56:49`.
 
 ## Next step (ONE concrete instruction)
+
+**Builder #5, 16:57 — the ONE next instruction (step 4 parts 2–3; `K\llama-run.cjs` is written, read its header first):** when
+`B\models\d1-download.log` shows the landed-file rule (an `ok … 407207584` line, a `sha256sum` line equal to `cd94463f…3d3`, an `end` line),
+run `node K\llama-run.cjs --model B\models\d1-omni-600M-gguf\d1-omni-600M-Q8_0.gguf --info --gpu auto` (then `--gpu false` if Vulkan
+fails) and record whether the `lfm2` GGUF loads, its `nonBlockTensors` / `oddKeys` (any decision head?) and the plain-LM probe; then the
+self-test `--task t1 --mode noul --limit 3` (and `--limit 10` as the brief's NOTE probe if it loads only as a plain LM), checking
+`selfTest.mapSize` = the vocabulary, `mapSum` ≈ 1, every option token present (no `MISSING`), `prefixReuse.check.maxAbsDiffRenorm` small; if
+`device.gpuLayers` is 0 under Vulkan, re-run with `--gpu-layers max` (P13). Then, when `qwen-download.log` shows its landed-file rule
+(`675710816`, `ca59ca7f…44e`), the same self-test on Qwen, then the four full runs `--candidate qwen2.5-0.5b-q8 --licence "Apache-2.0"
+--out K\answers\qwen2.5-0.5b-q8-<t1-noul|t1-choice|t2-choice|t3-noul>.json` (GPU = Vulkan headline; CPU `--gpu false` T2 + T3 as a NOTE to
+`…-cpu.json`), each `node K\score.cjs <file> --out K\reports\c-llama-qwen2.5-0.5b-<task>-<mode>`, each `node K\temp-oof.cjs <file> --out
+<file minus .json>-oofT.json` + its score (`…-oofT`), and the write-up `K\reports\c-llama.md`. One model process at a time (the script
+refuses a second); never alongside a Laya run; repeat a timing run whose `cpuLoadBefore/After` shows another heavy process. At 16:56:49
+neither GGUF had landed (d1 ≈ 51 %, Qwen ≈ 32 %; rough landing d1 ≈ 17:30, Qwen ≈ 18:15).
 
 **Orchestrator, 16:50 — how a builder knows a weight file landed (no message needed):** each orchestrator download job logs to
 `B\models\<name>-download.log`; a file is ON DISK AND USABLE only when its log holds an `ok <path> <bytes>` line with the full size, a
@@ -352,7 +412,23 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   where its R@1 ≥ 75.7 % (80.7 − 5). The verbalised NOTE (τ 0.5: 5.8 % at R@1 80.2 %) is not the rule's reference (D-r1: no calibrated
   probability) — step 7 should print it beside, labelled.
 
+- **P13 (step 4, not a block) — the laptop's GPU route for node-llama-cpp is VULKAN, not CUDA** (builder #5, 16:56): the installed CUDA
+  prebuilt gives `NoBinaryFoundError` (no CUDA toolkit; `getLlamaGpuTypes('supported')` = vulkan + CPU), and node-llama-cpp's Vulkan
+  `getVramState()` reads `free 0` with an underflowed `used` (RTX A3000 + Intel UHD) — so `--gpu-layers auto` may resolve to 0 layers (a
+  silent CPU run). The runner records `device.gpuLayers`; if it is 0, re-run with `--gpu-layers max` (forces offload with
+  `ignoreMemorySafetyChecks`) and say so. For D2: the app's own `local-llm-provider` would hit the same VRAM misread on this laptop
+  class; real VRAM use comes from `nvidia-smi` (recorded in `env.vramBefore/After`).
+- **P14 (step 4, review) — the adapter's framing is builder #5's judgement:** the fixture's own question / instruction texts with an added
+  "Answer with one word: Yes or No." / "Answer with the letter of ONE option only."; letters, not option ids, for choice (single-token rule);
+  the `Yes` / `No` tokens WITHOUT a leading space (the first token after the template's assistant header). The raw option mass +
+  `topTokenNotAnOption` show whether a model wanted another token (e.g. `yes`, ` Yes`, `**`); a low mass is a validity finding to report,
+  not something to patch mid-run.
+
 ## Do-not-redo
+
+- Step 4 part 1: `K\llama-run.cjs` and `K\temp-oof.cjs` are written and syntax-checked (temp-oof also run on the synthetic files) — run them,
+  do not rewrite them; fix only what a model run shows broken (and say what). The GPU backend probe (Vulkan only, CUDA `NoBinaryFoundError`)
+  needs no repeat.
 
 - Step 5's 16 keyless calls (`K\c-calls.jsonl`, `K\c-responses\`) — never re-call; re-score with `node c-answers.cjs` (reads the saved
   responses only). 24 keyless calls remain for the whole of D1. Step 6's dry-run (`node hosted-run.cjs --dry-run` is free to re-run; no
@@ -377,3 +453,6 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
 - 2026-10-30 · builder #4 · ~47 tool calls · step 5 (keyless baseline through the app: build, isolated profile, 16 / 40 calls, 6 answer
   files scored, `c-baseline.md`) + step 6 (hosted runners, dry-run: 138 requests, $0.334 upper; OpenRouter's API reference read); hand-off
   at the call budget before `llama-run.cjs`.
+- 2026-10-30 · builder #5 · ~27 tool calls · step 4 part 1: `K\llama-run.cjs` (SemIf-style option probabilities on node-llama-cpp 3.18.1,
+  sampler chain read in the native source) + `K\temp-oof.cjs` (OOF temperature NOTE); GPU backend probe (Vulkan only); hand-off because
+  no GGUF had landed (d1 51 %, Qwen 32 % at 16:56).

@@ -21,3 +21,8 @@
   DONE: `K\hosted-run.cjs` dry-run → `K\reports\c-hosted-dryrun.md` (138 requests, $0.334 upper, no network; OpenRouter API reference
   read). Open P10 (D-e "calls" = requests?), P11 (truncated success text), P12 (baseline reference for D-r2). `llama-run.cjs` not written.
   Hand-off at the call budget.
+- 2026-10-30 16:58 · builder #5 · step 4 PART 1: `K\llama-run.cjs` (option probabilities via `controlledEvaluate` … `generateNext.probabilities`,
+  temperature 0 = greedy chain, full-vocabulary map; single-token label check; prefix reuse + one fresh-eval check; built-in resource guard)
+  + `K\temp-oof.cjs` (2-fold OOF temperature NOTE, checked on the synthetic files); GPU probe: Vulkan only (CUDA `NoBinaryFoundError`),
+  Vulkan VRAM state misread → `--gpu-layers max` (P13). No model loaded: neither GGUF had landed at 16:56:49 (d1 51 %, Qwen 32 %).
+  Hand-off with the next step = d1 `--info` + self-test, then Qwen's four runs.
