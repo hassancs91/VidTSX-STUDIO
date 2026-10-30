@@ -8,7 +8,9 @@ import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { readTranscriptFile } from '../asset-transcriber';
 import { agentActions } from '../agent-actions';
-import { buildInsertProposal, resolveWordAnchor } from '../timeline-insert';
+import { loadProject } from '../project-store';
+import { buildInsertProposal, insertClipLength, resolveWordAnchor } from '../timeline-insert';
+import { resolveCutAnchor, type CutAnchorRequest, type CutAnchorResult } from './cut-anchor';
 import { resolveAssetRef } from './library-import';
 import {
   emitTool,
@@ -29,14 +31,37 @@ const atSchema = z.union([
     take: z.number().int().min(1).optional().describe('Which occurrence, 1-based (default 1)'),
     assetId: z.string().optional().describe('The footage asset whose transcript to search (default: the only transcribed asset)'),
   }),
+  z.object({
+    cut: z.number().int().min(1).describe('The n-th cut on the master track, 1 = the first — get_timeline numbers them'),
+    offset: z.number().optional().describe('Seconds from the cut; negative = before it (default 0)'),
+  }),
 ]);
+
+type AtArg = z.infer<typeof atSchema>;
+
+/** The tool chip's placement words: `at 3s`, `at "hello"`, `at cut 1 -0.25s`. */
+function atChip(at: AtArg): string {
+  if (typeof at === 'number') return `at ${at}s`;
+  if ('cut' in at) return `at cut ${at.cut}${at.offset ? ` ${at.offset > 0 ? '+' : ''}${at.offset}s` : ''}`;
+  return `at "${at.word}"`;
+}
+
+/** The cut anchor on the SAVED timeline (§5); a load failure names the cut. */
+async function resolveCutAt(projectId: string, request: CutAnchorRequest, clipLength: number): Promise<CutAnchorResult> {
+  try {
+    const project = await loadProject(projectId);
+    return resolveCutAnchor(project.timeline, request, clipLength);
+  } catch (err) {
+    return { ok: false, error: `Could not read the timeline to find cut ${request.cut}: ${errorText(err)}` };
+  }
+}
 
 export function buildInsertTools(ctx: StudioToolContext): StudioTool[] {
   const { req, state } = ctx;
 
   const insertAsset = tool(
     'insert_asset',
-    'Place ONE media clip on the timeline as a review card: `lane` "broll" covers the footage (video/image on the overlay lane), "overlay" composites over it (transparent PNGs, cut-outs), "audio" adds a sound/music clip on an audio lane. `at` is timeline seconds, or { word, take } to land where the speaker says a word (anchored to the footage, so it survives cuts). Set apply=true ONLY when the user\'s latest message explicitly asked to place this exact asset there; otherwise the card waits for their Apply. One proposal can be open at a time.',
+    'Place ONE media clip on the timeline as a review card: `lane` "broll" covers the footage (video/image on the overlay lane), "overlay" composites over it (transparent PNGs, cut-outs), "audio" adds a sound/music clip on an audio lane. `at` is timeline seconds, { word, take } to land where the speaker says a word (anchored to the footage, so it survives cuts), or { cut, offset? } to land at the n-th cut on the master track (1 = the first; offset seconds, negative = before it; resolved to the footage where it can be, so it follows later trims). Set apply=true ONLY when the user\'s latest message explicitly asked to place this exact asset there; otherwise the card waits for their Apply. One proposal can be open at a time.',
     {
       assetId: z.string().describe('Project asset id, or a "library:<path>" ref (imported into the project on use)'),
       lane: z.enum(['broll', 'overlay', 'audio']),
@@ -47,7 +72,7 @@ export function buildInsertTools(ctx: StudioToolContext): StudioTool[] {
       apply: z.boolean().optional().describe('Apply immediately (explicit user ask only)'),
     },
     async (args) => {
-      emitTool(ctx, 'insert_asset', `${args.lane} ${typeof args.at === 'number' ? `at ${args.at}s` : `at "${args.at.word}"`}`);
+      emitTool(ctx, 'insert_asset', `${args.lane} ${atChip(args.at)}`);
       if (reviewBlocked(ctx)) {
         return text('A proposal is already open in the review panel. Ask the user to apply or reject it first (or call accept_proposal if they already said to apply it).', true);
       }
@@ -62,9 +87,22 @@ export function buildInsertTools(ctx: StudioToolContext): StudioTool[] {
           return text(`"${asset.name}" is audio — use lane "audio".`, true);
         }
 
+        const insertAsset = {
+          id: asset.id,
+          name: asset.name,
+          kind: asset.kind,
+          ...(asset.durationSeconds !== undefined ? { durationSeconds: asset.durationSeconds } : {}),
+        };
         let at: { anchorAssetId: string; sourceStart: number } | { timelineStart: number };
+        let atLabel: string | undefined;
         if (typeof args.at === 'number') {
           at = { timelineStart: args.at };
+        } else if ('cut' in args.at) {
+          const request = { cut: args.at.cut, ...(args.at.offset !== undefined ? { offset: args.at.offset } : {}) };
+          const resolved = await resolveCutAt(req.projectId, request, insertClipLength(insertAsset, args.duration));
+          if (!resolved.ok) return text(resolved.error, true);
+          at = resolved.at;
+          atLabel = resolved.atLabel;
         } else {
           const transcribed = projectInventory(ctx).filter((a) => a.transcript);
           const footage = args.at.assetId
@@ -97,14 +135,10 @@ export function buildInsertTools(ctx: StudioToolContext): StudioTool[] {
         }
 
         const proposal = buildInsertProposal({
-          asset: {
-            id: asset.id,
-            name: asset.name,
-            kind: asset.kind,
-            ...(asset.durationSeconds !== undefined ? { durationSeconds: asset.durationSeconds } : {}),
-          },
+          asset: insertAsset,
           lane: args.lane,
           at,
+          ...(atLabel ? { atLabel } : {}),
           ...(args.duration !== undefined ? { duration: args.duration } : {}),
           ...(args.gain !== undefined ? { gain: args.gain } : {}),
           ...(args.note ? { note: args.note } : {}),

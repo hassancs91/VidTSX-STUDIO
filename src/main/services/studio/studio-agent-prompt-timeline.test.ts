@@ -25,6 +25,18 @@ const IDS_AT_0DF9E9C = [
   'propose_preset_update', 'generate_sfx', 'generate_music', 'run_flow', 'list_notes', 'read_note',
 ];
 
+// §7: the insert_asset line's `at` sentence names the cut form (the rest of the line unchanged).
+const INSERT_ASSET_LINE =
+  '- `insert_asset(assetId, lane, at, duration?, gain?, note?, apply?)` — place ONE media clip as a review card: lane `broll` (covers the footage), `overlay` (composited over it) or `audio`. `at` is timeline seconds, `{ word, take }` to land where the speaker says a word, or `{ cut, offset? }` to land at the n-th cut on the master track (`cut: 1` = the first; `offset` in seconds, negative = before the cut) — the state of the edit lists the first cuts, `get_timeline` all of them. `apply: true` ONLY when the user\'s latest message explicitly asked to place this exact clip there.';
+
+describe('prompt pins — insert_asset', () => {
+  it('TOOL_LINES has the insert_asset line exactly, right after the get_timeline line', () => {
+    const at = TOOL_LINES.indexOf(INSERT_ASSET_LINE);
+    expect(at).toBeGreaterThan(0);
+    expect(TOOL_LINES[at - 1]).toBe(GET_TIMELINE_LINE);
+  });
+});
+
 describe('prompt pins — get_timeline', () => {
   it('TOOL_LINES has the get_timeline line exactly, immediately before the insert_asset line', () => {
     const at = TOOL_LINES.indexOf(GET_TIMELINE_LINE);

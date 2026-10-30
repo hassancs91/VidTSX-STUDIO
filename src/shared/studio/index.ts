@@ -37,6 +37,8 @@ export {
   timelineLength,
 } from './timeline-cuts';
 export type { MasterCut, MasterCutsSummary, MasterGap, MasterJoin, MasterTimelineModel } from './timeline-cuts';
+export { mapSourceSpanToTimeline } from './source-span-map';
+export type { SourceSpan, SourceSpanRegion } from './source-span-map';
 export { aspectOf, parseTemplateId } from './caption-pack';
 export type { CaptionAspect, CaptionTemplate, CaptionTemplateDefaults } from './caption-pack';
 export {
