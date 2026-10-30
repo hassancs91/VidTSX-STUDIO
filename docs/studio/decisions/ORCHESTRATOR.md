@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | BUILDING (step 3 — Laya; all weights on disk 17:43) | 6 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
+| D1 — the spike (no product code) | BUILDING (Laya NOTE runs per D-r7, then step 7 — the report) | 7 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | TODO | — | — | — | — | — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -246,3 +246,27 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   adapter. A fair CPU figure (`--threads` added to `llama-run.cjs`, e.g. 8 of 16) is taken only for a GGUF candidate still in contention
   after its T1 run. A larger GGUF (`qwen3.5-2b-q4km`, 1.28 GB, catalog) is NOT run unless the orchestrator asks after Laya and the 0.8B — it
   would test whether the method scales, not the brief's "tiny GGUF". D1 builder #7 (step 3 — Laya, then the 0.8B) to spawn.
+- 18:26 · D1 builder #7 spawned (HEAD `98801e7`).
+- 19:16 · D1 builder #7 HANDOFF (70 calls — over budget because its runs could not be left running; docs `28b509f` `8ef2746`): **Laya multilingual
+  did not run — the worked-example gate FAILED** (`K\reports\c-laya.md` §4): E1 (README) `billing` P 0.9929 (stated 0.86); **E2 (the card's
+  Quickstart, text checked verbatim) `sales` 0.5811 vs `billing` 0.4168** (stated `billing`); each question alone = identical (no padding
+  fault); `add_special_tokens` makes E2 worse (0.7340 `sales`). Port audit line by line against the official `laya-ts` source: every step the
+  same (§5). The official `model.safetensors` is unchanged between the export's revision `e4e9ddf2` and main; telling an export fault from
+  stale printed outputs needs the official Python runtime (D-r3 forbids). The card's own Limits: "Ships uncalibrated … systematically
+  over-confident", "Near chance on typed-decisions zero-shot — 0.342, against a 0.318 random". P19 (options a / b / c) for the orchestrator.
+  **Qwen3.5-0.8B Q8_0 (D-r6) DONE** (`c-llama.md` §8): the `--info` probe showed P(`<think>`) 0.9999 at the answer position → `--thoughts
+  discourage` (an empty `<think></think>`, Qwen's non-thinking mode) added BEFORE any run and used in all (P20); self-test pass (25 / 25 layers
+  Vulkan, map 248,320 = vocabulary, sum 1.00007); T1 noul 87.0 % (below the 93.1 % of always-No; P(Yes) ≥ 0.5 on 610 vs 321 true), T1 choice
+  47.5 %, **T2 82.5 %** (Arabic 60.0 %), **T3 85.0 %** (Arabic 57.1 %); D-r2: best R@1 48.7 % (noul τ 0.5) with wrong-confident 38.3 %; τ 0.7 →
+  R@1 10.7 % / wc 8.3 % — **does not beat the baseline**; OOF T < 1 on noul (T1 0.27 / 0.30 — under-confident; T1 noul Brier 0.132 → 0.092);
+  warm per question p50 / p95 T1 noul 326.1 / 482.7 ms (quiet), T2 281.0 / 353.3 ms (repeat, chrome 4–6 %) — the other two loaded twice by
+  another session's `ffmpeg` (55–65 %) / chrome / GPU use, answers identical in the repeats (P21); **fails warm p95 ≤ 300 ms on every task**;
+  peak RSS ≤ 1,552 MB. Resources 19:15: C: 24.79 GB, headroom 50.77 GB, no model process left.
+- 19:18 · **Orchestrator re-check:** HEAD `8ef2746`, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty; `c-laya.md` §4–§7 read
+  (the E1 / E2 / E3 table, the port audit, what would settle it); 0 model processes. **Ruling D-r7 (19:19) — P19:** option (a). Laya
+  multilingual runs the four tasks ONCE as a labelled NOTE ("community export FAILED the worked-example gate (E2) — numbers unverified"),
+  CPU EP, same framing / scoring / OOF as every candidate, no timing claims beyond what the run records; it is **never eligible for the
+  rule's recommendation**. Why: it is D-c's first candidate and Hasan's D2-stop question ("is a local decision model viable?") is better
+  answered with its numbers beside the card's own "near chance" warning than without them; the runs are cheap. (b) (the English checkpoint,
+  another ~1.7 GB community bundle) is not run; (c) (`pip install laya` for the official runtime) goes on Hasan's list. Then step 7 — the
+  report, the recommendation by the rule as D-r1 reads it, and the STOP judgement. D1 builder #8 to spawn.
