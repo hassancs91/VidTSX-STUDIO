@@ -19,6 +19,9 @@ type DialectDefaults = Omit<
 
 const SEEDANCE_2_ASPECTS = ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'];
 const SEEDANCE_2_RESOLUTIONS: VideoResolution[] = ['720p', '480p', '1080p'];
+// Whole seconds in a range; these only seed the legacy discrete pickers.
+const KLING_3_DURATIONS = [3, 5, 6, 8, 10, 12, 15];
+const KLING_4_DURATIONS = [3, 5, 6, 8, 10, 12, 15, 20, 25, 30];
 
 /**
  * Per-family capability defaults. A user-added catalog entry carries only an
@@ -60,6 +63,23 @@ const DIALECT_DEFAULTS: Record<VideoDialectId, DialectDefaults> = {
     supportsAudio: false,
     allowedDurations: [5, 10],
     allowedAspectRatios: ['16:9', '9:16', '1:1'],
+  },
+  'fal-kling-3': {
+    supportsLastFrame: true,
+    supportsAudio: true,
+    supportsSeed: false,
+    allowedDurations: KLING_3_DURATIONS,
+    durationRange: { min: 3, max: 15 },
+    allowedAspectRatios: ['16:9', '9:16', '1:1'],
+  },
+  'fal-kling-4': {
+    supportsLastFrame: true,
+    supportsAudio: false,
+    supportsSeed: false,
+    allowedDurations: KLING_4_DURATIONS,
+    durationRange: { min: 3, max: 30 },
+    allowedAspectRatios: ['16:9', '9:16', '1:1', '21:9'],
+    resolutions: ['720p', '1080p'],
   },
   'fal-veo-3': {
     supportsLastFrame: false,

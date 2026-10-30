@@ -83,7 +83,62 @@ export const FAL_VIDEO_MODELS: readonly VideoModelCatalogEntry[] = [
     supportsAudio: false,
     allowedDurations: [5, 10],
     allowedAspectRatios: ['16:9', '9:16', '1:1'],
-    pricePerSecondUsd: 0.08,
+    // fal: $0.35 per 5 s, $0.07 each further second (pricing API, 2026-10-30).
+    pricePerSecondUsd: 0.07,
+  },
+  // Kling 3 and 4 (schemas and prices read 2026-10-30). fal's pricing API
+  // quotes a flat $0.14/s for both Kling 3 tiers; the model pages split it by
+  // audio, and a billed Kling 3 Standard run matched the page. The catalog
+  // has one rate per model, so it carries the audio-off one (what flows send).
+  {
+    id: 'kling-3-pro',
+    name: 'Kling 3 Pro',
+    tagline: 'start + end frame, 3–15s, 1080p',
+    dialect: 'fal-kling-3',
+    textToVideoEndpoint: 'fal-ai/kling-video/v3/pro/text-to-video',
+    imageToVideoEndpoint: 'fal-ai/kling-video/v3/pro/image-to-video',
+    supportsLastFrame: true,
+    supportsAudio: true,
+    supportsSeed: false,
+    allowedDurations: [3, 5, 6, 8, 10, 12, 15],
+    durationRange: { min: 3, max: 15 },
+    allowedAspectRatios: ['16:9', '9:16', '1:1'],
+    // $0.168/s with audio on.
+    pricePerSecondUsd: 0.112,
+  },
+  {
+    id: 'kling-3-standard',
+    name: 'Kling 3 Standard',
+    tagline: 'start + end frame, 3–15s, cheaper',
+    dialect: 'fal-kling-3',
+    textToVideoEndpoint: 'fal-ai/kling-video/v3/standard/text-to-video',
+    imageToVideoEndpoint: 'fal-ai/kling-video/v3/standard/image-to-video',
+    supportsLastFrame: true,
+    supportsAudio: true,
+    supportsSeed: false,
+    allowedDurations: [3, 5, 6, 8, 10, 12, 15],
+    durationRange: { min: 3, max: 15 },
+    allowedAspectRatios: ['16:9', '9:16', '1:1'],
+    // $0.126/s with audio on.
+    pricePerSecondUsd: 0.084,
+  },
+  {
+    id: 'kling-4',
+    name: 'Kling 4',
+    tagline: 'start + end frame, up to 30s, 1080p',
+    dialect: 'fal-kling-4',
+    textToVideoEndpoint: 'kling/v4/text-to-video',
+    imageToVideoEndpoint: 'kling/v4/image-to-video',
+    supportsLastFrame: true,
+    supportsAudio: false,
+    supportsSeed: false,
+    allowedDurations: [3, 5, 6, 8, 10, 12, 15, 20, 25, 30],
+    durationRange: { min: 3, max: 30 },
+    allowedAspectRatios: ['16:9', '9:16', '1:1', '21:9'],
+    resolutions: ['720p', '1080p'],
+    // The pricing API returns only the 720p rate; 1080p is from fal's page.
+    pricePerSecondUsd: 0.157,
+    pricePerSecondByResolutionUsd: { '720p': 0.157, '1080p': 0.235 },
   },
   {
     id: 'veo-3.1-fast',

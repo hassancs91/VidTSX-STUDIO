@@ -24,6 +24,8 @@ export type VideoDialectId =
   | 'fal-seedance-2'
   | 'fal-seedance-1'
   | 'fal-kling-2.5'
+  | 'fal-kling-3'
+  | 'fal-kling-4'
   | 'fal-veo-3'
   | 'fal-wan-2.5'
   | 'fal-hailuo-02'
@@ -34,6 +36,8 @@ export const VIDEO_DIALECT_IDS: readonly VideoDialectId[] = [
   'fal-seedance-2',
   'fal-seedance-1',
   'fal-kling-2.5',
+  'fal-kling-3',
+  'fal-kling-4',
   'fal-veo-3',
   'fal-wan-2.5',
   'fal-hailuo-02',
@@ -46,6 +50,8 @@ export const VIDEO_DIALECT_LABELS: Record<VideoDialectId, string> = {
   'fal-seedance-2': 'Seedance 2.x (fal)',
   'fal-seedance-1': 'Seedance 1.x (fal)',
   'fal-kling-2.5': 'Kling 2.5 (fal)',
+  'fal-kling-3': 'Kling 3 (fal)',
+  'fal-kling-4': 'Kling 4 (fal)',
   'fal-veo-3': 'Veo 3.x (fal)',
   'fal-wan-2.5': 'WAN 2.5 (fal)',
   'fal-hailuo-02': 'Hailuo 02 (fal)',

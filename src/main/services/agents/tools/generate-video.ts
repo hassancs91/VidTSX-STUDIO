@@ -27,10 +27,12 @@ import { videoEngine } from '../../../../video-engine';
 import { ensureVideoProvidersReady } from '../../video-init';
 import { submitVideoAsset } from '../../library/generate-video-asset';
 import {
+  BYTEPLUS_VIDEO_MODELS,
   DEFAULT_VIDEO_ASPECT_RATIO,
   DEFAULT_VIDEO_DURATION,
   DEFAULT_VIDEO_MODEL,
   FAL_VIDEO_MODELS,
+  type VideoModelCatalogEntry,
   type VideoResolution,
 } from '../../../../shared/presets/video-models';
 import { formatVideoModelChoices } from '../../../../shared/presets/video-model-prices';
@@ -103,6 +105,26 @@ export function videoPriceHint(): string | undefined {
   return priced.map((m) => `${m.id} $${m.pricePerSecondUsd}/s`).join(', ');
 }
 
+const SHIPPED_VIDEO_CATALOGS: ReadonlyArray<readonly [string, readonly VideoModelCatalogEntry[]]> = [
+  ['fal', FAL_VIDEO_MODELS],
+  ['byteplus', BYTEPLUS_VIDEO_MODELS],
+];
+
+/**
+ * A saved catalog (AI → Providers → Model catalogs) replaces the shipped list
+ * whole, so a model added in a later version is missing from it. Name the fix
+ * when the id is one this version ships; undefined for anything else.
+ */
+export function missingFromSavedCatalog(modelId: string, providerId?: string): string | undefined {
+  for (const [provider, models] of SHIPPED_VIDEO_CATALOGS) {
+    if (providerId && providerId !== provider) continue;
+    const shipped = models.find((m) => m.id === modelId);
+    if (!shipped) continue;
+    return `${shipped.name} ("${modelId}") ships with VidTSX but is not in the saved ${provider} video catalog. Open AI → Providers → Model catalogs and press "Reset defaults" on the ${provider} video list, or add "${modelId}" back to it.`;
+  }
+  return undefined;
+}
+
 export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
   id: 'generate_video',
   description:
@@ -144,8 +166,9 @@ export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
       );
     }
     if (args.model && !models.some((m) => m.id === args.model)) {
+      const fix = missingFromSavedCatalog(args.model, args.providerId);
       return toolText(
-        `"${args.model}" is not in the catalog. Available (per second of output): ${formatVideoModelChoices(models)}.`,
+        `${fix ?? `"${args.model}" is not in the catalog.`} Available (per second of output): ${formatVideoModelChoices(models)}.`,
         true,
       );
     }

@@ -64,6 +64,29 @@ describe('generate_video tool', () => {
     expect(submitVideoAsset).not.toHaveBeenCalled();
   });
 
+  it('names the fix when a shipped model is missing from a saved catalog', async () => {
+    // A catalog saved before Kling 3 shipped lists only what it had then.
+    const res = await generateVideoTool.handler(
+      { prompt: 'a lake', model: 'kling-3-pro', providerId: 'fal' },
+      makeToolContext(),
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain('Kling 3 Pro ("kling-3-pro") ships with VidTSX but is not in the saved fal video catalog');
+    expect(res.content[0].text).toContain('"Reset defaults"');
+    expect(res.content[0].text).toContain('seedance-2.5');
+    expect(submitVideoAsset).not.toHaveBeenCalled();
+  });
+
+  it('missingFromSavedCatalog: only for ids this version ships, on that provider', async () => {
+    const { missingFromSavedCatalog } = await import('./generate-video');
+    expect(missingFromSavedCatalog('kling-4')).toContain('saved fal video catalog');
+    expect(missingFromSavedCatalog('dreamina-seedance-2-0-260128')).toContain('saved byteplus video catalog');
+    expect(missingFromSavedCatalog('kling-4', 'byteplus')).toBeUndefined();
+    // A legacy id (out of the shipped defaults) or a typo gets the plain message.
+    expect(missingFromSavedCatalog('hailuo-02')).toBeUndefined();
+    expect(missingFromSavedCatalog('nope')).toBeUndefined();
+  });
+
   it('SUBMITS and returns a job artifact — it never waits for the clip', async () => {
     const res = await generateVideoTool.handler(
       { prompt: 'a calm lake at dawn', resolution: '480p', durationSeconds: 4 },

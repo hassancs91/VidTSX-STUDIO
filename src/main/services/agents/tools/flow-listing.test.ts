@@ -35,13 +35,13 @@ beforeEach(() => {
 });
 
 describe('priced listing', () => {
-  it('prices add-effect from its model and duration (Kling 2.5 Turbo Pro, 5 s ≈ $0.40)', async () => {
+  it('prices add-effect from its model and duration (Kling 2.5 Turbo Pro, 5 s ≈ $0.35)', async () => {
     const doc = await fixture('add-effect');
     const priced = pricedNodesOf(doc);
     expect(priced).toHaveLength(1);
-    expect(priced[0]).toMatchObject({ nodeId: 'n-clip', toolId: 'generate_video', usd: 0.4 });
-    expect(priced[0].text).toBe('generate_video (kling-2.5-turbo-pro, 5 s ≈ $0.40)');
-    expect(pricedSummary(doc)).toBe('Priced steps: generate_video (kling-2.5-turbo-pro, 5 s ≈ $0.40) — expect about $0.40.');
+    expect(priced[0]).toMatchObject({ nodeId: 'n-clip', toolId: 'generate_video', usd: 0.35 });
+    expect(priced[0].text).toBe('generate_video (kling-2.5-turbo-pro, 5 s ≈ $0.35)');
+    expect(pricedSummary(doc)).toBe('Priced steps: generate_video (kling-2.5-turbo-pro, 5 s ≈ $0.35) — expect about $0.35.');
   });
 
   it('a flow with no priced node says so', async () => {

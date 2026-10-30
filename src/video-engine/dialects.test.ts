@@ -66,6 +66,72 @@ describe('fal-kling-2.5', () => {
   });
 });
 
+describe('fal-kling-3', () => {
+  it('image-to-video: start_image_url + end_image_url, duration a string, audio flag, no aspect ratio', () => {
+    const { endpoint, body } = buildVideoPayload(
+      entry('kling-3-pro'),
+      request({
+        durationSeconds: 10,
+        aspectRatio: '9:16',
+        seed: 4,
+        firstFrame: { kind: 'base64', value: PNG },
+        lastFrame: { kind: 'base64', value: JPEG },
+      }),
+    );
+    expect(endpoint).toBe('fal-ai/kling-video/v3/pro/image-to-video');
+    // fal defaults generate_audio to TRUE (and bills more) — false must be sent.
+    expect(body).toEqual({
+      prompt: 'a calm lake at dawn',
+      duration: '10',
+      generate_audio: false,
+      start_image_url: `data:image/png;base64,${PNG}`,
+      end_image_url: `data:image/jpeg;base64,${JPEG}`,
+    });
+  });
+
+  it('image-to-video without a last frame sends no end_image_url', () => {
+    const { body } = buildVideoPayload(
+      entry('kling-3-standard'),
+      request({ durationSeconds: 6, firstFrame: { kind: 'url', value: 'https://x/first.png' } }),
+    );
+    expect(body).toEqual({ prompt: 'a calm lake at dawn', duration: '6', generate_audio: false, start_image_url: 'https://x/first.png' });
+  });
+
+  it('text-to-video: aspect ratio, no frames', () => {
+    const { endpoint, body } = buildVideoPayload(entry('kling-3-pro'), request({ aspectRatio: '9:16', generateAudio: true }));
+    expect(endpoint).toBe('fal-ai/kling-video/v3/pro/text-to-video');
+    expect(body).toEqual({ prompt: 'a calm lake at dawn', duration: '5', generate_audio: true, aspect_ratio: '9:16' });
+  });
+});
+
+describe('fal-kling-4', () => {
+  it('image-to-video: the Kling 3 frame keys, an integer duration, a resolution, no audio field', () => {
+    const { endpoint, body } = buildVideoPayload(
+      entry('kling-4'),
+      request({
+        durationSeconds: 10,
+        resolution: '1080p',
+        firstFrame: { kind: 'base64', value: PNG },
+        lastFrame: { kind: 'url', value: 'https://x/last.png' },
+      }),
+    );
+    expect(endpoint).toBe('kling/v4/image-to-video');
+    expect(body).toEqual({
+      prompt: 'a calm lake at dawn',
+      duration: 10,
+      resolution: '1080p',
+      start_image_url: `data:image/png;base64,${PNG}`,
+      end_image_url: 'https://x/last.png',
+    });
+  });
+
+  it('text-to-video: aspect ratio, and 720p when the caller names no resolution', () => {
+    const { endpoint, body } = buildVideoPayload(entry('kling-4'), request({ aspectRatio: '21:9' }));
+    expect(endpoint).toBe('kling/v4/text-to-video');
+    expect(body).toEqual({ prompt: 'a calm lake at dawn', duration: 5, resolution: '720p', aspect_ratio: '21:9' });
+  });
+});
+
 describe('fal-veo-3', () => {
   it('duration with an s suffix, generate_audio, seed, image_url (no tail)', () => {
     const { endpoint, body } = buildVideoPayload(
@@ -278,6 +344,20 @@ describe('catalog hydration', () => {
     expect(known.name).toBe('Renamed');
     expect(known.references).toEqual({ images: 30, videos: 10, audios: 10 });
     expect(known.durationRange).toEqual({ min: 4, max: 30, auto: true });
+  });
+
+  it('a hand-added Kling 3 or 4 slug gets its siblings and its family limits', () => {
+    const standard = hydrateVideoEntry({ id: 'fal-ai/kling-video/v3/standard/image-to-video', dialect: 'fal-kling-3' });
+    expect(standard.textToVideoEndpoint).toBe('fal-ai/kling-video/v3/standard/text-to-video');
+    expect(standard.imageToVideoEndpoint).toBe('fal-ai/kling-video/v3/standard/image-to-video');
+    expect(standard).toMatchObject({ supportsLastFrame: true, supportsAudio: true, supportsSeed: false, durationRange: { min: 3, max: 15 } });
+
+    const four = hydrateVideoEntry({ id: 'kling/v4/text-to-video', dialect: 'fal-kling-4' });
+    expect(four.imageToVideoEndpoint).toBe('kling/v4/image-to-video');
+    expect(four).toMatchObject({ supportsLastFrame: true, supportsAudio: false, durationRange: { min: 3, max: 30 }, resolutions: ['720p', '1080p'] });
+
+    // A saved row naming a shipped id keeps the shipped entry's own limits and price.
+    expect(hydrateVideoEntry({ id: 'kling-3-pro', dialect: 'fal-kling-3' }).pricePerSecondUsd).toBe(0.112);
   });
 
   it('routes every BytePlus task type through the one model id', () => {

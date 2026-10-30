@@ -68,6 +68,15 @@ function frameFields(
   return fields;
 }
 
+/** Kling 3 and later name the frames `start_image_url` / `end_image_url`. */
+function startEndFrames(request: VideoProviderRequest): Record<string, unknown> {
+  if (!request.firstFrame) return {};
+  return {
+    start_image_url: mediaToUrl(request.firstFrame),
+    ...(request.lastFrame ? { end_image_url: mediaToUrl(request.lastFrame) } : {}),
+  };
+}
+
 function seedField(request: VideoProviderRequest): Record<string, unknown> {
   return request.seed !== undefined ? { seed: request.seed } : {};
 }
@@ -91,6 +100,37 @@ const falKling25: VideoDialectBuilder = (model, request) => ({
     duration: String(request.durationSeconds),
     aspect_ratio: request.aspectRatio,
     ...frameFields(request, 'tail_image_url'),
+  },
+});
+
+/**
+ * Kling 3 on fal (schema read 2026-10-30): the image route takes the frames as
+ * `start_image_url` / `end_image_url` and no aspect ratio — the first frame
+ * sets it; the text route takes one. Audio defaults ON at fal and bills at a
+ * higher rate, so the flag is always sent. No seed.
+ */
+const falKling3: VideoDialectBuilder = (model, request) => ({
+  endpoint: pickEndpoint(model, request),
+  body: {
+    prompt: request.prompt,
+    duration: String(request.durationSeconds),
+    generate_audio: request.generateAudio,
+    ...(request.firstFrame ? startEndFrames(request) : { aspect_ratio: request.aspectRatio }),
+  },
+});
+
+/**
+ * Kling 4 on fal (schema read 2026-10-30): Kling 3's frame keys, but the
+ * duration is an integer, the resolution is 720p or 1080p (fal's default is
+ * 1080p, so it is always sent), and there is no audio field or seed.
+ */
+const falKling4: VideoDialectBuilder = (model, request) => ({
+  endpoint: pickEndpoint(model, request),
+  body: {
+    prompt: request.prompt,
+    duration: request.durationSeconds,
+    resolution: request.resolution ?? '720p',
+    ...(request.firstFrame ? startEndFrames(request) : { aspect_ratio: request.aspectRatio }),
   },
 });
 
@@ -240,6 +280,8 @@ export const VIDEO_DIALECTS: Record<VideoDialectId, VideoDialectBuilder> = {
   'byteplus-seedance': bytePlusSeedance,
   'fal-seedance-1': falSeedance1,
   'fal-kling-2.5': falKling25,
+  'fal-kling-3': falKling3,
+  'fal-kling-4': falKling4,
   'fal-veo-3': falVeo3,
   'fal-wan-2.5': falWan25,
   'fal-hailuo-02': falHailuo02,
