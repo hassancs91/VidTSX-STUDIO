@@ -232,7 +232,17 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
 
 ## Next step (ONE concrete instruction)
 
-Resume and finish the weights download, then check and run: (1) resource guard (C: ≥ 3 GB, C: + headroom ≥ 6 GB); (2) as ONE
+**Orchestrator, 16:33 — ruling D-r5 (ORCHESTRATOR.md) re-orders D1:** Hugging Face is slow today for every repo (~75 KB/s per connection,
+measured 16:30 on Qwen's own GGUF), so the ORCHESTRATOR holds the weight downloads as its own background jobs (started 16:32, logs under
+`B\models\`): the Laya multilingual fp32 resume (builder #3's exact command below), `B\models\qwen2.5-0.5b-q8\qwen2.5-0.5b-instruct-q8_0.gguf`
+(675,710,816 B, sha256 `ca59ca7f…44e` from the HF API) and `B\models\d1-omni-600M-gguf\d1-omni-600M-Q8_0.gguf` (407,207,584 B, sha256
+`cd94463f…3d3`). **Builder #4: do NOT start, stop or touch any download** (no `curl` / `dl-parallel` of yours; never kill a `curl.exe` /
+`bash.exe`). **Your next step = step 5 (the keyless LLM baseline through the app, ≤ 40 calls), then step 6 (the hosted runners, dry-run
+only); write the step-4 node-llama-cpp adapter (`K\llama-run.cjs`, no model load) if budget remains.** Steps 3 and 4's measured runs start
+when the orchestrator reports the files landed with their sha256 checked. The text below is builder #3's plan for step 3 once the
+weights are on disk — the download part of it is the orchestrator's now.
+
+(Builder #3's step-3 plan.) Resume and finish the weights download, then check and run: (1) resource guard (C: ≥ 3 GB, C: + headroom ≥ 6 GB); (2) as ONE
 `run_in_background` job, with the SAME part counts: `M=/c/Users/hasan/AppData/Local/vidtsx-e2e/decisions/D1/models/laya-multilingual-desplega-fp32;
 K=/d/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D1; U=https://huggingface.co/desplega/laya-onnx/resolve/main/multilingual/fp32;
 L=$M/../laya-download.log; bash $K/dl-parallel.sh $U/tokenizer.json $M/tokenizer.json 34363188 8 >> $L 2>&1; bash $K/dl-parallel.sh

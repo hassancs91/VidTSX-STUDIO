@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | BUILDING (step 3) | 2 | steps 1–2 re-checked (16:00, 16:13) | docs `ce3f9e4` `71aa0c5` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
+| D1 — the spike (no product code) | BUILDING (step 5; weights downloading, D-r5) | 3 | steps 1–2 re-checked (16:00, 16:13); step 3 part 1 (16:31) | docs `ce3f9e4` `71aa0c5` `bfff9d7` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | TODO | — | — | — | — | — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -97,6 +97,18 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   first, if Hasan's account has access) stands; D2 designs both adapters; step 6 dry-runs OpenAI's own shape (`input` + `questions[]`,
   `predicate`) and the System One shape (Jev, Microsoft-Decision-1 via OpenRouter).
 
+- **D-r5 (orchestrator, 16:33) — slow downloads: the orchestrator holds them; D1's order becomes 5 → 6 → 3 → 4 → 7.** Hugging Face serves
+  ~75 KB/s per connection today for every repo (builder #3: desplega 80 KB/s, ~0.4 MB/s over 8–32 ranged parts; orchestrator 16:30: Qwen's
+  official GGUF 3,003,348 B in 40.4 s = 74 KB/s on one connection), so ~2.2 GB of weights takes over an hour — longer than a builder's
+  hand-off budget, and a builder may never hand back while its own job runs. The orchestrator therefore runs the three weight downloads
+  as its own background jobs with `K\dl-parallel.sh` (read first: curl ranged parts + cat, nothing executed from the downloads), sizes
+  stated from HTTP / the HF API before the start, each into its own new folder under `B\models\`, sha256 checked at the end: the Laya
+  multilingual fp32 resume (1,324,748,627 B in all, 150,076,382 B already on disk; builder #3's exact command), `qwen2.5-0.5b-instruct-q8_0.gguf`
+  675,710,816 B (= the catalog's `fileName`; the catalog's `sizeBytes` 531,000,000 is wrong — builder #1's P5 confirmed), `d1-omni-600M-Q8_0.gguf`
+  407,207,584 B. `qwen3.5-0.8b-q8` (812 MB) waits until `qwen2.5-0.5b-q8` has run (builder #1's "SECOND, if the first runs"). Builder #4 does
+  step 5 (the keyless baseline — no weights needed) and step 6 (the hosted dry-runs), never touching a download; steps 3 / 4 run when the
+  files land; step 7 last.
+
 ## Stops
 
 (one line per stop: what was reported, what Hasan said)
@@ -142,3 +154,21 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   `node selfcheck.cjs` re-run in `K` → 17 / 17 PASS (same table); all 40 T2 rows and every third T3 row read — plain-meaning labels hold
   (T2 "Remember that I always want …" → none = outside the five families, accepted). Resources 16:13: C: 29.1 GB, headroom 36.1 GB, CPU
   33.9 %, 0 `electron.exe`. D1 builder #3 (step 3 — Laya multilingual per D-r3; first download) to spawn.
+- 16:14 · D1 builder #3 spawned (HEAD `464f613`).
+- 16:28 · D1 builder #3 HANDOFF (63 calls, ~15 min; step 3 part 1, docs `23269e8` `bfff9d7`; no model run): **route (1) `laya-ts` did not run**
+  — npm name `laya-ts` 0.1.0 is NOT on the registry (`{"error":"Not found"}`), GitHub releases carry only the Python wheel / sdist, and its
+  weights come only from `python laya-ts/scripts/export_onnx.py` (no `.onnx` in either official Convai repo); nothing installed, `B\npm-scratch\`
+  empty. **Route (2) = `desplega/laya-onnx` `multilingual/fp32`** (encoder + head + tokenizer + `rl_agent_config.json` = the layout `laya-ts`
+  loads; its manifest names upstream + revision + a sha256 per file; tokenizer sha256 = the official repo's): 1,324,748,627 B stated first;
+  the download PAUSED at 150,076,382 B (HF ~80 KB/s per connection), every download process stopped. Kit: `K\laya-run.cjs` (Laya's pre /
+  post-processing ported from the official `laya-ts` source, onnxruntime-node 1.24.3 + `@huggingface/tokenizers` read-only; `--examples` = E1
+  Hindi `billing` 0.86, E2 the card's Quickstart `billing`, E3 Arabic sanity; answer files with cold / warm / RSS / CPU load) — not run yet;
+  `K\dl-parallel.sh`; the `laya-ts` source read as text under `B\src-read\`. T1 choice fits 21 options by Laya's own head budget
+  (`head_max_len` 256). New open problems P8 (download speed), P9 (the Laya framing is its judgement; a NOTE variant with the clip lines in
+  the state).
+- 16:29–16:31 · **Orchestrator re-check:** HEAD `bfff9d7`, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty; the partial parts on
+  disk; 0 download processes left; `B\npm-scratch\` empty; no reusable GGUF / Laya file anywhere under `vidtsx-e2e`, `.vidtsx-temp`,
+  `~/.node-llama-cpp`, `~/.cache/huggingface`. Speed test (16:30, one connection, a 16 MB range of Qwen's official GGUF, file deleted after):
+  74,305 B/s; Content-Length 675,710,816. `dl-parallel.sh` read. Resources 16:31: C: 28.5 GB, headroom 33.2 GB → ruling D-r5.
+- 16:32 · orchestrator background downloads started (3 jobs: Laya resume, Qwen2.5-0.5B Q8_0, d1-omni Q8_0; logs `B\models\*-download.log`).
+  HANDOFF "Next step" amended for builder #4 (steps 5 → 6, then the adapter).
