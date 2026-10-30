@@ -8,7 +8,9 @@ head, not loadable by b8390's `lfm2`); Qwen2.5-0.5B DONE (self-test PASS; 4 full
 T1 unusable: noul 43.2 %, choice 27.1 %, R@1 ≤ 36.4 %; does NOT beat the baseline per D-r2)** — step 4 DONE except the optional
 `qwen3.5-0.8b-q8` (D-r5) and a fair CPU NOTE repeat; **step 3 (builder #7, 18:26–18:35): Laya multilingual DID NOT RUN — the
 worked-example gate failed (E2 → `sales` 0.5811 vs the card's `billing`; E1 `billing` at P 0.9929, not 0.86) with the port audited
-line by line against laya-ts and no bug found → `K\reports\c-laya.md`, P19**; **D-r6 Qwen3.5-0.8B (builder #7, 18:30–): see Done**
+line by line against laya-ts and no bug found → `K\reports\c-laya.md`, P19**; **D-r6 Qwen3.5-0.8B DONE (builder #7, 18:30–19:15;
+`K\reports\c-llama.md` §8): T2 82.5 %, T3 85.0 %, T1 noul 87.0 % (< always-No 93.1 %), T1 choice 47.5 %, best R@1 48.7 % → does NOT beat
+the baseline (D-r2); warm p95 ≥ 353 ms** — steps 3–6 are done; **step 7 (the report) is next**
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -277,6 +279,20 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   Python runtime (D-r3 forbids) → no smoke, no full run, no timings, no `K\answers\laya-multilingual-*` (P19). Kit changes (`K\laya-run.cjs`):
   `--examples` prints a `{ id, solo }` line per example (each question alone); `--diag-add-special` (diagnostic only; default = laya-ts).
   Logs `B\logs\laya-examples-1.json`, `-2.json`, `-diag-addspecial.json`; cards saved `B\src-read\hf-card\{laya-multilingual,desplega-laya-onnx}-README.md`.
+- **D-r6 — Qwen3.5-0.8B Q8_0 (second GGUF of the SemIf adapter): DONE** (builder #7, 2026-10-30 18:30–19:15; write-up
+  **`K\reports\c-llama.md` §8**, recorded in the commit that adds this line). File as landed (`0ad885ff…7a6c`, 811,843,840 B; not re-hashed).
+  **One method change before any run:** `--info` put P(`<think>`) 0.9999 at the answer slot (Yes / No mass 5.16e-5) → new `llama-run.cjs` flag
+  `--thoughts discourage` (QwenChatWrapper's empty `<think></think>`, Qwen's non-thinking mode), used by every 3.5 run. Self-test (60 q) PASS:
+  25 / 25 layers on Vulkan (`--gpu-layers max`), map 248,320 = vocabulary, sum 1.00007, 0 MISSING, 0 / 60 off-option top tokens, prefix reuse
+  0.0048. Runner `K\c-llama35-run-all.sh` (log `B\logs\c-llama35-run.log`, all `rc=0`, `ALL DONE 19:06:01`); answers
+  `K\answers\qwen3.5-0.8b-q8-*` (4 + 4 oofT + 3 `-timing2`), scores `K\reports\c-llama-qwen3.5-0.8b-*` (11 md + json). Results (c-llama.md
+  §8.1): **T1 noul 87.0 %** (Arabic 93.5 %; Brier 0.132, ECE 0.270; P(Yes) ≥ 0.5 on 610 vs 321 true; always-No = 93.1 %), **T1 choice 47.5 %**
+  (Brier 0.269 top-label), **T2 82.5 %** (Arabic 60.0 %; Brier 0.205, ECE 0.307), **T3 85.0 %** (Arabic 57.1 %; Brier 0.123, ECE 0.174); D-r2:
+  noul τ 0.5 R@1 91/187 = 48.7 %, wrong-confident 92/240 = 38.3 %; τ 0.7 R@1 10.7 %, wc 8.3 %; choice τ 0.5 R@1 7.5 %, wc 6.7 % → **does NOT
+  beat the baseline**. OOF T (NOTE): T1 noul 0.273 / 0.302, T2 0.492 / 0.224, T3 0.795 / 0.324 (UNDER-confident), T1 choice 1.46 / 1.43; after
+  it T1 noul Brier 0.092 / ECE 0.117. Timings (§8.2): fair ones only T1 noul 326.1 / 482.7 ms per question (quiet) and T2 281.0 / 353.3 ms
+  (repeat, chrome 4–6 %); T3 and T1 choice were loaded in BOTH runs (chrome 13–57 %, ffmpeg 55–65 %, another process on the GPU) — answers
+  identical in the repeats; cold load 7.1–15.2 s; peak RSS ≤ 1,552 MB; VRAM + ~1.2–1.4 GB. No CPU-only run (D-r6).
 
 ### Step 3 so far (builder #3)
 
@@ -391,7 +407,25 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   lines), `llama-mapcost.cjs` `6c14f24a89c87ffe` (33), `c-llama-run-all.sh` `597e262df2dec9cc` (23). No download started / touched (the
   orchestrator's Laya job: `restart encoder 17:39:49` in its log), no app launch, no provider call. `date '+%Y-%m-%d %H:%M'` → `2026-10-30 18:23`.
 
+- Step 3 + D-r6 (builder #7, as of `28b509f`, Node v22.14.0, from `K`): guard 18:26 C: 23.17 GB, commit headroom 28.07 GB, 0 model
+  processes (6 `electron.exe` + vmmemWSL of others, untouched); 19:15 C: 24.79 GB, headroom 50.77 GB, 0 model processes left. `node
+  laya-run.cjs --model <M> --examples` → rc 0 ×3 (`B\logs\laya-examples-1.json`, `-2.json`, `--diag-add-special` → `-diag-addspecial.json`),
+  numbers as in Done. HF API (18:29): `convaiinnovations/laya-multilingual` sha `1720e3e3…`, `model.safetensors` oid `9d628fd971b7…` at both
+  `e4e9ddf2` and main. `node llama-run.cjs --model <qwen3.5> --info --gpu auto --gpu-layers max` → rc 0, top5 `<think>` 0.9999; with
+  `--thoughts discourage` → `Yes` 0.5709, ` Yes` 0.4108. Self-test `--task t1 --mode noul --limit 3 … --thoughts discourage` → rc 0 (18:31:43–
+  18:32:27). `bash c-llama35-run-all.sh` (background) → 4 runs + 8 score / oofT lines `rc=0`, `ALL DONE 19:06:01`; timing repeat (inline loop,
+  log `B\logs\c-llama35-timing2.log`) → 3 × `rc=0`, `score rc=0`, 19:06:21–19:15:01. `sha256sum` (first 16) / `wc -l`: `laya-run.cjs`
+  `cee32cdcd7662fc6` (179), `llama-run.cjs` `56a6e72b1829ee47` (155), `c-llama35-run-all.sh` `065678b1fa4598d5`; `reports\c-laya.md` 99 lines.
+  No download, no install, no app launch, no provider call. `date '+%Y-%m-%d %H:%M'` → `2026-10-30 19:15`.
+
 ## Next step (ONE concrete instruction)
+
+**Builder #7, 19:15 — the ONE next instruction: step 7 — write `docs/studio/decisions/D1-spike-report.md`** from the kit's report files only
+(`a-sources.md`, `b-tasksets.md`, `c-baseline.md`, `c-hosted-dryrun.md`, `c-llama.md` §1–8, `c-laya.md`), every number named to its file;
+apply the rule as D-r1 reads it and the STOP checks as written (D-r2 for "beats the baseline"). As the files stand: no local candidate
+passes the evaluable terms (Laya did not run — P19; Qwen2.5-0.5B and Qwen3.5-0.8B fail T1 and the 300 ms warm-p95 term; d1-omni did not
+load) and none beats the keyless baseline on T1's wrong-confident rate → expect `status: BLOCKED` naming both STOPs with their numbers,
+unless the orchestrator first rules on P19 (a Laya NOTE run). Builder #6's and #5's instructions below are DONE.
 
 **Builder #6, 18:23 — the ONE next instruction: step 3 (Laya multilingual) when its files land.** When `B\models\laya-download.log` shows
 the landed-file rule for the encoder (its `ok … encoder.onnx 1230282662` + a `sha256sum` line for encoder / head / tokenizer /
@@ -531,8 +565,19 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   labelled "export failed the gate" (`laya-run.cjs` is ready); (b) D-r3's English checkpoint as a NOTE (≈ 1.7 GB, no Arabic); (c) Hasan
   allows a one-off Python reference check. As it stands D1 has NO local candidate with a usable T1 (Qwen2.5-0.5B fails it; see the 0.8B
   result in Done) — step 7's STOP "no local candidate meets the rule" is likely.
+- **P20 (D-r6, review) — the Qwen3.5 runs differ from the Qwen2.5 runs by ONE framing flag:** `--thoughts discourage` (empty
+  `<think></think>` before the answer). Without it the answer slot is a thinking token (P 0.9999), so a run "exactly as Qwen2.5" would have
+  read noise. Also: after the empty think block the model splits its mass between `Yes` and ` Yes` on the bare probe (0.571 / 0.411), but in
+  the task prompts the no-space option tokens hold ≥ 0.852 of the mass (min, T1 choice) — reported, not patched (P14's rule).
+- **P21 (D-r6, not a block) — no clean timing for Qwen3.5 T3 / T1 choice:** both runs of each were loaded (chrome 13–57 %, ffmpeg 55–65 %,
+  another process on the GPU at 30–47 %). The rule term already fails on the two fair figures (T2 p95 353.3 ms, T1 noul 482.7 ms), so a
+  third repeat would not change the verdict; repeat only if step 7 needs those two cells (`--out …-timing3.json`, check the load first).
 
 ## Do-not-redo
+
+- Step 3 (builder #7): the Laya worked-example check (3 runs) and the port audit (c-laya.md §4–§5) — do not re-run or re-audit; a Laya
+  measured run happens only on an orchestrator ruling on P19. D-r6: Qwen3.5-0.8B's info probes, self-test, four runs, OOF-T, scores and the
+  three timing repeats (`K\answers\qwen3.5-0.8b-q8-*`, `K\reports\c-llama-qwen3.5-0.8b-*`, c-llama.md §8) — re-score only by `node score.cjs`.
 
 - Step 4 part 2: d1-omni's load test (Vulkan + CPU, same error) and its metadata read; Qwen2.5-0.5B's self-tests, the four Vulkan runs, the
   two CPU NOTE runs, the OOF-T files and every score (`K\answers\qwen2.5-0.5b-q8-*`, `K\reports\c-llama-*`, `K\reports\c-llama.md`). Re-score
@@ -571,3 +616,6 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
 - 2026-10-30 · builder #6 · ~42 tool calls · step 4 part 2: d1-omni load test (did not run — b8390 lacks `lfm2-d1-omni`) + metadata;
   Qwen2.5-0.5B self-test, two kit fixes in `llama-run.cjs`, map-cost probe, four Vulkan runs + two CPU NOTE runs + OOF-T, all scored →
   `K\reports\c-llama.md`; hand-off at the step boundary / call budget (Laya not landed).
+- 2026-10-30 · builder #7 · ~56 tool calls · step 3: Laya worked-example gate FAILED (E2 `sales`), port audited vs laya-ts, padding +
+  special-token diagnostics, provenance re-checked → did not run (`c-laya.md`, P19); D-r6: Qwen3.5-0.8B (thinking discouraged), self-test,
+  four runs + OOF-T + three timing repeats → `c-llama.md` §8; hand-off at the step boundary (over the call budget while the runs finished).

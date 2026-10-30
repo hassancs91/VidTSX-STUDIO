@@ -32,3 +32,9 @@
   scored → `K\reports\c-llama.md`: T1 noul 43.2 % (wrong-confident 71.7 % at τ 0.5, R@1 36.4 %), T1 choice 27.1 % (R@1 0 %), T2 75.0 %,
   T3 67.5 %; warm question p95 274.5–722.1 ms (the full-vocabulary JS map ≈ 5/6 of it), peak RSS ≤ 1,087 MB; does NOT beat the baseline
   (D-r2). Kit fixes in `llama-run.cjs` (cold timers; context safety bypass). Open: CPU NOTE ran at 4 threads + loaded → repeat.
+- 2026-10-30 19:17 · builder #7 HANDOFF · step 3: **Laya multilingual DID NOT RUN** — worked-example gate failed on the desplega fp32
+  export (E1 `billing` 0.9929 vs README 0.86; **E2 `sales` 0.5811 vs the card's `billing`**), port equal to laya-ts at every step, padding
+  and special tokens ruled out, official weights unchanged since the export → `K\reports\c-laya.md`, P19 (orchestrator ruling). D-r6:
+  **Qwen3.5-0.8B Q8_0** with `--thoughts discourage` (thinking token held P 0.9999 otherwise): T1 noul 87.0 % (< always-No 93.1 %), T1
+  choice 47.5 %, T2 82.5 %, T3 85.0 %; D-r2 best R@1 48.7 % → does NOT beat the baseline; fair warm p95 353.3 ms (T2) / 482.7 ms (T1 noul);
+  peak RSS ≤ 1,552 MB → `K\reports\c-llama.md` §8. Next: step 7 (the report; both STOPs likely).
