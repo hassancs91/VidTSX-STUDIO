@@ -1,6 +1,6 @@
 # D1 — the spike: decision models (hosted × 2, local, keyless LLM baseline) on three small task sets (no product code)
-status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 IN PROGRESS (builder #3: route settled,
-weights downloaded + hash-checked, runner `K\laya-run.cjs` written; the measured runs are next)
+status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 IN PROGRESS (builder #3, 16:27: route
+settled, runner `K\laya-run.cjs` written; the weights download is PAUSED at 150 MB of 1.32 GB (resumable parts); no model run yet)
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -186,6 +186,25 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   [--ep dml]` writes a `vidtsx-d1-answers/1` file with cold load / first answer, per-request latencies, peak RSS and the CPU load (top
   6 processes over 5 s, before + after) in `env`, and the framing in `notes`. The laya-ts source read for it is under
   `B\src-read\laya-ts-main\` (agent.ts, common.ts, tokenizer.ts, providers.ts — reference text, never run).
+- **Download state at hand-off (16:27):** `manifest.json` 1,069 B + `rl_agent_config.json` 472 B complete; `tokenizer.json.part0-7`,
+  `head.onnx.part0-7`, `encoder.onnx.part0-31` partial — 50 files, 150,076,382 B on disk (encoder parts 90,034,187 B). Every download
+  process of this builder was stopped (`Get-CimInstance Win32_Process` with `desplega|dl-parallel` in the command line → 0 left). The
+  part counts are fixed by the chunking: **resume with the SAME counts (8 / 8 / 32)** — `dl-parallel.sh` re-reads each part's size and
+  continues with `curl -r`. C: 28.68 GB free at 16:27. No hash checked yet (no file complete).
+- **Worked examples for the check (in `laya-run.cjs` `EXAMPLES`):** E1 = upstream README.md:557-559 (Hindi `{"body": "मुझसे दो बार शुल्क लिया
+  गया, कृपया पैसे वापस करें।"}`, 4 questions; stated: department → `billing` "(confidence: 0.86)"); E2 = the multilingual card's Quickstart
+  (Hindi invoice body; stated: department → `billing`); E3 = the README's Arabic state `"تم خصم المبلغ مرتين"` (README.md:623, no stated
+  answer — sanity only). These are the only multilingual worked examples with a stated answer found (the laya-ts `fixtures/` hold only
+  `option-stability.json`, not model outputs). "Close" for E1 = the 0.86 vs our `confidence` (entropy-based, laya-ts `confidenceFromProbs`)
+  AND `answer_confidence` (max p) — the README does not say which; record both.
+- **Framing chosen in `laya-run.cjs` (recorded in each answer file's `notes`):** T1 noul = one request per row, its 20 (6 music) candidates as
+  20 states × 1 noul question in one forward pass, state `{"request": "<prompt> (a sound effect)|(music)", "clip": <S1 clip line>}`,
+  instructions "Is \`clip\` the sound asked for in \`request\`? A loosely related or merely similar clip is NOT a fit."; T1 choice = 21
+  options fitted by **Laya's own head budget** (head_max_len 256 → ~11 tokens per option, laya-ts common.ts:128-133), option text
+  `<clipId>: <tags> — <description>` so the id + first tags survive the trim, per-row `note` = distinct options / tokens per option;
+  T2 = state `{"request": …}`, 6 families with t2's own descriptions; T3 = state = the row question minus its first line, instructions = the
+  first line + "A loosely related or merely similar item is NOT a match." Short instructions on purpose: with 21 options the head keeps
+  only ~25 instruction tokens.
 
 ## Verified (exact commands + outputs)
 
@@ -203,25 +222,43 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   `wc -l` of the kit scripts: build-t1 113, build-t2-t3 196, measures 133, score 91, selfcheck 106; `reports/b-tasksets.md` 223.
   `git status --short` → (clean) before this hand-off's edits. `date '+%Y-%m-%d %H:%M'` → `2026-10-30 16:12`.
 - No download, no install, no app launch, no model / provider call in step 2; S1's kit read only (nothing written under `…\search\S1\`).
+- Step 3 so far (builder #3, as of `23269e8`): `curl -sS https://registry.npmjs.org/laya-ts` → `{"error":"Not found"}`; GitHub API
+  `repos/NandhaKishorM/laya/releases?per_page=15` → assets `laya-0.4.N-py3-none-any.whl` + `laya-0.4.N.tar.gz` only (v0.4.4 … v0.4.18); HF API
+  `models/<repo>/tree/main?recursive=1`: `convaiinnovations/laya` + `…/laya-multilingual` → safetensors + tokenizer, no `.onnx`;
+  `desplega/laya-onnx` → `multilingual/fp32/{encoder.onnx 1230282662, head.onnx 60101236, manifest.json, rl_agent_config.json, tokenizer.json
+  34363188}`; PowerShell `Invoke-WebRequest -Method Head` per file → the same Content-Lengths; guard (16:17) C: 29.04 GB, headroom 34.17 GB.
+  `laya-run.cjs` has NOT been executed (no model file complete yet). No install anywhere (`B\npm-scratch\` empty), no app launch, no
+  provider call. `date '+%Y-%m-%d %H:%M'` → `2026-10-30 16:27`.
 
 ## Next step (ONE concrete instruction)
 
-Step 3 per D-r3: run Laya multilingual on T1 noul (4,632 questions), T1 choice (20 + "none", or say in `notes` how it was fitted), T2
-choice and T3 noul — first via the official `laya-ts` npm wrapper of `github.com/NandhaKishorM/laya` under `B\npm-scratch\` only
-(`--ignore-scripts`, name / version / integrity / size recorded) if it runs the multilingual checkpoint on `onnxruntime-node`, else a
-community ONNX conversion of `convaiinnovations/laya-multilingual` into its own folder under `B\models\` checked against the card's / repo's
-worked examples first (no pip, no own export); sizes stated first, the resource guard before any download / load; write each run as a
-`vidtsx-d1-answers/1` file under `K\answers\` (format: `K\measures.cjs` header / `K\reports\b-tasksets.md` §4) with cold + warm request
-latencies, peak RSS, disk and the CPU load beside each timing in `env`; score each with `node K\score.cjs <file>` and write
-`K\reports\c-laya-*.md|json`. If neither route runs, say "did not run" with the reason (the English `@receptron/laya` only as a NOTE).
+Resume and finish the weights download, then check and run: (1) resource guard (C: ≥ 3 GB, C: + headroom ≥ 6 GB); (2) as ONE
+`run_in_background` job, with the SAME part counts: `M=/c/Users/hasan/AppData/Local/vidtsx-e2e/decisions/D1/models/laya-multilingual-desplega-fp32;
+K=/d/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D1; U=https://huggingface.co/desplega/laya-onnx/resolve/main/multilingual/fp32;
+L=$M/../laya-download.log; bash $K/dl-parallel.sh $U/tokenizer.json $M/tokenizer.json 34363188 8 >> $L 2>&1; bash $K/dl-parallel.sh
+$U/head.onnx $M/head.onnx 60101236 8 >> $L 2>&1; bash $K/dl-parallel.sh $U/encoder.onnx $M/encoder.onnx 1230282662 32 >> $L 2>&1; cd $M &&
+sha256sum encoder.onnx head.onnx tokenizer.json rl_agent_config.json >> $L` (≈ 0.4 MB/s → ~50 min for the ~1.17 GB left; wait with a
+Monitor, never hand back while it runs — if you must stop it, stop every `curl.exe` / `bash.exe` whose command line holds
+`desplega|dl-parallel`); (3) every sha256 must equal `manifest.json`'s (encoder `4bf4feb8…`, head `03f78ddf…`, tokenizer `609d8f4c…`,
+rl_agent_config `25061739…`) — else delete the folder and say so; (4) `node K\laya-run.cjs --model <M> --examples` → E1 / E2 must answer
+`billing` (E1 near 0.86) BEFORE any measured run — if not, fix the port against `B\src-read\laya-ts-main\` (special ids,
+`add_special_tokens: false`, the input / output names it prints in `io`) or stop with "did not run" + the reason; (5) `--task t1 --mode noul
+--limit 3` smoke, then the four full runs (`t1 noul`, `t1 choice`, `t2 choice`, `t3 noul`, `--out K\answers\laya-multilingual-<task>-<mode>.json`,
+one model process at a time; repeat a timing run whose `cpuLoadBefore/After` shows another heavy process, e.g. vmmemWSL); `node K\score.cjs
+<file> --out K\reports\c-laya-<task>-<mode>` each; then a small kit script for the out-of-fold temperature NOTE (2-fold by row id: fit T on one
+half, score the other, both directions) and the write-up `K\reports\c-laya.md` (route, files + sizes + hashes, worked-example check, timings
+with CPU load, disk, the tables from the score files; DirectML only as a note).
 
 ## Open problems
 
-- **P1 (step 3) — Laya multilingual has no OFFICIAL ONNX file.** `@receptron/laya` (community, MIT) ships only the ENGLISH checkpoint's
-  ONNX (`receptron/laya-onnx`: 1.69 GB, no `multilingual` subfolder — a-sources C8, C10). Routes for step 3: the official `laya-ts`
-  wrapper in `github.com/NandhaKishorM/laya` (read where it gets weights; D-f's scratch rule) or a community fp32 conversion
-  (`verdict-models/laya-multilingual`, `desplega/laya-onnx`) as untrusted data checked against the card's examples. Not a block —
-  the candidate exists; step 3 states the route it took and why.
+- **P1 (step 3) — Laya multilingual has no OFFICIAL ONNX file — SETTLED by builder #3:** route (1) `laya-ts` did not run (not on npm;
+  weights only via a Python export); route (2) = `desplega/laya-onnx` `multilingual/fp32` (see "Step 3 so far"). For D2 / Hasan: an app
+  that ships Laya multilingual today would have to ship a COMMUNITY ONNX export or run Python once to export — neither is official.
+- **P8 (step 3) — download speed:** Hugging Face served ~80 KB/s per connection, ~0.4 MB/s over 8–32 ranged connections (16:18–16:27);
+  the 1.32 GB took longer than this builder's budget. Not a block. For D2: a first-use download of this size at that speed is ~1 h.
+- **P9 (step 3, review) — the Laya framing is builder #3's judgement** (state / question split, short instructions, 21 options fitted by
+  Laya's own head trim — "Framing chosen" above). A NOTE variant worth one extra run if time allows: T1 choice with the clip lines in the
+  STATE and the option ids only (`max_len` 2048, card-sanctioned up to 8,192), so no option text is trimmed.
 - **P2 (D2) — D-b's "through the app's existing openai-compat / OpenRouter path" does not hold** (a-sources C7): OpenRouter serves decision
   models on a separate Decisions API (`POST https://openrouter.ai/api/alpha/decisions`, System One body, per OpenRouter's own blog),
   not the chat endpoint. Step 6 builds its runner on that contract after reading OpenRouter's API reference (not read in step 1:
@@ -246,9 +283,14 @@ latencies, peak RSS, disk and the CPU load beside each timing in `env`; score ea
 - Step 2's fixtures, measures, answer-file format and self-check (`K\fixtures\*`, `K\measures.cjs`, `K\score.cjs`, `K\selfcheck.cjs`,
   `K\reports\b-*`). Use them as they are; rebuild only if a T2 / T3 label is overruled (P7). Never re-derive T1 from S1 by hand —
   `build-t1.cjs` is the one path, and S1's kit stays read-only.
+- Step 3's route finding (laya-ts unpublished; no official ONNX; desplega split fp32 chosen) — do not re-search npm / HF. Do not restart
+  the download from zero: the parts under `B\models\laya-multilingual-desplega-fp32\` resume. Do not re-fetch the laya-ts source: the four
+  files are under `B\src-read\laya-ts-main\` and the port is `K\laya-run.cjs`.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-30 · builder #1 · ~38 tool calls · step 1 (a) primary docs → a-sources.md; hand-off at the step boundary.
 - 2026-10-30 · builder #2 · ~33 tool calls · step 2 (b) task sets + measures + self-check → b-tasksets.md (17 / 17 PASS); hand-off at the
   step boundary.
+- 2026-10-30 · builder #3 · ~52 tool calls · step 3 part 1: route (laya-ts not on npm → desplega split fp32 ONNX), sizes + guard, runner
+  `K\laya-run.cjs` + `K\dl-parallel.sh`; download paused at 150 MB / 1.32 GB (slow HF CDN) to hand off at the call budget.

@@ -10,3 +10,8 @@
   `K\measures.cjs` + `K\score.cjs` (answer format `vidtsx-d1-answers/1`); `K\selfcheck.cjs` 17 / 17 PASS incl. S1's picks → R@1 80.7 % /
   wrong-confident 6.3 % / correct none 79.2 % exactly; write-up `K\reports\b-tasksets.md`; open P6 (4,632 not 4,800), P7 (T2 / T3 labels
   one builder's judgement). Hand-off.
+- 2026-10-30 16:28 · builder #3 · step 3 PART 1: route (1) `laya-ts` did not run — not on npm (registry "Not found"), weights only via a
+  Python export, no official ONNX on HF; route (2) = `desplega/laya-onnx` `multilingual/fp32` (split encoder + head = laya-ts's layout,
+  sha256 manifest; 1,324,748,627 B stated first, guard passed). Kit: `K\laya-run.cjs` (laya-ts pre / post-processing ported, worked
+  examples E1–E3, task runs → `vidtsx-d1-answers/1`), `K\dl-parallel.sh`. HF served ~0.4 MB/s → download PAUSED at 150 MB (resumable
+  parts, every process stopped); no model run yet; open P8 (speed), P9 (framing review). Hand-off at the call budget.
