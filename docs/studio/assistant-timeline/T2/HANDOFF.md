@@ -75,6 +75,12 @@ the same shape as `MasterCutsSummary` in `timeline-cuts.ts:55`), send `summarize
 
 ## Open problems
 
+- **Ruling AT-r1 (orchestrator, 16:12) — do this FIRST in step 2's commit, red first:** a gap row may never fall between pages. In
+  `timeline-listing.ts` `masterRows` the cap check (:103) runs before the gap row (:107-110), so the gap right before the first unlisted
+  master clip prints on neither page (page 2's window starts at that gap's end). Fix: print the gap row (when it intersects the window)
+  BEFORE the cap check, so page 1 ends `… gap <a>–<b> (…)` then `  … +N more — …`. Add a §8.1 2 case: the synthetic page 1 with a gap
+  right before clip #41 shows that gap row and then the `+N more` line (exact), and page 2 does not repeat it. The other small choices
+  below are accepted as recorded.
 - (none blocking)
 - **LS-r1c trap for any new test that imports `agent-tools/index.ts`:** `index.ts`'s graph reaches `stream/promises` ONLY through
   `./flow-tools` (→ `agents/tools/run-flow` → … → `packages/zip-reader.ts` and `studio/project-package-zip.ts`); in this worktree that

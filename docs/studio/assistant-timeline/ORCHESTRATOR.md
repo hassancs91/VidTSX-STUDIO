@@ -18,7 +18,7 @@
 | Part | Status | Builders spawned | Verifier result | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | T1 — the design note + THE BAR (orchestrator) | **DONE** | — | — | `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` `b382288` | the bar = design §8 (unit 1–7, gates, the smoke, the four turns: ≥ 3 / 4 place the allowed clip starting in [2.00, 3.10] s, 0 claims, 0 generated) | 2026-10-30 15:52 / 15:57 |
-| T2 — build (red-first, hand-off-sized) | BUILDING | 1 | — | — | — | 2026-10-30 15:58 / |
+| T2 — build (red-first, hand-off-sized) | BUILDING | 2 | — | step 1 `307f96f` | — | 2026-10-30 15:58 / |
 | T3 — verify (independent; ≤ 3 FAILs) | TODO | — | — | — | — | |
 
 ## Answers in force (Hasan's paste-in, 2026-10-30)
@@ -77,6 +77,24 @@
   commit `b382288` landed at 15:56:49; this entry first said "15:59", an estimate — corrected.)
 - 15:58 · T2 builder #1 spawned (HEAD = this commit). Brief: END_TO_END_RUN's builder brief adapted to this slice + the paste-in's "every
   builder brief adds" (kept below under "Builder brief" so a resumed session reuses it verbatim).
+
+- 16:10 · **T2 builder #1 HANDOFF** (49 calls, ~12 min; **§9 step 1 DONE**): `307f96f` — `src/shared/studio/timeline-cuts.ts` 130 (the §2
+  model, `summarizeMasterCuts`, `formatTimelineTc`; exported via `src/shared/studio/index.ts`), `agent-tools/timeline-listing.ts` 165 (§3,
+  caps 40 / 20), `agent-tools/timeline-tools.ts` 49 (`get_timeline`, `loadProject`, read-only), `index.ts` (`'get_timeline'` last :70,
+  group :104), `studio-agent-prompt-tools.ts:20` (the §7 line before `insert_asset`'s), pins in a NEW
+  `studio-agent-prompt-timeline.test.ts`; red 4 files failed / 2 tests → green 5 files / 50 tests; tsc 25 / 10; docs `5a784ac`. Its
+  find: any test importing `agent-tools/index.ts` reaches `stream/promises` only through `./flow-tools` → a 26th `<wt>\stream` suite (a
+  REAL gate failure) — the pin test mocks `./agent-tools/flow-tools`; tracer `.vidtsx-temp\timeline\T2\stream-chain.mjs`. **Orchestrator
+  re-check (16:10):** tree clean at `5a784ac`; `60869b9..HEAD` = 12 files +984 −9 (the step's 10 + HANDOFF / LOG); matcher diff vs
+  `7967c6f` empty; the 5 files → 5 passed / 50 tests (16:10:34); 0 `electron.exe`; `timeline-listing.ts:92-124` read.
+- **Ruling AT-r1 (orchestrator, 16:12) — a gap never falls between pages:** builder #1's open note "a gap that ends exactly at a page's
+  `fromSec` is on neither page" is a loss of information, not a reading of the design: `masterRows` checks the cap (:103) before it
+  prints the gap row (:107-110). Fix in step 2's first commit, red first: the gap row (when it intersects the window) prints BEFORE the
+  cap check, so page 1 ends with that gap row and then `… +N more`; a §8.1 2 case pins it (and page 2 does not repeat it). The design's
+  §3 caps text already says "Gap rows do not count toward the cap" — unchanged. The builder's other small choices (flagless empty-lane
+  line, `(nothing in this window)` for a gap-only window, `<kind> clip`, `String()` numbers) are accepted. T2 builder #2 (AT-r1, then §9
+  step 2) to spawn.
+- 16:13 · T2 builder #2 spawned (HEAD = this commit; the same brief).
 
 ## Builder brief (T2; every builder gets it unchanged)
 
