@@ -28,6 +28,15 @@ export {
   untranscribedMasterClips,
 } from './caption-words';
 export type { CaptionWordSource, SourceWord } from './caption-words';
+export {
+  formatTimelineTc,
+  isThroughEdit,
+  JOIN_EPS,
+  masterTimelineModel,
+  summarizeMasterCuts,
+  timelineLength,
+} from './timeline-cuts';
+export type { MasterCut, MasterCutsSummary, MasterGap, MasterJoin, MasterTimelineModel } from './timeline-cuts';
 export { aspectOf, parseTemplateId } from './caption-pack';
 export type { CaptionAspect, CaptionTemplate, CaptionTemplateDefaults } from './caption-pack';
 export {

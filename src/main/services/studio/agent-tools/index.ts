@@ -21,6 +21,7 @@ import { buildPresetTools } from './preset-tools';
 import { buildAudioTools } from './audio-tools';
 import { buildFlowTools } from './flow-tools';
 import { buildNotesTools } from './notes-tools';
+import { buildTimelineTools } from './timeline-tools';
 import type { StudioToolContext } from './types';
 import { withToolResultEvents } from './tool-result-events';
 import { AGENT_TOOL_TIMEOUT_MS } from '../../agents/tools/tool-server';
@@ -65,6 +66,8 @@ export const STUDIO_TOOL_IDS = [
   // Go-live 3a (2026-10-01): project notes (video-10 import gap 7).
   'list_notes',
   'read_note',
+  // Assistant timeline read (2026-10-30): the timeline's clips, cuts and gaps.
+  'get_timeline',
 ] as const;
 
 export type StudioToolId = (typeof STUDIO_TOOL_IDS)[number];
@@ -98,6 +101,7 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
       ...buildAudioTools(ctx),
       ...buildFlowTools(ctx),
       ...buildNotesTools(ctx),
+      ...buildTimelineTools(ctx),
     ]),
   });
 }
