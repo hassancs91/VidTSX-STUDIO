@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | BUILDING (step 4; weights downloading, D-r5) | 4 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
+| D1 — the spike (no product code) | WAITING on weights (d1-omni ≈ 17:29, Qwen ≈ 18:07, Laya ≈ 18:30; D-r5) | 5 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | TODO | — | — | — | — | — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -192,4 +192,22 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   `B\hosted-dryrun\` → nothing; `K\hosted-calls.jsonl` absent (0 hosted calls). P12 checked against D-r2 (6.3 % is the lower of S1's 6.3 % and
   this run's 7.1 %; R@1 80.7 − 5 = 75.7) — right. Downloads at 16:48: d1-omni 155.6 / 407.2 MB, Qwen 157.3 / 675.7 MB, Laya 243.7 / 1,324.7 MB
   (~0.41 MB/s in all). HANDOFF Next step: how a builder sees a landed file (log `ok` + `sha256sum` + `end`, hash = expected). D1 builder #5
-  (`llama-run.cjs`, then d1-omni / Qwen runs as they land) to spawn.
+  (`llama-run.cjs`, then d1-omni / Qwen runs as they land) to spawn. (Commit `09f965c` landed 16:49:21; the "16:50" in this entry and in
+  HANDOFF's note was an estimate.)
+- 16:49 · D1 builder #5 spawned (HEAD `09f965c`).
+- 16:57 · D1 builder #5 HANDOFF (38 calls, ~9 min; step 4 part 1, docs `f5dfb26`; no model loaded — neither file had landed at 16:56:49):
+  `K\llama-run.cjs` 149 lines (the `laya-run.cjs` CLI + `--gpu-layers auto|max|N`, `--candidate`, `--licence`, `--info`; the model's chat
+  template; letter / Yes-No option labels, refuses a multi-token label; the first next-token map via `controlledEvaluate` …
+  `generateNext.probabilities` at temperature 0 — the native sampler then adds no top-k / top-p / min-p, so the map is the whole vocabulary,
+  checked by recording its size + sum on the first question; renormalised over the options with the raw option mass recorded; the shared
+  prefix reused and checked once against a fresh evaluation; cold / first answer / per-request / per-question latency, peak RSS, VRAM,
+  CPU load; its own resource guard incl. "no other laya-run / llama-run"); `K\temp-oof.cjs` 44 lines (the out-of-fold temperature NOTE for
+  any answer file; random files → T ≈ 20, as expected). **P13: the GPU path here is Vulkan** (the CUDA prebuilt fails `NoBinaryFoundError` —
+  no CUDA toolkit; Vulkan sees the RTX A3000 + Intel UHD, its VRAM reading is broken (free 0) → `--gpu-layers auto` may put 0 layers on
+  the GPU; use `max`). Bundled llama.cpp b8390 has `lfm2` but no `systemone` code. P14: its prompt wording is its judgement (for review).
+- 16:58–16:59 · **Orchestrator re-check:** HEAD `f5dfb26` = HANDOFF + LOG only, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty;
+  the two scripts on disk (149 + 44 lines); 0 `llama-run` / `laya-run` processes. Downloads at 16:59:05 (rates since 16:48:25): d1-omni
+  222.1 / 407.2 MB (~104 KB/s → ≈ 17:29), Qwen 227.9 / 675.7 MB (~110 KB/s → ≈ 18:07), Laya 357.5 / 1,324.7 MB (~178 KB/s → ≈ 18:30). No
+  builder until a file lands (a builder must not idle on a download); the next spawns when the d1-omni job reports. **While waiting, the
+  orchestrator drafts D2's sections that do not depend on D1's numbers** (contract, adapters, processes, keys, IPC, users, tool / step) —
+  marked DRAFT; the recommendation, the local default and THE ACCEPTANCE BAR are written only after D1 is DONE and its STOP judged.
