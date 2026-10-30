@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | BUILDING (step 2) | 1 | step 1 re-checked 16:00 | docs `ce3f9e4` | (a): 22 primary sources, 15 contradictions, no candidate drops | 2026-10-30 15:51 / — |
+| D1 — the spike (no product code) | BUILDING (step 3) | 2 | steps 1–2 re-checked (16:00, 16:13) | docs `ce3f9e4` `71aa0c5` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | TODO | — | — | — | — | — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -128,4 +128,17 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   $0.042 / M input, Microsoft-Decision-1 "Text only, $0.042 per million input tokens". Rulings D-r3 (Laya route), D-r4 (C7) above
   (commit `a4fc957`, 16:00:34; its first text said "16:01" / "16:02" — estimates, corrected from the clock). D1 builder #2 (step 2 —
   the task sets + measures) to spawn.
-- 16:01 · D1 builder #2 spawned (HEAD: this commit).
+- 16:01 · D1 builder #2 spawned (HEAD `57c27f8`).
+- 16:12 · D1 builder #2 HANDOFF (43 calls, ~12 min; **step 2 DONE**, docs `71aa0c5`; no download / install / launch / call; S1's kit read
+  only): `K\fixtures\t1-pick.json` (240 rows: 187 named / 53 ∅ / 31 `'x|∅'`, 10 Arabic; (c) top-1 135 / 187 = 72.2 % = S1; one `'x|∅'` row
+  #1487 has its allowed clip outside the top-20; noul = 4,632 questions, not 4,800 — the 12 music rows have 6 candidates each),
+  `t2-routing.json` (40 rows, 10 Arabic, 7 with two allowed families; cut 8 / audio 7 / shots 8 / captions 7 / export 5 / none 5 by first
+  family; mapped to 18 of 29 `STUDIO_TOOL_IDS`), `t3-verify.json` (40 rows, 20 yes / 20 no, 7 Arabic; 16 template / 10 caption-style / 14
+  library-clip pairs, every quoted source file:line checked; the requests / script lines are the builder's own — the repo has no
+  narration fixture); `K\measures.cjs` + `score.cjs` + `selfcheck.cjs`; ONE answer-file format `vidtsx-d1-answers/1`; `K\reports\b-tasksets.md`
+  (composition, judgement calls) + `b-selfcheck.md` — **17 / 17 PASS**, incl. S1's own top-20 picks as P = 1 choice answers → R@1 151 / 187,
+  pick acc 170 / 187, wrong-confident 15 / 240 (4 / 11), correct none 42 / 53, false none 13 / 156 = S1 §10 exactly.
+- 16:13 · **Orchestrator re-check:** HEAD `71aa0c5` = HANDOFF + LOG only, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty;
+  `node selfcheck.cjs` re-run in `K` → 17 / 17 PASS (same table); all 40 T2 rows and every third T3 row read — plain-meaning labels hold
+  (T2 "Remember that I always want …" → none = outside the five families, accepted). Resources 16:13: C: 29.1 GB, headroom 36.1 GB, CPU
+  33.9 %, 0 `electron.exe`. D1 builder #3 (step 3 — Laya multilingual per D-r3; first download) to spawn.
