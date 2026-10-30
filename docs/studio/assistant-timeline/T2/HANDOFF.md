@@ -1,5 +1,5 @@
 # T2 — build: `get_timeline`, the cuts line, the cut anchor
-status: IN PROGRESS — design §9 step 1 DONE (`307f96f`); step 2 next
+status: IN PROGRESS — design §9 steps 1 (`307f96f`) and 2 (`99c35b1`) DONE; step 3 next
 
 ## Goal (the paste-in's T2 row verbatim + the exit)
 
@@ -47,6 +47,22 @@ gates run and recorded.
   - Prompt pins in a NEW file `src/main/services/studio/studio-agent-prompt-timeline.test.ts` (the existing
     `studio-agent-prompt.test.ts` untouched): the line exact + right before `insert_asset`'s; `STUDIO_TOOL_IDS` = the 29 of `0df9e9c`
     + `'get_timeline'`.
+- **§9 step 2 (§8.1 3) + ruling AT-r1 — commit `99c35b1`** (as of `99c35b1`; 8 files, +157 / −8):
+  - AT-r1: `timeline-listing.ts` `masterRows` prints the gap row (:105-111) BEFORE the cap check (:112), so page 1 ends `  gap …` then
+    `  … +N more — …` and page 2 (starting at the gap's end) does not repeat it. Test `timeline-listing.test.ts:136` (`synthetic(40)`:
+    the gap right before #41; page 1 lines 41–44 exact, 40 rows; page 2 starts `#41` with no cut suffix, `#42 … ← cut 40`, no gap row).
+    `synthetic()` gained a `gapAt = 10` parameter (default = the old fixture; no existing assertion edited).
+  - The cuts line: `formatMasterCutsLine(summary?)` `timeline-listing.ts:177` (`CUTS_LINE_SHOWN` 5 :173) — §4's text; undefined for
+    absent / 0 clips. `StudioAgentTimelineCuts` `src/shared/ipc/types/studio.ts:474` (same shape as `MasterCutsSummary`, an independent
+    interface — tsc checks the two agree at `EditorShell.tsx:489`) + `StudioAgentSendRequest.timelineCuts?` :509.
+    `BuildAgentPromptInput.timelineCuts?` `studio-agent-prompt.ts:64`; the line pushed right after `- Timeline: …` :96-97 (import :13).
+    `studio-handlers.ts:552` passes it; `useStudioAgent.ts:62` option + :256 spread; `EditorShell.tsx:489` `timelineCuts:
+    summarizeMasterCuts(tl.timeline)` (import :14). Growth of the pre-existing over-300 files: `EditorShell.tsx` +2 (1674 → 1676),
+    `useStudioAgent.ts` +4 (336 → 340), `src/shared/ipc/types/studio.ts` +14 (972 → 986), `studio-handlers.ts` +1 (672 → 673). New /
+    touched under-300: `timeline-listing.ts` 188, `studio-agent-prompt.ts` 170.
+  - Tests in `studio-agent-prompt-timeline.test.ts` :44 (absent / 0 clips → none; 1 clip 0 cuts; 2 clips 1 cut via `summarizeMasterCuts`
+    of the 2-clip timeline; exactly 5; 6 → `+1 more (get_timeline lists them)`; 1 and 2 gaps) and :94 (`buildAgentSystemPrompt`: the
+    line right after `- Timeline: 0:06 long.`; absent / 0 clips → `- Captions: none set.` follows).
 
 ## Verified
 
@@ -63,25 +79,34 @@ headroom 39.15 GB):
 - Types: `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` → 25 `error TS` lines;
   `-p tsconfig.node.check.json` → 10 (baseline 25 / 10; none in a new or touched file).
 
+Step 2 (builder #2), same root, 2026-10-30 16:13–16:16 (C: 29.04 GB free, D: 40 GB, commit headroom 34.87 GB):
+
+- RED 16:13:19 (tests written, no code): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/main/services/studio/agent-tools/timeline-listing.test.ts src/main/services/studio/studio-agent-prompt-timeline.test.ts` →
+  `Test Files  2 failed (2)` · `Tests  8 failed | 11 passed (19)`: six `TypeError: formatMasterCutsLine is not a function`; the prompt
+  test `expected '- Captions: none set.' to be '- V1 (master track): 2 clips · 1 cut …'`; AT-r1 `expected [ …(3) ] to deeply equal
+  [ …(3) ]` (page 1 had no gap row before `+20 more`). (The "absent → Captions follows" prompt test passes on the old code by design.)
+- GREEN 16:14:33: `… vitest.mjs run src/shared/studio/timeline-cuts.test.ts src/main/services/studio/agent-tools/timeline-listing.test.ts
+  src/main/services/studio/agent-tools/timeline-tools.test.ts src/main/services/studio/studio-agent-prompt-timeline.test.ts
+  src/main/services/studio/studio-agent-prompt.test.ts` → `Test Files  5 passed (5)` · `Tests  59 passed (59)`.
+- Types (after the code, before `99c35b1`; the tree then = `99c35b1`): web 25 `error TS`, node 10.
+- `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/stream-chain.mjs src/main/services/studio/studio-agent-prompt.ts` → `direct stream
+  importers: []` (its new import of `agent-tools/timeline-listing` adds no stream suite).
+
 ## Next step
 
-Design §9 step 2: write the red tests for the cuts line (§8.1 3) — a pure `formatMasterCutsLine(summary?)` in
-`agent-tools/timeline-listing.ts` (absent / 0 clips → no line; 1 clip 0 cuts; 2 clips 1 cut; exactly 5 cuts; 6 cuts `+1 more`; with
-gaps) and `buildAgentSystemPrompt` placing it right after `- Timeline: …` (put these in `studio-agent-prompt-timeline.test.ts`); run
-them red; then add `StudioAgentTimelineCuts` + `timelineCuts?` to `StudioAgentSendRequest` (`src/shared/ipc/types/studio.ts`; make it
-the same shape as `MasterCutsSummary` in `timeline-cuts.ts:55`), send `summarizeMasterCuts(tl.timeline)` from `EditorShell.tsx` next to
-`timelineDurationSeconds` (:487) through `useStudioAgent.ts`, pass it in `handleStudioAgentSend` (`studio-handlers.ts:541`) into
-`BuildAgentPromptInput`, and print the line in `studio-agent-prompt.ts`.
+Design §9 step 3, characterization FIRST: check `src/main/services/studio/agent-tools/insert-tools.ts` with the stream tracer, then write
+`agent-tools/insert-tools-anchor.test.ts` (imports `insert-tools.ts` directly — there is no `insert-tools.test.ts`; the suites that
+already drive `insert_asset` (`audio-tools.test.ts`, `library-import.test.ts`) show the mocking pattern; today `insert-tools.ts` loads no
+project — the word path reads the transcript through `readTranscriptFile` (import :9), mock that) pinning the number path and the
+`{ word, take }` path's emitted proposal item + answer text exactly, run it
+GREEN on the UNCHANGED `insert-tools.ts`, and commit it alone ("test(studio): assistant timeline T2 — insert_asset number / word
+characterization (green on the unchanged code)") before any red test for `source-span-map`, `cut-anchor`, the `{ cut }` path, `atLabel`
+or the prompt line / description.
 
 ## Open problems
 
-- **Ruling AT-r1 (orchestrator, 16:12) — do this FIRST in step 2's commit, red first:** a gap row may never fall between pages. In
-  `timeline-listing.ts` `masterRows` the cap check (:103) runs before the gap row (:107-110), so the gap right before the first unlisted
-  master clip prints on neither page (page 2's window starts at that gap's end). Fix: print the gap row (when it intersects the window)
-  BEFORE the cap check, so page 1 ends `… gap <a>–<b> (…)` then `  … +N more — …`. Add a §8.1 2 case: the synthetic page 1 with a gap
-  right before clip #41 shows that gap row and then the `+N more` line (exact), and page 2 does not repeat it. The other small choices
-  below are accepted as recorded.
-- (none blocking)
+- (none blocking) Ruling AT-r1 is DONE in `99c35b1` (see Done).
 - **LS-r1c trap for any new test that imports `agent-tools/index.ts`:** `index.ts`'s graph reaches `stream/promises` ONLY through
   `./flow-tools` (→ `agents/tools/run-flow` → … → `packages/zip-reader.ts` and `studio/project-package-zip.ts`); in this worktree that
   fails as `Cannot find module '<wt>\stream\promises'` = a 26th stream suite = a REAL gate failure. `studio-agent-prompt-timeline.test.ts`
@@ -92,15 +117,21 @@ the same shape as `MasterCutsSummary` in `timeline-cuts.ts:55`), send `summarize
   directly (not `index.ts`) — check it with the tracer first.
 - Small choices the design leaves open (behaviour-keeping; for the orchestrator to see): an empty track's one line carries no flags (the
   design's literal `<name> (<kind>): empty`); a track whose window holds only a gap prints its header + `  (nothing in this window)` (no
-  gap row); a gap that ends exactly at a page's `fromSec` (the gap right before the first unlisted master clip) is on neither page — the
-  "intersects the window" rule as written; a clip with no `assetId` and no `tsx` (no op makes one) labels as `<kind> clip`; the bad-window
-  error prints the numbers with `String()` (`got 4–2`); `speed` / `gain` print with `String()` (`at 1.5×`, `gain 0.3`).
+  gap row); (superseded by AT-r1 in `99c35b1`: the gap right before the first unlisted master clip now ends page 1); a clip with no
+  `assetId` and no `tsx` (no op makes one) labels as `<kind> clip`; the bad-window error prints the numbers with `String()` (`got 4–2`);
+  `speed` / `gain` print with `String()` (`at 1.5×`, `gain 0.3`).
+- Step 2 choices (behaviour-keeping): `formatMasterCutsLine` lives in `timeline-listing.ts` (design §6 puts "the §4 line" there);
+  `StudioAgentTimelineCuts` is its own interface in the IPC types (not an alias of `MasterCutsSummary`, so the IPC types import nothing
+  from `shared/studio`); the hook spreads `timelineCuts` only when defined (as its other optional fields). No handler test: the
+  pass-through at `studio-handlers.ts:552` is one spread (tsc-checked); the §8.3 smoke does not exercise it (no model turn).
 
 ## Do-not-redo
 
 - §9 step 1 entirely (`307f96f`): the model, the listing, the tool, the id, the `TOOL_LINES` line, their tests (red run recorded above).
+- §9 step 2 entirely (`99c35b1`): the cuts line, the request field and its plumbing, ruling AT-r1, their tests (red run recorded above).
 - The stream tracer (`.vidtsx-temp/timeline/T2/stream-chain.mjs`) — reuse it, don't rewrite it.
 
 ## Agents so far
 
 - Builder #1 (2026-10-30 15:58–16:10): §9 step 1 → `307f96f`; handed off at the end of a numbered step.
+- Builder #2 (2026-10-30 16:12–16:17): ruling AT-r1 + §9 step 2 → `99c35b1`; handed off at the end of a numbered step.
