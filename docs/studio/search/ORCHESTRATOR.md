@@ -61,7 +61,10 @@
   Resume from `docs/studio/search/NEXT-SESSION.md`. → **Resumed 2026-10-29 20:24** by Hasan's resume paste-in (a new session).
 - 2026-10-29 22:02 · **STOP — S4 PASS (the protocol stop).** Reported: S3 DONE, S4 verifier round 1 PASS over design §9 (with ruling LS-r8 on
   §9.3 5 — all four turns named the right clip and asked for the cut time), records `cf7d550`; the question for Hasan: keep LS-r8's reading or
-  rule otherwise; his list: the live rerank, the by-ear check, the first-cut gap, landing `library-search`. Hasan said: (pending)
+  rule otherwise; his list: the live rerank, the by-ear check, the first-cut gap, landing `library-search`. Hasan said (2026-10-30):
+  asked about "Jev" and the new decision-model families (searched and discussed — not in this branch); next = **a shared decision-model
+  service in a new session, starting with the spikes and small tests** — paste-in `docs/studio/decisions/NEXT-SESSION.md` (its Decisions
+  block is editable). **LS-r8 not answered yet** (still open with him).
 
 ## Log
 
