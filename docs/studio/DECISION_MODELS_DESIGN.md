@@ -1,6 +1,8 @@
 # Decision models — one shared decision service (design note)
 
-> **status: DRAFT (orchestrator, 2026-10-30, written while D1's weights download — ORCHESTRATOR.md 16:59).** §2 (what D1 measured),
+> **status: DRAFT — ON HOLD (20:04): D1 STOPPED (BLOCKED by Hasan's STOP rules — `decisions/D1-spike-report.md` §12); this note is
+> finished only after Hasan answers D1's questions (§14 of the report), since the local rung (§5.3) and the ladder (§6) depend on them.**
+> Written 2026-10-30 while D1's weights downloaded (ORCHESTRATOR.md 16:59). §2 (what D1 measured),
 > §5.3's runtime pick, the thresholds in §10 and **§15 THE ACCEPTANCE BAR** are PENDING D1 and are written only after D1 is DONE and its
 > STOP judged. Branch `decision-models` (cut from `library-search` @ `efa5e0b`). No product code in this session (D-h).
 > Sources: `docs/studio/decisions/NEXT-SESSION.md` (the brief + Hasan's D-a…D-h), `docs/studio/decisions/D1-spike-report.md` (D1),

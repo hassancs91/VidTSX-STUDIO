@@ -21,8 +21,8 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | BUILDING (Laya NOTE runs per D-r7, then step 7 — the report) | 7 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
-| D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | TODO | — | — | — | — | — |
+| D1 — the spike (no product code) | **STOP — BLOCKED** (STOP 1 + STOP 2 fired; STOP 3 for the local leg) | 8 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
+| D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | DRAFT only — waits on Hasan's answer to D1's STOP | — | — | draft `99def5d` | §2 / §5.3 / §15 / §16 pending | 2026-10-30 17:02 / — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
 for a later build + verifier (D-h).
@@ -112,6 +112,14 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 ## Stops
 
 (one line per stop: what was reported, what Hasan said)
+
+- 2026-10-30 20:04 · **STOP — D1 BLOCKED by the paste-in's STOP rules** (`docs/studio/decisions/D1-spike-report.md` §11–§14). Reported: no hosted
+  key was set, so Jev / OpenAI / Microsoft-Decision-1 are DEFERRED-HASAN (runners built + dry-run, 138 requests ≤ $0.334); no local candidate
+  passes the rule's evaluable terms (both Qwen GGUFs fail warm p95 ≤ 300 ms; d1-omni does not load in node-llama-cpp; Laya's community
+  export failed its card's example — NOTE only); no measured decision model beats the keyless baseline on T1 (best R@1 48.7 % at
+  wrong-confident 38.3 % vs 80.7 % / 7.1 %); STOP 3 for the local leg. D2 left as a DRAFT. Questions for Hasan: the design direction (hosted
+  only + the keyless LLM for T1's pick, or a new local runtime), set the keys for the hosted runs, P10 (600 = requests or questions), Laya's
+  `pip install laya` reference check, d1-omni's licence / runtime, T2 / T3 labels. Hasan said: (pending)
 
 ## Log
 
@@ -269,4 +277,24 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   rule's recommendation**. Why: it is D-c's first candidate and Hasan's D2-stop question ("is a local decision model viable?") is better
   answered with its numbers beside the card's own "near chance" warning than without them; the runs are cheap. (b) (the English checkpoint,
   another ~1.7 GB community bundle) is not run; (c) (`pip install laya` for the official runtime) goes on Hasan's list. Then step 7 — the
-  report, the recommendation by the rule as D-r1 reads it, and the STOP judgement. D1 builder #8 to spawn.
+  report, the recommendation by the rule as D-r1 reads it, and the STOP judgement. D1 builder #8 to spawn. (Commit `ad436b8` landed
+  19:18:39; the "19:19" above was an estimate.)
+- 19:19 · D1 builder #8 spawned (HEAD `ad436b8`).
+- 20:00 · **D1 builder #8 — status BLOCKED** (90 calls incl. a 34-min run; over budget by choice — it drafted the report while T1 noul ran;
+  docs `753711b`): **D-r7 Laya NOTE runs** (kit fixes first: `--threads`, a package-version read, the CPU probe; CPU EP 8 intra-op threads,
+  19:22:51 → 19:56:59, every run rc 0, quiet machine): T1 noul 17.2 % (P(true) ≥ 0.5 on 4,138 / 4,632; OOF T 20 / 20), T1 choice 50.4 % (best
+  R@1 55.6 % at wrong-confident 39.2 %), T2 55.0 %, T3 60.0 %; per question p95 469.2 ms (T1 noul); OS peak RSS 2,269–3,109 MB — every number
+  labelled unverified. **The report `docs/studio/decisions/D1-spike-report.md`** (422 lines, every number names its kit file): §11 the rule as
+  D-r1 reads it → **no local default** (Qwen2.5-0.5B and Qwen3.5-0.8B fail warm p95 ≤ 300 ms — 388.7 / 722.1 / 350.6 ms and 482.7 / 353.3 ms
+  per question; d1-omni did not load; Laya not eligible); §12 **STOP 1 FIRES; STOP 2 FIRES for every measured model** (best local R@1
+  48.7 % at wrong-confident 38.3 % vs the bar < 6.3 % at R@1 ≥ 75.7 %; hosted DEFERRED-HASAN — only they could overturn it); **STOP 3 FIRES
+  for the local leg** (builder's judgement, P23 — the orchestrator may re-word): no local default from today's candidates; a local leg needs
+  a different runtime (an option-logit reader without the vocabulary map, `llama-server` for d1-omni, or an official Laya export). §13
+  DEFERRED-HASAN (the hosted runs: one-call probe per provider, then 138 requests ≤ $0.334); §14 six questions for Hasan. Calls: keyless 16 /
+  40, hosted 0; no scratch npm install (`B\npm-scratch\` never created); one app launch (step 5).
+- 20:01–20:03 · **Orchestrator re-check:** HEAD `753711b`, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty, 0 model processes,
+  0 `electron.exe`; the report read (§0, §4, §5, §8–§15); spot checks against the kit's score files — Qwen3.5-0.8B T1 noul accuracy 0.8703 at
+  τ 0.5 (= 87.0 %), the baseline's T1 choice accuracy 0.8875 (= 88.8 %), `c-llama.md` :190 / :194 hold 482.7 and 353.3 ms. **STOP 3 wording
+  accepted as written** (it separates the measured local leg from the unmeasured hosted leg). **D1 → STOP (BLOCKED by Hasan's own STOP
+  rules).** Per the paste-in ("STOP and ask me if …"), D2 is NOT finished: `DECISION_MODELS_DESIGN.md` stays the 17:02 DRAFT (its header now
+  says it waits on Hasan's answer). → the stop report.
