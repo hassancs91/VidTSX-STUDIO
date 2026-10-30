@@ -6,7 +6,9 @@ keyless baseline 16 / 40 calls, scored; hosted runners dry-run, no network)**; *
 **step 4 PART 2 (builder #6, 17:39–): d1-omni-600M DID NOT RUN (`missing tensor 'blk.16.ffn_gate.weight'` — an encoder + decision
 head, not loadable by b8390's `lfm2`); Qwen2.5-0.5B DONE (self-test PASS; 4 full runs + CPU NOTE + OOF-T scored → `K\reports\c-llama.md`;
 T1 unusable: noul 43.2 %, choice 27.1 %, R@1 ≤ 36.4 %; does NOT beat the baseline per D-r2)** — step 4 DONE except the optional
-`qwen3.5-0.8b-q8` (D-r5) and a fair CPU NOTE repeat; **step 3 (Laya) is next when its files land**
+`qwen3.5-0.8b-q8` (D-r5) and a fair CPU NOTE repeat; **step 3 (builder #7, 18:26–18:35): Laya multilingual DID NOT RUN — the
+worked-example gate failed (E2 → `sales` 0.5811 vs the card's `billing`; E1 `billing` at P 0.9929, not 0.86) with the port audited
+line by line against laya-ts and no bug found → `K\reports\c-laya.md`, P19**; **D-r6 Qwen3.5-0.8B (builder #7, 18:30–): see Done**
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -262,6 +264,20 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   max|N` — without it `--gpu-layers max` died with `InsufficientMemoryError: A context size of 4096 is too large for the available VRAM`
   at 803 / 6,144 MiB used (the broken Vulkan VRAM reading, P13). Runner `K\c-llama-run-all.sh` (log `B\logs\c-llama-run.log`).
 
+- **Step 3 (c) Laya multilingual — DID NOT RUN (worked-example gate failed; no port bug found)** (builder #7, 2026-10-30 18:26–18:35;
+  write-up **`K\reports\c-laya.md`**, recorded in the commit that adds this line). Weights as landed (log `ok … encoder.onnx 1230282662`,
+  4 sha256 = `manifest.json`; not re-hashed). `node K\laya-run.cjs --model <M> --examples` (CPU EP) → **E1 `billing` P 0.9929** (entropy
+  conf 0.9645; README: 0.86) · **E2 `sales` 0.5811 / `billing` 0.4168** (card Quickstart prints `billing`; its text checked verbatim) · E3
+  (Arabic, no stated answer) near uniform, `other` 0.3047. Diagnostics: every question ALONE (no padding) → identical values; special
+  tokens added (not laya-ts) → E2 `sales` 0.7340 (worse). Port audit (c-laya.md §5): option text, prefix + head budget, state clamp,
+  serializeState, tokenizer (Metaspace prepend, no specials, 0 `<unk>`), collate, ONNX feeds, decode — each equal to laya-ts
+  (common.ts:49-52 / 63-79 / 117-150 / 170-190 / 552-566, agent.ts:634-664 / 739 / 778-825, providers.ts:118-168, tokenizer.ts:13-16 / 293).
+  Provenance re-checked (HF API 18:29): the official `model.safetensors` (oid `9d628fd971b7…`) is the same at the export's `e4e9ddf2` and at
+  main `1720e3e3` → the export is of the current weights. So: export fault vs stale printed outputs is undecidable without the official
+  Python runtime (D-r3 forbids) → no smoke, no full run, no timings, no `K\answers\laya-multilingual-*` (P19). Kit changes (`K\laya-run.cjs`):
+  `--examples` prints a `{ id, solo }` line per example (each question alone); `--diag-add-special` (diagnostic only; default = laya-ts).
+  Logs `B\logs\laya-examples-1.json`, `-2.json`, `-diag-addspecial.json`; cards saved `B\src-read\hf-card\{laya-multilingual,desplega-laya-onnx}-README.md`.
+
 ### Step 3 so far (builder #3)
 
 - **Route (1) `laya-ts` — did not run, two reasons (read 2026-10-30 16:16):** (a) its npm name is `laya-ts` (upstream
@@ -507,6 +523,14 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
 - **P18 (step 4, optional, orchestrator) — `qwen3.5-0.8b-q8` (812 MB, D-r5 "second, if the first runs"):** the first ran but is unusable on
   T1; a 0.8B is unlikely to close a 44-point R@1 gap (SemIf's ladder: 0.6B 0.440 vs 4B 0.813 balanced accuracy) — the orchestrator decides
   whether to download it; nothing started.
+
+- **P19 (step 3 → orchestrator / Hasan) — Laya multilingual failed the worked-example gate on the only runnable route** (builder #7,
+  18:35; `K\reports\c-laya.md`): E2 answers `sales` 0.5811 where the card prints `billing`; E1 `billing` at 0.9929 vs the README's 0.86;
+  the port equals laya-ts at every step checked. Per the brief it is "did not run". Whether the community export or the printed outputs
+  are off needs the official Python runtime (`pip install laya` — D-r3 forbids). Options for a ruling (none taken): (a) a NOTE run
+  labelled "export failed the gate" (`laya-run.cjs` is ready); (b) D-r3's English checkpoint as a NOTE (≈ 1.7 GB, no Arabic); (c) Hasan
+  allows a one-off Python reference check. As it stands D1 has NO local candidate with a usable T1 (Qwen2.5-0.5B fails it; see the 0.8B
+  result in Done) — step 7's STOP "no local candidate meets the rule" is likely.
 
 ## Do-not-redo
 
