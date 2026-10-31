@@ -7,6 +7,45 @@
 
 ---
 
+## 2026-10-31 — LANDED into main: end-to-end-p0, track E, library search (+ assistant timeline read), decision models
+
+- **What:** Hasan's "go" (~19:55) — the four stacked branches merged `--no-ff` into `main` in order, locally, in the landing worktree
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\landing\wt` (19:59 → 20:16). **Not pushed.** As of `84b4ba0` (main's baseline) the merges are
+  (a) `a4854b1` `end-to-end-p0` · (b) `1282169` `end-to-end-p0-e` (track E) · (c) `3ee1580` `library-search` (incl. the 28 assistant
+  timeline read commits) · (d) `9d74db5` `decision-models` (as of `eef98f0`, which first recorded Hasan's own in-app test as DONE, question 3
+  closed and the D6 note in its row + TESTING.md §20). No `fix(merge)` commit was needed.
+- **Conflicts (all kept both sides):** `Status.md` in every merge (every row kept, newest first); in (d) `docs/studio/TESTING.md`
+  (§19.5 assistant timeline read, then §20 decision models — no shared number), `docs/studio/decisions/NEXT-SESSION.md` (add/add:
+  decision-models' copy = library-search's + a 3-line SPENT header → kept), and the append-only tool lists `src/shared/agents/tool-ids.ts`,
+  `src/main/services/agents/tools/registry.ts` (imports + `registerTool`), `registry.test.ts` (main's `join_clips`, then `decide` /
+  `check_matches_request` / `route_request`). No lockfile / `package.json` conflict.
+- **Gates** (from the landing worktree, `node D:/repos/VidTSX-STUDIO/node_modules/…`; tsc error lists compared without positions — each
+  step's set is a subset of its main-side parent's, so of the union; the 3 vitest reds in every counted run are the E-d2a package-resolution
+  suites `builder-libraries` / `shot-bundle` / `shot-bundle-in-place`, "is not installed" / esbuild "Could not resolve" only):
+
+  | step | HEAD | tsc web / node | counted vitest run (Test Files · Tests) |
+  |---|---|---|---|
+  | main baseline | `84b4ba0` | 26 / 10 | 3 failed / 415 passed / 4 skipped (422) · 8 failed / 3,536 passed / 22 skipped (3,566) |
+  | (a) | `a4854b1` | 26 / 10 | try 1: 3 / 472 / 5 (480) · 9 / 4,061 / 35 (4,105) |
+  | (b) | `1282169` | 26 / 10 | try 2: 3 / 512 / 5 (520) · 9 / 5,435 / 35 (5,479) |
+  | (c) | `3ee1580` | 25 / 10 | try 2: 3 / 548 / 6 (557) · 9 / 5,716 / 37 (5,762) |
+  | (d) | `9d74db5` | 25 / 10 | try 1: 3 / 578 / 7 (588) · 9 / 6,013 / 39 (6,061) |
+
+  Extra reds in a first try, each green alone and absent in the counted try: (b) `library-migrate.test.ts` "a pre-E1 index …" (back-fill
+  `candidates: 0` vs 7; alone 9 / 9) — NOT on DRIVING's load list: a timing race in the test (`migrateLibraryIndex` starts a fire-and-forget
+  back-fill that can finish before the test's own `scheduleProbeBackfill` call); the merge's `src/main/services/library/` is byte-identical to
+  `end-to-end-p0-e` and main's 9 commits touch no library file · (c) `shot-module-resolver.test.ts` ("never written …v1.json", DRIVING's load
+  suite; alone 10 / 10). tsc web 26 → 25 at (c): main's `use-embedding-models.ts` TS2339 `embeddingModelDownload` is gone; no new error.
+- **Build + smoke:** `electron-vite build` of the landing worktree's `out/` 20:13:20 → 20:15:17, rc 0 ("use client" warnings only); launched on a
+  fresh profile `profiles\landing-smoke` (from `source`, 2,325 files, 0 `settings.db*`), CDP 9307, no Vite / stub; Studio root set to
+  `…\vidtsx-e2e\landing\studio-root` in the first call; `window.api` in 54 ms; `decisionsStatus()` answered (mode auto, `jev` /
+  `openrouter-decisions` no key, local "no local model", llm available; exactly the four `decisions*` functions); `flowsProjectList()` → 6
+  built-ins incl. `vidtsx/interior-staging` "Interior staging reel"; Settings (General) shows the Library header + the library search select and
+  the Decisions header + "Decisions mode" select (DOM). Its 4 `electron.exe` stopped (0 left), the profile deleted 20:16.
+- **Logs:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\landing\` (`<step>-summary.txt`, `-tsc-{web,node}.{log,list}`, `-vitest*.log` for
+  `main-base` / `m1-e2e-p0` / `m2-e2e-e` / `m3-ls` / `m4-dm`, the alone runs, `build.log`, `app.log`, `smoke-result.json`,
+  `smoke-settings.png`); kit `D:\repos\VidTSX-STUDIO\.vidtsx-temp\landing\kit\`. The landing worktree stays (the orchestrator removes it).
+
 ## 2026-10-31 — DECISION MODELS: one shared decision engine — Jev (TypeSafe) and OpenRouter Decisions (MSD1) over System One, the LLM fallback; the `decide` agent tool / flow node and the two gate nodes `check_matches_request` / `route_request` (band act / escalate, never a claim); the Settings › General "Decisions" row and the AI → Providers "Decisions" section — DONE (D5 verifier round 1 PASS, no FAIL round; the gated live test run with Hasan's keys)
 
 - **Result: PASS over the whole acceptance bar** (`docs/studio/DECISION_MODELS_DESIGN.md` §15, read through the orchestrator's rulings
