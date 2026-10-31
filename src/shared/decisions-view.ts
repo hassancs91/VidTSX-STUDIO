@@ -49,6 +49,13 @@ export function hostedRungViews(status: DecisionsStatus): HostedRungView[] {
   });
 }
 
+/** A rung's line in the order: "key set · ready", "no key · switched off" — or just "no key" when that is the only reason. */
+export function rungLineText(view: HostedRungView): string {
+  const key = view.hasKey ? 'key set' : 'no key';
+  if (!view.enabled) return `${key} · switched off`;
+  return !view.hasKey && view.stateText === 'no key' ? key : `${key} · ${view.stateText}`;
+}
+
 /** "Jev — key set · OpenRouter — no key", in the views order. */
 export function keyDotsText(status: DecisionsStatus): string {
   return hostedRungViews(status)

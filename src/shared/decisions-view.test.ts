@@ -9,6 +9,7 @@ import {
   moveHostedRung,
   normalizeOpenRouterModel,
   removeHostedRung,
+  rungLineText,
 } from './decisions-view';
 
 const rung = (over: Partial<DecisionsHostedRungStatus> & Pick<DecisionsHostedRungStatus, 'id'>): DecisionsHostedRungStatus => ({
@@ -55,6 +56,28 @@ describe('hostedRungViews — the order with has-key dots (D2 §8)', () => {
     expect(views.map((v) => v.id)).toEqual(['openrouter-decisions', 'jev']);
     expect(views.map((v) => v.position)).toEqual([1, 2]);
     expect(views[0].stateText).toBe('no key');
+  });
+});
+
+describe('rungLineText — one plain line per rung (the stills of D4 (f) step 5 read "no key · no key")', () => {
+  const line = (over: Partial<DecisionsStatus>) => hostedRungViews(status(over)).map(rungLineText);
+
+  it('says "no key" once when the only reason is the missing key', () => {
+    expect(line({})).toEqual(['no key', 'no key']);
+  });
+
+  it('keeps the key state and the reason when they differ', () => {
+    expect(
+      line({
+        hostedOrder: ['openrouter-decisions'],
+        jev: rung({ id: 'jev', enabled: false, hasKey: true, why: 'switched off in Settings' }),
+        'openrouter-decisions': rung({ id: 'openrouter-decisions', hasKey: true, available: true, why: undefined }),
+      }),
+    ).toEqual(['key set · ready', 'key set · switched off']);
+    expect(line({ jev: rung({ id: 'jev', hasKey: true, why: 'Decisions are off in Settings' }) })[0]).toBe(
+      'key set · Decisions are off in Settings',
+    );
+    expect(line({ hostedOrder: ['openrouter-decisions'] })[1]).toBe('no key · switched off');
   });
 });
 

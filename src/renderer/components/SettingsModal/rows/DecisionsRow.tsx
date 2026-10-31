@@ -12,6 +12,7 @@ import {
   moveHostedRung,
   normalizeOpenRouterModel,
   removeHostedRung,
+  rungLineText,
 } from '@shared/decisions-view';
 import { useDecisionsSettings } from '../../../hooks/useDecisionsSettings';
 import { DecisionsTester } from './DecisionsTester';
@@ -86,7 +87,7 @@ export function DecisionsRow() {
               />
               <span className={`text-[12px] ${v.enabled ? 'text-text-secondary' : 'text-text-dim'}`}>{v.label}</span>
               <span className="min-w-0 flex-1 truncate text-[10px] text-text-dim">
-                {v.hasKey ? 'key set' : 'no key'} · {v.enabled ? v.stateText : 'switched off'}
+                {rungLineText(v)}
               </span>
               {v.enabled ? (
                 <>
