@@ -7,14 +7,15 @@
 
 ---
 
-## 2026-10-31 — INTERIOR STAGING REEL: the sixth built-in flow, DONE (branch `interior-staging-flow`, not merged)
+## 2026-10-31 — INTERIOR STAGING REEL: the sixth built-in flow, DONE and merged into main (local, not pushed)
 
 - **What:** `vidtsx/interior-staging` (brief: `ai-video-lab/experiments/interior-staging-01/VIDTSX-FLOW-PROMPT.md`,
   for VidTSX 2.0): one room photo to a 9:16 reel of the room being furnished. Three paused fal stills (the
   room upright, emptied, at golden hour) → two fal clips (empty → furnished 10 s, a golden-hour glide 6 s) →
   `join_clips` (dip to black, 1080x1920, 24 fps). Image and video model are Run-form selects, fal only;
   Checkpoints (the default) stops on each still before the paid video.
-- **Commits** (worktree `.vidtsx-temp/interior/wt`, off main `14d7a63`, not pushed): `7d0069d` + `0e6249d` Kling 3
+- **Commits** (branch `interior-staging-flow` in worktree `.vidtsx-temp/interior/wt`, off main `14d7a63`;
+  main fast-forwarded to it 2026-10-31, not pushed): `7d0069d` + `0e6249d` Kling 3
   Pro / Standard and Kling 4 on fal (start + end frame dialects, Kling 4 at 1080p) · `639b748` the `join_clips`
   node · `0992443` the flow, built-ins test, ORDER list, README + flows-plan §1.7 · `aa47c61` passphrase-encrypted
   signing keys · `a499c9b` the vidtsx-3 rotation, all six built-ins re-signed by Hasan.
@@ -31,8 +32,8 @@
   is about $2.25 as the description says. The page bills 64 s (16 lab + 48 part 4) = $7.168 exactly; it
   shows every Kling 3 row at the flat $0.14 and divides the cost by it ("51.20 seconds"), so its Quantity
   is not real seconds.
-- **Open:** per-node pricing on the Run form (known follow-up) · Hasan deletes `vidtsx-2.pem` · merging the
-  branch into main is his call.
+- **Open:** per-node pricing on the Run form (known follow-up) · Hasan deletes `vidtsx-2.pem` · pushing main
+  (it also carries `14d7a63`, the October UI slice) is his call.
 
 ---
 
