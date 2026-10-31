@@ -797,7 +797,48 @@ Part (h) — stub live checks (builder #9, 17:46–17:49, app built from `3f50e6
   `[data-flow-view="edit"]`; still `h3-flow-canvas.png`, LOOKED AT): the two Text nodes (the clip line; "I knocked the glass off the table and
   it cracked into pieces.") wired into "Check Matches Request · TEXT · escalate"; its handles in the DOM = `in:item`, `in:request`, `out:band`,
   `out:answer` — **no `p` handle** (`.react-flow__handle[data-handleid="p"]` count 0), no number on the node; "Runs (6)" (both passes).
-- §15.3 4 / §15.3 5: NOT run (Next step). Keyless claude-subscription runs used: **0 / 3**. Hosted calls: 0.
+- **§15.3 4 (the agent tool) — PASS** (builder #10, 17:57–18:00, same instance setup, app relaunched 17:58 on `3f50e63`'s out/, both `dev stub
+  URL` lines in `app.log` :23-24). **Keyless claude-subscription runs used: 1 / 3** (the first run called `decide` once and quoted it). Hosted
+  calls: 0. **The pointers of Open problem 22 checked against the code first:** `agent.json` fields = `manifestSchema`
+  (`src/shared/agents/manifest.ts:124-151`: formatVersion 1, id `<ns>/<name>`, name, semver version, author.name, minAppVersion, prompt listed in
+  `files[]`, `tools[]` ≤ 32, `files[]` {path, size, sha256 64 hex}); the folder must be `<userData>\agents\<ns>\<name>` (`agent-store.ts:85-89`
+  — `getAgentsDir()` = `paths.ts:220-221`); an unsigned user folder loads (`agent-signing.ts:127` → `signature: 'unsigned'`); per-file hashes
+  are NOT re-checked on read (`agent-store.ts:67-71`); `agentSessionCreate({ agentId, title?, providerId? … })` / `agentRunSend({ agentId,
+  sessionId, prompt, providerId? })` → `{ success, text?, toolsAvailable?, error? }` (`src/preload/api/agents.ts:68-82`,
+  `src/shared/ipc/types/agents.ts:111-194`); `claude-subscription` is always registered (`llm-init.ts:119-123`); the runner records each tool
+  call through `recordCall` (`agent-runner.ts:283-285`) into `<userData>\agent-sessions\<ns>.<name>\<sessionId>\calls.json`
+  (`tool-call-log.ts:5`, `:32-44` — no result text, as D-r26 (6) says).
+  - **The agent:** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\make-agent.cjs` writes `d4/decide-probe` (unsigned, `tools: ['decide']`,
+    `defaults.maxTurns: 4`; AGENT.md 2,236 bytes, sha256 `02051a90…7e81`) from `D4\h4-agent\AGENT.md` into
+    `<profile>\agents\d4\decide-probe\`. AGENT.md gives the model D1's T2 framing to copy (state = `t2-routing.json` `instruction`, type
+    `choice`, instructions `Which ONE tool family must act on this request? Request: "<user message>"`, the six family ids with D1's meanings,
+    `family: routing`) and asks for ONE reply line `TOOL TEXT: <the tool's result, verbatim>`. `h4-pre.js` (`h4-pre.json`): `agentsList` → 5
+    agents incl. `d4/decide-probe` (origin `user`, signature `unsigned`, tools `['decide']`); `decisionsStatus`: mode `auto`, order `['jev',
+    'openrouter-decisions']`, `jev.hasKey: true` / `available: true`, `openrouter-decisions.hasKey: false` (`why: 'no key'`).
+  - **Run 1 (the only run)** — `curl …:18471/__stub/reset`, then `h4-run-start.js` (17:58:45, `h4-run1-start.json`): `agentSessionCreate({
+    agentId: 'd4/decide-probe', providerId: 'claude-subscription' })` → session `s-a6550d3a`; `agentRunSend({ …, prompt: 'Cut out all the ums
+    and uhs from my intro clip.' })` (t2-01's request verbatim), fire-and-forget into `window.__h4`, polled by `h4-run-poll.js` (`h4-run1.json`):
+    started 15:58:45.816Z, ended 15:58:56.903Z (11.1 s), `success: true`, `toolsAvailable: true`, events `tool` (decide, callId
+    `4ecb78f3-e05b-4f09-bb26-91b784aa8203`, 15:58:53.873Z) then `done`; **reply text = `TOOL TEXT: Decision: cut (act)`**.
+  - **`calls.json`** (`<profile>\agent-sessions\d4.decide-probe\s-a6550d3a\calls.json`, copied to `h4-run1-calls.json`): ONE record — tool
+    `decide`, callId `4ecb78f3-…`, at 15:58:54.406Z, args `{ state, type: 'choice', instructions, options (6 keys), family: 'routing' }`, **no
+    `isError` key**, `artifactIds: []`; state / instructions / options are EQUAL to D1's T2 dry-run body for `t2_01`
+    (`d1-dry-run-t2-t3.json`: `stateEqualsD1` / `instructionsEqualD1` / `optionsEqualD1Criteria` all true).
+  - **The stub hit** (`stub-log.jsonl`, 15:58:54.397Z): port A, `variable: VIDTSX_DECISIONS_JEV_URL`, `/v1/systemone`, hit 1, model
+    `jev-1.14.0`, 1 question `decision` type `choice` criteria = the six families, **matched row `t2-01` (how `instructions`, recorded `cut`)**,
+    served `jev-1.14.0`, 416 input tokens, 200; `/__stub/stats` after the run: A 1 hit (200), B 0.
+  - **The tool text recomputed from the served numbers** — kit test `D4\h4-text\h4-decision-text.test.ts` (+ kit `vitest.config.mjs`; run
+    `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --root <kit>/h4-text --config <kit>/h4-text/vitest.config.mjs` → `Test
+    Files 1 passed (1)`, `Tests 1 passed (1)`, log `h4-decision-text-vitest.log`, record `h4-decision-text.json`): the served answer (D1's
+    recorded Jev t2_01 object: choice `cut`, probabilities cut 1 / others 0, confidence 1) → the tree's `readSystemOneAnswers` →
+    `isDecisionCalibrated('jev', 'jev-1.14.0', 'routing')` = true → `decisionOutcome(…, { threshold: 0.9, allowUncalibrated: false })` =
+    `{ band: 'act', answer: 'cut', p: 1 }` → `decisionText` = **`Decision: cut (act)`** = the agent's quote (`quoteEqualsComputed: true`).
+    **No-claim test (D-r22 (1), whole words, case-insensitive, no `%`, no digit) on the tool text: 0 violations** (computed and quote alike).
+  - **The usage row** (`h4-usage.js` → `aiUsageGetLog({ featureSource: 'decision-agent' })`, `h4-usage.json`, total 1): id
+    `9465485c-06b9-43c2-a20a-e514312c6e4a`, 15:58:54.399Z, `provider: 'typesafe'`, model `jev-1.14.0`, `featureSource: 'decision-agent'`,
+    `requestType: 'decision'`, `inputTokens: 416`, outputTokens 0, durationMs 520, **`costUsd: 0.000017472` = 416 × 0.042 / 1,000,000 =
+    0.000017472**.
+- §15.3 5: see below (builder #10).
 
 ## Next step
 
