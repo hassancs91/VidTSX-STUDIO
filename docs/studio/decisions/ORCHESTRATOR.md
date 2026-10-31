@@ -445,7 +445,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D3 — the Mapika spike (no product code) | **DONE — verdict FAIL: the local rung stays empty** (a note, no STOP; D4 (g) not built) | 3 | orchestrator re-check 09:30 (headline re-scored equal) + 09:44 (report) | docs `b5a3d3e` `17b3348` `15b00d8` `048c8a7` `2082918` | GPU headline T2 38 / 40 Brier 0.053, T3 33 / 40 Brier 0.122, off-list 0, warm p95 92.5 / 227.2 ms, peak RSS 4,483.7 MB → 3 PASS / 4 FAIL; `D3-mapika-report.md` 264 lines | 2026-10-31 08:53 / 09:43 |
-| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) DONE `c7ad6da`, (b) DONE `ed79420`, (c1) `b7b1648`; (c2) next | 3 | (a) re-checked 10:02, (b) 10:19, (c1) 10:36 | code `c7ad6da` `ed79420` `b7b1648` | engine + decisions services + registry: 147 tests; tsc 25 / 10 | 2026-10-31 09:46 / — |
+| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) `c7ad6da`, (b) `ed79420`, (c) `b7b1648` + `d9ec730` DONE; (d) next | 4 | (a) 10:02, (b) 10:19, (c1) 10:36, (c2) 10:48 | code `c7ad6da` `ed79420` `b7b1648` `d9ec730` | engine + services + IPC + preload + registry: 188 tests; tsc 25 / 10 | 2026-10-31 09:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 2 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-2.md, verbatim)
@@ -561,6 +561,22 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   UNREGISTERS its rung (image-init never does; §15.3 2 needs the flip back); (c) the status keys rungs at the top level (`status.jev.hasKey`,
   `local: { state: 'none' }`, `llm.available` = a text provider is active); (d) lazy start — nothing at app startup; (e) the status `why` order
   off → no key → switched off → not registered.
+- **D-r20 (orchestrator, 10:48) — D4 builder #4's (c2) decisions, accepted.** (1) A free-form `decisions:decide` from the renderer must carry
+  `featureSource` `decision-test` (the developer tester) or `decision-flow` (the canvas preview) — D2 §12's only two renderer callers — else
+  `invalid-request` with no call; main-side callers (the tool / node, part (d)) call the runtime directly with their own `featureSource`. **The
+  verifier's §15.3 1 stub run over IPC therefore sends `featureSource: 'decision-test'`** (the D5 brief says so). (2) A failed first-use start
+  answers a typed error instead of rejecting (the handler rule over library search's precedent). (3) The preload rebuilds the decide envelope
+  from `test` or `request` only (`src/preload/api/decisions.ts:13-15`). (4) A key save succeeds even when the decisions re-registration fails
+  (a fixed warning, no message text logged). (5) Handler errors pass a second scrub (`Bearer …`, `sk-…`). For (f): the TypeSafe Test button
+  calls `decisionsDecide({ test: 'jev' })`, disabled until a key is saved; the free-form tester sits behind the dev-preview flag.
+- **D-r21 (orchestrator, 10:48) — a dev-only stub hook so §15.3 1 / 3 / 4 / 5 can run without a real key.** The presets' base URLs are fixed
+  (`src/decision-engine/presets.ts:12,22`) and nothing lets a builder or the verifier point them at the stub server §15.3 names. Part (e)
+  adds, in main's wiring (`decision-init.ts`, injected so it is unit-testable): `VIDTSX_DECISIONS_JEV_URL` and `VIDTSX_DECISIONS_OPENROUTER_URL`
+  replace the matching preset's `baseURL` **only when the app is NOT packaged AND the URL is `http://127.0.0.1:<port>/…` or
+  `http://localhost:<port>/…`**; otherwise ignored with one warning; one log line per rung when in use ("decisions: dev stub URL in use for
+  jev" — the URL host:port only). The key still comes from the credential store (a FAKE key saved through the Providers row in a test
+  profile); the stub never logs request headers. Two variables (not one) so §15.3 5 can tell the OpenRouter-shaped call from Jev's. Tests:
+  packaged → ignored; non-loopback → ignored; unpackaged + loopback → used; unset → the preset URL.
 
 ## Stops (session 2)
 
@@ -664,4 +680,14 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 - 10:34–10:36 · **Orchestrator re-check:** HEAD `832d42e`; `be4ced8..HEAD` = 12 code paths + D4 HANDOFF / LOG; vitest `src/main/services/decisions` +
   `registry.test.ts` + `src/decision-engine` → **147 passed**; tsc **web 25 / node 10**, 0 errors in a decision / registry / ai-usage file; the
   existing key tests read (`ProviderKeysTable.tsx:61-63`, `useProviderKeyDrafts.ts:68-72` send the typed key) and `decision-runtime.ts:122-130`
-  (main builds the test request) → ruling **D-r19**. D4 builder #4 ((c2)) to spawn.
+  (main builds the test request) → ruling **D-r19**. D4 builder #4 ((c2)) to spawn. (Commit `96e7392`, 10:36:11.)
+- 10:37 · D4 builder #4 spawned (HEAD `96e7392`; (c2) — channels, handlers, registration, preload, `electron.d.ts`, the key-save hook, the
+  preload-surface + handlers tests; then part (c) DONE).
+- 10:45 · D4 builder #4 HANDOFF (~60 calls, ~10 min; code `d9ec730`, docs `2adb1e0` `1ede633`): **(c2) → part (c) DONE** — `src/main/ipc/decisions-handlers.ts`
+  (110), `registrations/decisions.ts` (31, `lazily`), `src/preload/api/decisions.ts` (29) + four test files (red 4 → green 4 / 41); channels.ts
+  654 → 660, electron.d.ts 656 → 661, register.ts 101 → 103, preload.ts 108 → 110, provider-keys-handlers.ts 83 → 91 (`await decisionsKeysChanged()`
+  in its own try / catch); related suites 117 / 118 files (the one red = `builder-libraries`, DRIVING:186); tsc 25 / 10. Five decisions (→ D-r20).
+- 10:46–10:48 · **Orchestrator re-check:** HEAD `1ede633`; vitest over the four new files + `src/main/services/decisions` + `src/decision-engine` +
+  `src/shared/providers` → **188 passed**; tsc **web 25 / node 10**; `src/preload/api/decisions.ts` read (four functions; the envelope rebuild);
+  **found: no way to point the presets at §15.3's stub server** (`presets.ts:12,22` fixed URLs) → rulings **D-r20** and **D-r21** (the dev-only
+  stub hook, built in part (e)). D4 builder #5 (part (d)) to spawn.
