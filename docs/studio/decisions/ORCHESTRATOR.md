@@ -445,7 +445,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D3 — the Mapika spike (no product code) | **DONE — verdict FAIL: the local rung stays empty** (a note, no STOP; D4 (g) not built) | 3 | orchestrator re-check 09:30 (headline re-scored equal) + 09:44 (report) | docs `b5a3d3e` `17b3348` `15b00d8` `048c8a7` `2082918` | GPU headline T2 38 / 40 Brier 0.053, T3 33 / 40 Brier 0.122, off-list 0, warm p95 92.5 / 227.2 ms, peak RSS 4,483.7 MB → 3 PASS / 4 FAIL; `D3-mapika-report.md` 264 lines | 2026-10-31 08:53 / 09:43 |
-| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) DONE `c7ad6da`, (b) DONE `ed79420`; (c) next | 2 | (a) re-checked 10:02, (b) 10:19 | code `c7ad6da` `ed79420` | (a)+(b): 9 files / 115 tests; tsc 25 / 10 | 2026-10-31 09:46 / — |
+| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) DONE `c7ad6da`, (b) DONE `ed79420`, (c1) `b7b1648`; (c2) next | 3 | (a) re-checked 10:02, (b) 10:19, (c1) 10:36 | code `c7ad6da` `ed79420` `b7b1648` | engine + decisions services + registry: 147 tests; tsc 25 / 10 | 2026-10-31 09:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 2 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-2.md, verbatim)
@@ -548,6 +548,19 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   engine already logs. (4) The LLM fallback's strict parse (noul = a JSON boolean, score = a level's text). (5) `scrub.ts` +
   `providers/system-one-answers.ts` beside D2 §4's table (the ≤ ~300-line rule). (6) A failed rung's `skipped` entry reads `provider error —
   <scrubbed message>`; `skipped` is omitted when empty.
+- **D-r19 (orchestrator, 10:36) — D4 builder #3's (c1) decisions, accepted; the TypeSafe key test rides `decisions:decide` in a TEST MODE.**
+  The app's image / video key tests send the TYPED draft key over IPC (`useProviderKeyDrafts.ts:68-72` → `imageProviderTest` /
+  `videoProviderTest`); D2 §15.2 requires that no key crosses the decisions IPC and that the preload exposes exactly the four `decisions:*`
+  functions. So the TypeSafe row's test = `decisions:decide` with `{ test: 'jev' }`: the renderer sends ONLY the rung id — no key, no state, no
+  questions; main's `DecisionRuntime.testKey()` (`decision-runtime.ts:122-130`) builds its own tiny `noul` with a fresh state, pinned to `jev`,
+  `featureSource: 'decision-test'`, and tests the SAVED key. Conditions for (c2) / (f): (1) in test mode main ignores any other field the
+  renderer sends; (2) D2 §12's dev-preview gate applies to the free-form `decide` (the developer tester), NOT to this fixed test (it is the
+  user-facing key test D2 §8 designs); (3) the row's Test button is disabled until a TypeSafe key is SAVED (its tooltip says so) — a typed,
+  unsaved key is never sent. Also accepted: (a) the `llm` rung's usage row is written once, by `decision-usage.ts`, as provider `llm` with output
+  tokens 0 (the text engine writes no row; the served text-provider id / output tokens are a NOTE for later, not reopened); (b) a removed key
+  UNREGISTERS its rung (image-init never does; §15.3 2 needs the flip back); (c) the status keys rungs at the top level (`status.jev.hasKey`,
+  `local: { state: 'none' }`, `llm.available` = a text provider is active); (d) lazy start — nothing at app startup; (e) the status `why` order
+  off → no key → switched off → not registered.
 
 ## Stops (session 2)
 
@@ -638,4 +651,17 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   115 passed**; tsc **web 25 / node 10**, 0 errors in a decision file; largest source file 265 lines; no `any` / default export; the engine imports
   only `vitest`, its own files and `../shared/types/decisions`; **key scan over the three fixtures** (`sk-…`, `sk-or-…`, `Bearer …`, `api_key`,
   `authorization`, `TYPESAFE`, `OPENROUTER_`, `secret`, any 32+ char token) → nothing; `measures.cjs:18,25-26` read (the scorer acts on the top
-  probability) → ruling **D-r18**. D4 builder #3 (part (c), main's wiring) to spawn.
+  probability) → ruling **D-r18**. D4 builder #3 (part (c), main's wiring) to spawn. (Commit `be4ced8`, 10:19:21.)
+- 10:20 · D4 builder #3 spawned (HEAD `be4ced8`; part (c) — `src/main/services/decisions/`, the `typesafe` registry entry + `'decision'`
+  capability, IPC §12 + preload + status + the preload-surface test; a green sub-checkpoint + hand-off allowed).
+- 10:33 · D4 builder #3 HANDOFF (~66 calls, ~14 min; code `b7b1648`, docs `832d42e`): **(c1)** — `src/main/services/decisions/{decision-init (54),
+  decision-usage (50), decision-settings (71), decision-runtime (226)}.ts` + tests; `src/shared/ipc/types/decisions.ts` (70; status keyed by rung,
+  has-key booleans only); registry `typesafe` (['decision'], "TypeSafe API key", `test: 'decision'`), `openrouter` += 'decision', `ProviderCapability`
+  / `ProviderTestKind` += 'decision', label `decision: 'Decisions'`; `AiFeatureSource` += the four `decision-*`, `AiRequestType` += 'decision'; red 5
+  failed → green 5 / 32; related suites 100 / 101 files (the one red = the known worktree-only `builder-libraries` resolution suite, DRIVING:186);
+  tsc 25 / 10. Six decisions (→ D-r19). (c2) next: channels, handlers, lazily-registered registration, `src/preload/api/decisions.ts`,
+  `electron.d.ts`, the key-save hook, the preload-surface + handlers tests.
+- 10:34–10:36 · **Orchestrator re-check:** HEAD `832d42e`; `be4ced8..HEAD` = 12 code paths + D4 HANDOFF / LOG; vitest `src/main/services/decisions` +
+  `registry.test.ts` + `src/decision-engine` → **147 passed**; tsc **web 25 / node 10**, 0 errors in a decision / registry / ai-usage file; the
+  existing key tests read (`ProviderKeysTable.tsx:61-63`, `useProviderKeyDrafts.ts:68-72` send the typed key) and `decision-runtime.ts:122-130`
+  (main builds the test request) → ruling **D-r19**. D4 builder #4 ((c2)) to spawn.
