@@ -14,8 +14,9 @@
   (filed by the orchestrator from the verifier's text, `6f23b95`). D5 verified the tree at `b8e85d0` (`src/` = `3f50e63`), 2026-10-31
   18:22:50 → 18:41:29. **The gated live test RAN with Hasan's keys: PASS, 4 requests, $0.001298388** (below). Part (g), the local rung, was
   NOT built — **D3 FAILED** (Mapika: 3 PASS / 4 FAIL, `docs/studio/decisions/D3-mapika-report.md` §6–§7), so the ladder starts at Jev and the
-  local rung reports "no local model". Two §15.3 items need Hasan's key inside the app — DEFERRED-HASAN, not a FAIL. Numbers are D4's unless
-  marked D5; where both measured, the verifier's comparison table agrees except §15.3 1's max gap and §15.3 4's usage (below).
+  local rung reports "no local model". The two §15.3 items that needed Hasan's key inside the app are **DONE by Hasan's own test (2026-10-31
+  19:51–19:53, below)** — §15.3 has no DEFERRED item left. Numbers are D4's unless marked D5; where both measured, the verifier's comparison
+  table agrees except §15.3 1's max gap and §15.3 4's usage (below).
 - **Where / when:** branch `decision-models` (worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt`), as of `b8e85d0` the range
   `b2b8a02..b8e85d0` = 45 commits, 117 paths (`src/` 106 = 84 created / 22 modified, `docs/` 9, `Status.md`, `tsconfig.node.json`); then D5's
   report `6f23b95` + this record. **Not pushed, not merged.** D4 ran 2026-10-31 09:52 → 18:20 (parts (a)–(e) 09:52–11:40; the session's end,
@@ -76,13 +77,22 @@
   `no-provider`, 0 stub hits; `jev` out of the order → the OpenRouter-shaped port with the adapter's noul criteria, MSD1 snapshot, cost = the
   stub's (D4, t3-30: p 0.95, $0.000011214; D5's noul: p 0.08, 137 tokens, $0.000005754). Hosted calls: D4 0, D5 4 (the live test above, 4 / 8);
   keyless runs: D4 1, D5 1 (1 / 3).
-- **DEFERRED-HASAN (needs his key inside the app):** §15.3 1's "during 5 real Jev calls" and §15.3 6's one real `check_matches_request` run with
-  his key (AI → Providers → Decisions → TypeSafe) — his own test. (§15.1's gated live test, listed here by D4, was RUN by D5 — above.)
+- **Hasan's own test — DONE (2026-10-31 19:51–19:53, his key typed + saved by him in AI → Providers → Decisions; read back through
+  `window.api` only; recorded in `docs/studio/decisions/ORCHESTRATOR.md` "Hasan's own test — DONE"):** `decisionsStatus` → mode auto,
+  `jev.hasKey` true; his **Test** press → one real call, usage row typesafe / jev-1.14.0 / decision-test / **305 tokens / $0.000012810 / 428 ms**;
+  **§15.3 6 — his flow run** "Decisions check — real key" (status success) → `check_matches_request` band **act**, answer **yes** (t3-01, label
+  true), `p` 0.96 in the run record, usage 448 tokens / $0.000018816 / 368 ms; **§15.3 1 — "during 5 real Jev calls"**: 5 concurrent real
+  `decisionsDecide` (t3-02 … t3-06) → **max IPC ping gap 12.4 ms** (bar ≤ 250; p50 0.2 / p95 0.3 ms, 1,863 pings), **5 / 5 right**, `jev-1.14.0`,
+  calibrated, not cached, **377–392 ms** each, Σ $0.000092442. The test profile `profiles\decisions-hasan` (it held his key) was **deleted**
+  19:53 after a look — never read or copied. (§15.1's gated live test, listed here by D4, was RUN by D5 — above.)
+- **D6 — the product shape (2026-10-31 19:25, D-r29, T3 × Jev, one run):** Jev T3 **HOLDS** in the product shape (state = the evidence) —
+  **40 / 40, Brier 0.0042**, 0 errors, p95 256.8 ms; at 0.9 act-right 36 / **act-wrong 0** / escalate 4; 40 requests, $0.000701652 (framing +
+  packing changed together; one run). Hasan: "enough" — no MSD1 / control run.
 - **Notes for Hasan (not FAILs):** (1) D-r27 (a) — with `jev` switched off in the order, a result's `skipped` names only the rungs AHEAD of the
-  used one (`local`), the switched-off rung is reported by `decisions:status` ("switched off in Settings"): should D2 §3's "the rungs 'auto'
-  passed over" name it? (2) D-r27 (b) — the live agent run showed the `act` band only; `escalate` is covered offline and live by §15.3 3's t3-27.
-  (3) D-r16 (e) — whether the hosted 40 / 40 rows hold in a PRODUCT shape (state = the evidence) is not measured; the built-ins send D1's
-  measured framing. (4) D3 §10 item 2 — the CPU default: a 2B decider on CPU took 2.6–3.9 s per request at ~8.1 GB RSS; D2 §5.3's "CPU by
+  used one (`local`), the switched-off rung is reported by `decisions:status` ("switched off in Settings") — **CLOSED by Hasan 2026-10-31
+  ~19:55: "leave it"** (no code change). (2) D-r27 (b) — the live agent run showed the `act` band only; `escalate` is covered offline and live by
+  §15.3 3's t3-27. (3) D-r16 (e) — whether the hosted 40 / 40 rows hold in a PRODUCT shape (state = the evidence) — **measured by D6 for Jev T3:
+  holds (above)**; MSD1 not measured. (4) D3 §10 item 2 — the CPU default: a 2B decider on CPU took 2.6–3.9 s per request at ~8.1 GB RSS; D2 §5.3's "CPU by
   default" needs his reading before any later local candidate. (5) D5's notes — MSD1's cold first call took 2,626 ms (excluded by the bar);
   `shot-module-resolver.test.ts` was red in 2 of D5's 3 full runs (DRIVING's load suite, outside the range, green alone and in try 3); the agent
   runtime's own claude-subscription turn wrote no usage row, only the decide call did; three files already over 300 lines at `b2b8a02` grew

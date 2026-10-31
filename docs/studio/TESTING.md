@@ -749,15 +749,28 @@ only its own `decisions-D5-verify` electron.exe (4 PIDs) and its stub (1 node PI
   p 0.08, 137 tokens, $0.000005754 (the stub's cost); OpenRouter port hit once (Jev +0), path `/api/alpha/decisions`, `noulCriteria: [true]`.
   *(D5 PASS)*
 
-### 20.4 Not measured — Hasan's list (DEFERRED-HASAN) and the notes
+### 20.4 Hasan's list (was DEFERRED-HASAN — now all done) and the notes
 - [x] **§15.1's gated live test with a key in the environment** — listed here by D4 as the verifier's; **RUN by D5** with Hasan's keys
   (`bash <K>live-test.sh`): PASS, 4 requests, $0.001298388 (20.1). No longer on his list.
-- [ ] **DEFERRED-HASAN — §15.3 1's "during 5 real Jev calls" and §15.3 6's one real `check_matches_request` run** — need Hasan's TypeSafe key
-  saved inside the app (AI → Providers → Decisions); his own test. D5 recorded both as DEFERRED-HASAN, not a FAIL.
+- [x] ✎ **§15.3 1's "during 5 real Jev calls" and §15.3 6's one real `check_matches_request` run — DONE by Hasan's own test** (2026-10-31
+  19:51–19:53; D5 had recorded both as DEFERRED-HASAN). Branch build (`src/` = `3f50e63`) on a fresh profile `profiles\decisions-hasan` (from
+  `source`, 0 `settings.db*`), CDP 9306, no stub (real preset URLs); Hasan typed + saved HIS TypeSafe key in AI → Providers → Decisions; read
+  back through `window.api` only: `decisionsStatus` → mode auto, `jev.hasKey` true, available. His **Test** press → one real call, usage row
+  typesafe / jev-1.14.0 / decision-test / **305 tokens / $0.000012810 / 428 ms**. **§15.3 6:** his flow run "Decisions check — real key" (t3-01
+  preset, status success) → `check_matches_request` band **act**, answer **yes** (t3-01, label true), `p` 0.96 in the run record, usage
+  decision-flow / 448 tokens / $0.000018816 / 368 ms. **§15.3 1:** an IPC ping loop (`studioRootGet` back to back) around 5 concurrent real
+  `decisionsDecide` (`decision-test`, T3 rows t3-02 … t3-06 in `check_matches_request`'s framing) → **max gap 12.4 ms** (bar ≤ 250; p50 0.2 /
+  p95 0.3 ms, 1,863 pings in the 392 ms window), **5 / 5 ok and right**, `jev-1.14.0`, calibrated, not cached, **377–392 ms** each, Σ
+  $0.000092442 (`C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\hasan-test\real5-result.json`, 0 key-shaped strings). Cleanup: the profile's
+  4 `electron.exe` stopped; **the test profile (it held his key) deleted** 19:53 after a look — never read or copied. Recorded in
+  `docs/studio/decisions/ORCHESTRATOR.md` "Hasan's own test — DONE". **§15.3 has no DEFERRED item left.**
+- [x] **D6 — the product shape (D-r29; T3 × Jev, one live run 2026-10-31 19:25):** Jev T3 **holds** with state = the evidence — **40 / 40,
+  Brier 0.0042**, 0 errors, p95 256.8 ms; at 0.9 act-right 36 / **act-wrong 0** / escalate 4 (t3-07, t3-12, t3-27, t3-37, each answered
+  right); 40 requests, $0.000701652 (framing + packing changed together; one run). Hasan: "enough" — no MSD1 / control run.
 - **Notes (never a FAIL):** D-r27 (a) — with `jev` switched off, a result's `skipped` lists only the rungs ahead of the used one (`local`); the
-  switched-off rung shows in `decisions:status` — whether D2 §3's "the rungs 'auto' passed over" should name it is his question. D-r27 (b) — the
+  switched-off rung shows in `decisions:status` — **CLOSED by Hasan 2026-10-31 ~19:55: "leave it"** (no code change). D-r27 (b) — the
   live agent run showed `act` only; `escalate` is covered offline and by check 3's t3-27. D-r16 (e) — the hosted rows were measured only in
-  D1's framing; whether they hold in a product shape (state = the evidence) is not measured. D3 §10 item 2 — a 2B local decider on CPU took
+  D1's framing; **D6 measured Jev T3 in a product shape: holds (above)**; MSD1 in a product shape is not measured. D3 §10 item 2 — a 2B local decider on CPU took
   2.6–3.9 s per request at ~8.1 GB RSS; D2 §5.3's "CPU by default" needs his reading before any later local candidate. The scratch agent
   `d4/decide-probe` and a FAKE TypeSafe key stay in the `decisions-D4` profile. **D5's notes (§15.4 and its own):** MSD1's cold first call took
   2,626 ms — excluded by the bar, no latency came near a bound; Jev's probabilities sum to 1 within 1e-6 after renormalisation; no local rung —
