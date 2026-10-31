@@ -444,7 +444,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D3 — the Mapika spike (no product code) | TODO | 0 | orchestrator re-check (the D1 precedent) | — | — | — |
+| D3 — the Mapika spike (no product code) | BUILDING — (a) (b) DONE (builder #1); (c) next | 1 | orchestrator re-check (the D1 precedent) | — | — | — |
 | D4 — the build (D2 §14 (a) → (h)) | TODO | 0 | — | — | — | — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
@@ -488,6 +488,19 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   bar's "warm p95 ≤ 300 ms per request" is read on these (per request = per question here). **One PACKED run per task (all rows in one
   System One call, = D1's hosted request) is a NOTE** for the per-question amortised time, if the Mapika API takes many questions per call.
   A product-shaped variant (state = the row's text, a generic question) is an optional NOTE, never the headline.
+- **D-r13 (orchestrator, 09:12) — which RSS the bar's "RSS ≤ 2 GB" reads (builder #1's open problem).** The term reads the worker's **PEAK
+  RSS over the whole measured run** (process start → last answer) — the measure D1 used for every local candidate (`c-llama.md`, `c-laya.md`
+  peaks). The steady RSS after the warm runs, the peak private commit and the VRAM (max allocated / reserved, nvidia-smi before / after) are
+  reported beside it. The worker loads through the package's own API (`decider.infer.Decider(path, device=…)`), unmodified; a lower-peak load
+  is allowed only through a documented `Decider` argument or the order of our own worker's steps (never a patch to the package), only if the
+  smoke's answer stays identical to 4 dp, and then both loads are reported. **If peak RSS is the ONLY failing term, the verdict is "FAIL (RSS
+  only)"; per the paste-in's (e) Hasan rules at the stop, so D4 (g) is NOT built in this session** — the report's "How D4 (g) productises it"
+  section is the recipe for a follow-up. Private commit (6,651.1 MB in `b-smoke-gpu-run2.json`) is checked by the resource guard before every
+  load (C: + commit headroom ≥ 6 GB; 48 GB headroom at 08:49).
+- **D-r14 (orchestrator, 09:12) — v11 only.** D3 measures the weights on disk = Hub tag `v11` (sha256 `acaef222…817f`, `a-facts.md` §1). v12
+  (Hub `main` since 2026-10-20; noul T 0.05 = uncalibrated yes / no by default; a fitted map on its card), the maker's v12 GGUFs and decider-0.8b
+  are FACTS in the report, not measured — the brief authorises the experiment's folder, no new 3.8 GB download. A D4 (g) first-use download pins
+  revision `v11` and checks that sha256 (the size cannot tell v11 from v12).
 
 ## Stops (session 2)
 
@@ -504,4 +517,21 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   from 2026-10-05 may be in it — for the builder to check).
 - 08:50 · the tsc baseline at `b2b8a02` (orchestrator background check, before any D3 timing run; logs `B4\tsc-{web,node}-b2b8a02.log`):
   **web 25 / node 10** (rc 2 each, finished 08:50:45) = the brief's baseline at `efa5e0b` — D4's gate is ≤ 25 / ≤ 10.
-- 08:52 · ruling D-r12 (D3's framing); this section + `D3/HANDOFF.md` + `D3/LOG.md` written.
+- 08:52 · ruling D-r12 (D3's framing); this section + `D3/HANDOFF.md` + `D3/LOG.md` written (commit `bb2f921`, 08:52:03).
+- 08:53 · D3 builder #1 spawned (HEAD `bb2f921`; steps (a) facts + (b) the venv and a one-question GPU smoke; (c) only if budget allows).
+  Meanwhile the orchestrator drafted `D4/HANDOFF.md` + `D4/LOG.md` (no code read beyond directory listings and the LS-r1 rulings).
+- 09:08 · D3 builder #1 HANDOFF (~58 calls incl. the installs, ~16 min; docs `b5a3d3e` `17b3348`): **(a)** `K3\reports\a-facts.md` + `raw-hub\` — the
+  local weights = Hub tag **v11** (sha256 equal, config byte-identical); Hub `main` = v12 (2026-10-20, noul T 0.05); **GGUF / ONNX DO exist**
+  (`Mapika/decider-2b-GGUF`: v12 BF16 3,775,708,704 B, Q8_0 2,012,012,064 B, Q4_K_M 1,274,396,192 B; community exports) — contradicts the paste-in's
+  "likely not"; decider-ai 1.10.0 declares `flash-linear-attention`; the card facts agree with the paste-in (Apache-2.0, Qwen3.5-2B-Base, en,
+  temperatures choice 1.164 / noul 1.624 / score 1.124, 255 options, 32,768 state tokens); `system_one` takes many questions per call; family:
+  0.8b 1,504,827,608 B, 2b-vision 4,426,558,864 B, 4b 8,411,558,400 B. **(b)** venv `B3\py-scratch\mapika-venv` 3,417,428,997 B (Python 3.13.2,
+  torch 2.14.1+cu130 — the 1,990.6 MB wheel from pip's cache, ≈ 1.8 MB new over the network; decider-ai 1.10.0, transformers 5.22.1; no Triton →
+  the reference attention path, as in the experiment); **CUDA works**; one-question smoke run 2 (CPU 6 % / 13 %): load 11.100 s, process start →
+  first answer 15.896 s, warm 34.5–37.2 ms per request, RSS 900.1 after load / 1,668.1 end / **peak 4,483.9 MB**, private 6,651.1 MB, VRAM max
+  allocated 3,625.7 MB; run 1 under Defender (93 %) repeated, answers identical.
+- 09:09–09:12 · **Orchestrator re-check:** HEAD `17b3348`, `b2b8a02..HEAD -- src scripts package*.json` empty, only D3's HANDOFF / LOG changed;
+  K3 holds `reports\{a-facts.md,b-venv.md,b-pip-freeze.txt,b-smoke-gpu-run1.json,b-smoke-gpu-run2.json,raw-hub\}`, `scripts\{b-smoke.py,
+  hub-facts.py,load-snapshot.ps1}`; `b-smoke-gpu-run2.json` read — every number above is in it; a-facts §1 / §4 / §5 read; 0 python processes.
+  → rulings **D-r13** (peak RSS; RSS-only fail → no (g) this session) and **D-r14** (v11 only). D3 builder #2 (step (c) the worker + host, then
+  (d)) to spawn.

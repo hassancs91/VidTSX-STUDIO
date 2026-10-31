@@ -123,6 +123,11 @@ T2 rows, then step (d).
 
 ## Open problems
 
+> **Orchestrator, 09:12:** the first and third items below are RULED — **D-r13** (the term reads the worker's PEAK RSS over the whole run;
+> steady RSS, peak private commit and VRAM beside it; a lower-peak load only via a documented `Decider` argument or our worker's own step
+> order, answers identical to 4 dp, both reported; RSS-only fail → "FAIL (RSS only)", Hasan rules at the stop, no D4 (g) this session) and
+> **D-r14** (v11 only; v12 / the GGUFs / decider-0.8b are facts in the report, not measured). See ORCHESTRATOR.md "Rulings (session 2)".
+
 - **Which RSS the bar reads.** The worker's peak RSS is a load-time peak (4,483.9 MB, run 2) — the weights pass through RAM before moving to VRAM
   — while the steady RSS after warm requests is 1,668.1 MB (b-venv.md §4). The bar says "RSS ≤ 2 GB (VRAM reported beside)". (d) should record
   both peak and steady values; the orchestrator / Hasan decide which one the term reads (the Goal's (e) already lets Hasan rule if RSS alone fails
