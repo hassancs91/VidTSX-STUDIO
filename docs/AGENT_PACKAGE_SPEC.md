@@ -334,10 +334,20 @@ node scripts/agent-pack.mjs --genkey --key-id acme-1   # writes ~/.vidtsx/keys/a
 
 `--genkey` writes the private key **straight to a file outside your
 repository** and never prints it; it prints only the public half (the entry
-for `src/shared/agents/publishers.ts`) and refuses to overwrite a file. Keep a
-copy in a password manager. Pass the file as `--key <path>` or via
+for `src/shared/agents/publishers.ts`) and refuses to overwrite a file. The
+file is **encrypted with a passphrase** you type twice at the terminal (12+
+characters): a plain key file can be read and used by any program running as
+you, AI coding sessions included. Keep the passphrase in a password manager,
+with a copy of the (encrypted) file. Pass the file as `--key <path>` or via
 `VIDTSX_AGENT_SIGNING_KEY`; the script reads it itself, so the key never has
 to be pasted anywhere.
+
+Every signing run with an encrypted key asks for the passphrase on the
+terminal, hidden. It is never read from an argument, an environment variable
+or a pipe, so a script or a session cannot sign with the key: run the packer
+yourself, in PowerShell or cmd (Git Bash's mintty is not a terminal to Node).
+`--genkey --no-passphrase` writes a plain key instead, and a plain key still
+signs without a prompt.
 
 The name a package is signed under (`keyId`) comes from the key: a key listed
 in `publishers.ts` always signs under its own entry's name, so `--key-id` is

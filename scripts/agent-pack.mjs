@@ -3,7 +3,9 @@
 //   node scripts/agent-pack.mjs <folder> --check
 //   node scripts/agent-pack.mjs <folder> --hash      (rewrite files[] in agent.json)
 //   node scripts/agent-pack.mjs <folder> --out dist/vidtsx.motion-post.vidtsxagent [--key <path>]
-//   node scripts/agent-pack.mjs --genkey --key-id vidtsx-3 [--out <path>]   (a NEW key, written to a file)
+//   node scripts/agent-pack.mjs --genkey --key-id vidtsx-3 [--out <path>] [--no-passphrase]
+//     (a NEW key, written to a file — encrypted with a passphrase typed twice
+//     at the terminal, unless --no-passphrase)
 //
 // The author's checker IS the install validator: `parseAgentManifest` and
 // `signAgentManifest` are bundled straight out of `src/` with esbuild, so a
@@ -21,7 +23,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { describeSigner, generateKeyFile, readSigningKey } from './signing-key.mjs';
+import { askHidden, defaultKeyPath, describeSigner, generateKeyFile, readSigningKey } from './signing-key.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 const MANIFEST_NAME = 'agent.json';
@@ -161,17 +163,37 @@ async function generateKey(flags, rules) {
   if (rules.AGENT_PUBLISHERS.some((p) => p.keyId === keyId)) {
     fail(`"${keyId}" is already a key in publishers.ts. A new key gets a new name; a name is never reused.`);
   }
+  const outPath = typeof flags.out === 'string' ? path.resolve(flags.out) : defaultKeyPath(keyId);
+  // Checked before the passphrase is typed, so a taken path costs nothing.
+  if (await fs.stat(outPath).then(() => true, () => false)) {
+    fail(`${outPath} already exists: a key is never overwritten. Pick a new --key-id or --out.`);
+  }
+  const plain = Boolean(flags['no-passphrase']);
+  let passphrase;
+  if (!plain) {
+    try {
+      passphrase = await askHidden(`New passphrase for ${keyId} (12+ characters, kept in your password manager): `);
+      if (passphrase.length < 12) fail('The passphrase needs 12 or more characters. Nothing was written.');
+      if ((await askHidden('The same passphrase again: ')) !== passphrase) fail('The two passphrases differ. Nothing was written.');
+    } catch (err) {
+      fail(`${err.message} Nothing was written. (--no-passphrase writes a plain key instead.)`);
+    }
+  }
   let made;
   try {
-    made = await generateKeyFile(keyId, typeof flags.out === 'string' ? path.resolve(flags.out) : undefined);
+    made = await generateKeyFile(keyId, outPath, passphrase);
   } catch (err) {
     fail(err.message);
   }
-  console.log(`\n✓ ${keyId}: private key written to ${made.path} (not shown anywhere).`);
+  console.log(`\n✓ ${keyId}: private key written to ${made.path} (${plain ? 'PLAIN — any program running as you can read it' : 'encrypted with your passphrase'}; not shown anywhere).`);
   console.log('\nNow, before anything else:');
-  console.log('  1. Copy that file\'s 3 lines into your password manager — the only copy off this machine.');
+  if (plain) {
+    console.log('  1. Copy that file\'s 3 lines into your password manager — the only copy off this machine.');
+  } else {
+    console.log('  1. Save the passphrase in your password manager, with a copy of that file (encrypted — useless without it).');
+  }
   console.log(`  2. Lock it to your user:  icacls "${made.path}" /inheritance:r /grant:r "${os.userInfo().username}:F"`);
-  console.log(`  3. Point the packers at it:  setx VIDTSX_AGENT_SIGNING_KEY "${made.path}"  (new terminals)`);
+  console.log(`  3. Point the packers at it:  setx VIDTSX_AGENT_SIGNING_KEY "${made.path}"  (new terminals)${plain ? '' : ' — each signing asks for the passphrase'}`);
   console.log('  4. Add this entry to src/shared/agents/publishers.ts (public half — safe to commit):\n');
   console.log('  {');
   console.log(`    keyId: '${keyId}',`);
