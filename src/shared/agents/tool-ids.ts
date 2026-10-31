@@ -60,6 +60,10 @@ export const AGENT_TOOL_IDS = [
   // §1.5) — the draft from the lineage walk, and the one tool that names it.
   'freeze_session_to_flow',
   'save_flow',
+  // Decision models (DECISION_MODELS_DESIGN.md §10.1–10.2): the decide tool / node and the two gate nodes.
+  'decide',
+  'check_matches_request',
+  'route_request',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

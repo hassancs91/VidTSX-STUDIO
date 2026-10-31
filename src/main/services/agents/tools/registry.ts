@@ -48,6 +48,9 @@ import { proposeFlowTool } from './propose-flow';
 import { readRunTool } from './read-run';
 import { freezeSessionToFlowTool } from './freeze-session-to-flow';
 import { saveFlowTool } from './save-flow';
+import { decideTool } from './decide';
+import { checkMatchesRequestTool } from './check-matches-request';
+import { routeRequestTool } from './route-request';
 
 // Wave 1 (plan §1.3).
 registerTool(writeDocumentTool);
@@ -96,3 +99,8 @@ registerTool(readRunTool);
 // from the lineage walk, and the one tool that names it.
 registerTool(freezeSessionToFlowTool);
 registerTool(saveFlowTool);
+// Decision models (DECISION_MODELS_DESIGN.md §10.1–10.2): the decide tool / node and the two gate nodes. Agent tools + nodes only — the
+// Studio assistant's STUDIO_TOOL_IDS gets none of them in slice 1 (§13).
+registerTool(decideTool);
+registerTool(checkMatchesRequestTool);
+registerTool(routeRequestTool);
