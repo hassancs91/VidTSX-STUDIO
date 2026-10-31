@@ -1,0 +1,74 @@
+{
+ "t2": {
+  "model": "jev-1.14.0",
+  "state": "You route a request a user typed to a video editor's assistant to the ONE tool family that must act on it: cut (remove / trim parts of the footage), audio (sound effects or music), shots (visuals over the footage: titles, lower thirds, charts, images, b-roll, screenshots), captions (subtitles on / off / style), export (render the finished file), or none (no editing tool: a question, thanks, a preference to remember, notes).",
+  "questions": {
+   "t2_01": {
+    "type": "choice",
+    "instructions": "Which ONE tool family must act on this request? Request: \"Cut out all the ums and uhs from my intro clip.\"",
+    "criteria": {
+     "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+     "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+     "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+     "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+     "export": "render / export the edit to a file",
+     "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+    }
+   },
+   "t2_02": {
+    "type": "choice",
+    "instructions": "Which ONE tool family must act on this request? Request: \"Remove the long pauses between my sentences.\"",
+    "criteria": {
+     "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+     "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+     "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+     "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+     "export": "render / export the edit to a file",
+     "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+    }
+   },
+   "t2_31": {
+    "type": "choice",
+    "instructions": "Which ONE tool family must act on this request? Request: \"احذف كل كلمات الحشو مثل «آآ» و«يعني» من المقطع.\"",
+    "criteria": {
+     "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+     "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+     "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+     "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+     "export": "render / export the edit to a file",
+     "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+    }
+   }
+  }
+ },
+ "t3": {
+  "model": "jev-1.14.0",
+  "state": "You check a video editor's assistant's work. Answer yes only if the item really does what the request or script line asks, by plain meaning; a loosely related or merely similar item is NOT a match.",
+  "questions": {
+   "t3_01": {
+    "type": "noul",
+    "instructions": "Does this video template do what the request asks?\nTemplate \"App Launch Teaser\": A launch teaser for your app. A laptop, phone or browser rises with your screenshot sliding into the screen, the name and tagline land, three feature chips pop in one by one, and the call-to-action pill holds as a poster.\nRequest: \"Make a short teaser for my new app that shows the screenshot on a phone and lists three features.\"",
+    "criteria": {
+     "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+     "false": "No: the item does something else, or is only loosely related / merely similar."
+    }
+   },
+   "t3_02": {
+    "type": "noul",
+    "instructions": "Does this video template do what the request asks?\nTemplate \"Before / After\": A split-screen comparison. A divider sweeps across the frame and wipes your after image in over the before, overshoots and settles where you set it, while the labels cross-fade and the headline arrives. Both images share one framing, so the comparison stays honest.\nRequest: \"Show my old landing page and the redesigned one with a wipe between them.\"",
+    "criteria": {
+     "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+     "false": "No: the item does something else, or is only loosely related / merely similar."
+    }
+   },
+   "t3_07": {
+    "type": "noul",
+    "instructions": "Does this video template do what the request asks?\nTemplate \"Quote Card\": A cinematic quote or testimonial. The quote reveals word by word in reading rhythm, an accent rule draws under the last word, then the author slides in with a portrait or an initials disc. The type sizes itself to the quote.\nRequest: \"اعرض اقتباس العميل كلمةً كلمة مع اسمه وصورته.\"",
+    "criteria": {
+     "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+     "false": "No: the item does something else, or is only loosely related / merely similar."
+    }
+   }
+  }
+ }
+}

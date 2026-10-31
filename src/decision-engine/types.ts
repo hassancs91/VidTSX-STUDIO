@@ -41,12 +41,24 @@ export interface DecisionLimits {
 /** Can a provider answer right now? `reason` is a plain sentence (the ladder's `why`). */
 export type DecisionProviderReadiness = { ready: true } | { ready: false; reason: string };
 
+/** One provider HTTP call (§9: one usage row each — a split request makes several). */
+export interface DecisionCallUsage {
+  /** As served. */
+  model: string;
+  inputTokens: number;
+  costUsd: number;
+  durationMs: number;
+}
+
 /** What a provider returns; the engine adds provider, calibrated, latency, cached and skipped. */
 export interface DecisionProviderOutput {
   answers: Record<string, DecisionAnswer>;
   /** As served. */
   model: string;
+  /** The sum over `calls`. */
   usage: { inputTokens: number; costUsd: number };
+  /** Per HTTP call, when the provider made several or measured them (absent = one call, `usage`). */
+  calls?: DecisionCallUsage[];
 }
 
 /** The interface every decision provider implements (§4). */
@@ -71,6 +83,8 @@ export interface DecisionProviderConfig {
   model: string;
   apiKey?: string;
   credentialId?: DecisionCredentialId;
+  /** List price for input (§9: the cost when the provider reports none; output is free on System One). */
+  usdPerMInputTokens?: number;
 }
 
 /** A built-in hosted provider: the shared credential that unlocks it (the `ImageProviderPreset` shape). */
