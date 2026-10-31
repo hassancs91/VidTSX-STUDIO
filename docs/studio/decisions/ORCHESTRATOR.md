@@ -444,8 +444,8 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D3 — the Mapika spike (no product code) | BUILDING — (a) (b) (c) DONE, (d) headline DONE (builders #1–#2); CPU + product notes, (e) next | 2 | orchestrator re-check (the D1 precedent) | — | — | — |
-| D4 — the build (D2 §14 (a) → (h)) | TODO | 0 | — | — | — | — |
+| D3 — the Mapika spike (no product code) | **DONE — verdict FAIL: the local rung stays empty** (a note, no STOP; D4 (g) not built) | 3 | orchestrator re-check 09:30 (headline re-scored equal) + 09:44 (report) | docs `b5a3d3e` `17b3348` `15b00d8` `048c8a7` `2082918` | GPU headline T2 38 / 40 Brier 0.053, T3 33 / 40 Brier 0.122, off-list 0, warm p95 92.5 / 227.2 ms, peak RSS 4,483.7 MB → 3 PASS / 4 FAIL; `D3-mapika-report.md` 264 lines | 2026-10-31 08:53 / 09:43 |
+| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — part (a) | 0 | — | — | — | 2026-10-31 09:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 2 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-2.md, verbatim)
@@ -508,6 +508,23 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   paste-in's own "T2 + T3 on CPU as a note" runs (one row per request). **One product-shaped NOTE on GPU** (state = the row's own text, a short
   generic instruction, the same criteria — T3 first, T2 if cheap) is run so the report can say whether the FAIL depends on D1's framing; it
   never replaces the headline. Then step (e).
+- **D-r16 (orchestrator, 09:44) — the request shape the product sends (D3 report §10 item 1).** D3's product-shaped note moved Mapika's T3 by
+  5 / 40 (`D3-mapika-report.md` §8), and the hosted 40 / 40 rows — on which D2 §15.1's `calibrated: true` rests — were measured ONLY in D1's
+  framing (`state` = a fixed task rule; one self-contained question per row with the evidence inside `instructions`; D1's criteria —
+  `K1\hosted-run.cjs:50-57`). So: (a) **the `system-one` adapter is a transport** — it sends the caller's `state` + keyed `questions` unchanged
+  (the only rewrite is OpenRouter's required `noul` criteria, D2 §5.1); no reframing inside the engine. (b) **The two built-in gate nodes frame
+  their requests in D1's measured shape:** `check_matches_request` sends `state` = D1's T3 rule verbatim ("You check a video editor's
+  assistant's work. Answer yes only if the item really does what the request or script line asks, by plain meaning; a loosely related or
+  merely similar item is NOT a match.") and ONE `noul` question whose `instructions` carry the item and the request the way D1's T3 rows do
+  (`t3-verify.json` `question`), with D1's T3 criteria; `route_request` sends `state` = a routing rule (an optional `rule` config — default: a
+  generic rule naming the caller's options; D1's T2 rule is passed verbatim in the benchmark) and ONE `choice` question "Which ONE … must act
+  on this request? Request: <JSON>" with the caller's options as criteria, as D1's T2. (c) **The benchmark's unit tests (D4 (d) / (e)) assert
+  that the built-ins, fed D1's T3 rows / D1's T2 rule + families, produce request bodies EQUAL to D1's** (state + the question text + criteria);
+  §15.1's gated live test sends D1's fixtures through the product adapter in that same shape. (d) The generic `decide` tool sends what its
+  caller frames (`calibrated` only when the caller sets `family`, D2 §15.1 as accepted). (e) **Whether the hosted rows hold in a product shape
+  (state = the evidence) is NOT measured — an open question for Hasan at the stop**, with D3's CPU-default fact (D3 §10 item 2: 2.6–3.9 s per
+  request and ~8.1 GB RSS for a 2B decider on CPU — D2 §5.3's "CPU by default" needs his reading before any later local candidate). Not a
+  different design (D2 §10.2 already says the built-ins are `decide` with a fixed instruction, "T3's exact question family").
 
 ## Stops (session 2)
 
@@ -558,3 +575,20 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   the builder's.** On these numbers D3 FAILS several terms of its bar (T3 accuracy and Brier, T2 Brier, peak RSS) — not RSS alone → per the
   paste-in's (e) the local rung stays empty (a note, no STOP: the runtime runs on this laptop and D2 already designs an empty rung); the
   verdict is written by the (e) builder from the files. → ruling **D-r15**. D3 builder #3 (CPU note, product-shaped note, then (e)) to spawn.
+  (Commit `7a7e8eb` landed 09:30:51; the "09:33" stamps on D-r15, the HANDOFF box and this entry were estimates — from here on every stamp is
+  read from `date` first.)
+- 09:31 · D3 builder #3 spawned (HEAD `7a7e8eb`; the CPU note + one product-shaped GPU note, then (e) the report).
+- 09:43 · D3 builder #3 DONE (~53 calls, ~12 min; docs `2082918` — the report, HANDOFF DONE, LOG): CPU note (eager fp32, 8 threads) T2 38 / 40
+  Brier 0.050 (0.0503) p95 4,043.3 ms, T3 33 / 40 Brier 0.124 p95 3,295.8 ms, peak RSS ≈ 8,121–8,126 MB; product-shaped GPU note T3 38 / 40
+  Brier 0.054 p95 424.7 ms, T2 37 / 40 Brier 0.058 p95 69.2 ms (`d-summary.md`); **`docs/studio/decisions/D3-mapika-report.md` (264 lines):
+  bar 3 PASS / 4 FAIL (T3 accuracy, T2 + T3 Brier, peak RSS) → FAIL, the local rung stays empty, not RSS-only, D4 (g) not built, no STOP**;
+  §8 the T3 accuracy fail depends on D1's framing but no framing passes every term; §9 how a later rung would ship (the app's `pytorch` runtime
+  = Python 3.11.15 + torch 2.14.0+cu126 / +cpu; `decider-ai`, `flash-linear-attention`, `fla-core` absent from `requirements.cu126.lock` → a
+  new runtime build; transformers 5.16.1 vs the checkpoint's 5.17.0 untested; v11 download 3,783,693,401 B, sha256s listed; one row per forward
+  pass on a 6 GB card; ~6.7 GB private commit). Two questions for the orchestrator (framing for the hosted adapters; CPU as the default).
+- 09:43–09:44 · **Orchestrator re-check:** HEAD `2082918`, `7a7e8eb..HEAD -- src scripts package*.json` empty, only the report + D3 HANDOFF /
+  LOG changed; 0 python processes; `d-summary.md` rows for the four new runs read (the numbers above are in it); the report's §6–§10 read —
+  the bar table = the score files the orchestrator re-ran at 09:30 (T2 95.0 % / 0.053, T3 82.5 % / 0.122) and `d-summary.md`'s RSS / p95;
+  §9's runtime facts cite file:line. **D3 → DONE (verdict FAIL — the local rung stays empty).** → ruling **D-r16** (the request shape:
+  transport adapter; the built-ins send D1's measured shape; the product-shape question + the CPU default go to Hasan). D4 starts: HANDOFF
+  updated ((g) dropped; D-r16 in (b) / (d) / (e)); D4 builder #1 (part (a)) to spawn.
