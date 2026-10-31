@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-10-31 — INTERIOR STAGING REEL: the sixth built-in flow, DONE (branch `interior-staging-flow`, not merged)
+
+- **What:** `vidtsx/interior-staging` (brief: `ai-video-lab/experiments/interior-staging-01/VIDTSX-FLOW-PROMPT.md`,
+  for VidTSX 2.0): one room photo to a 9:16 reel of the room being furnished. Three paused fal stills (the
+  room upright, emptied, at golden hour) → two fal clips (empty → furnished 10 s, a golden-hour glide 6 s) →
+  `join_clips` (dip to black, 1080x1920, 24 fps). Image and video model are Run-form selects, fal only;
+  Checkpoints (the default) stops on each still before the paid video.
+- **Commits** (worktree `.vidtsx-temp/interior/wt`, off main `14d7a63`, not pushed): `7d0069d` + `0e6249d` Kling 3
+  Pro / Standard and Kling 4 on fal (start + end frame dialects, Kling 4 at 1080p) · `639b748` the `join_clips`
+  node · `0992443` the flow, built-ins test, ORDER list, README + flows-plan §1.7 · `aa47c61` passphrase-encrypted
+  signing keys · `a499c9b` the vidtsx-3 rotation, all six built-ins re-signed by Hasan.
+- **Live (part 4):** three rooms (living room, bedroom, kitchen-dining), every run `success`; each reel 386
+  frames, 1080x1920, 24 fps. Logged $7.18 in all (room photos $0.30, runs $2.39 / $2.24 / $2.24). Stills, clips,
+  reels and contact sheets in `.vidtsx-temp/interior/part4/`. Hasan kept the prompts as approved.
+- **Signing key:** vidtsx-2 (a plain key file any program running as Hasan could read) is retired for
+  **vidtsx-3**, encrypted with a passphrase; signing asks for it at the terminal, so no script or session can
+  sign. publishers.ts lists vidtsx-3 only; released 1.1.0 trusted only vidtsx-1, so no shipped build loses a key.
+- **Gates:** check:types web 26 / node 10; built-ins test green (six flows, all `verified`); full vitest 3540
+  passed, 4 failed in shot-generator / shot-module-resolver (load flakes, 28/28 alone).
+- **Release notes:** `docs/release-notes/2.0.0.md`, a DRAFT (version and wording are Hasan's call).
+- **Open:** fal's Kling 3 Pro rate ($0.112 a second on the model page, $0.14 from the pricing API: a reel is
+  $2.25 or $2.70; check an invoice) · per-node pricing on the Run form (known follow-up) · Hasan deletes
+  `vidtsx-2.pem` · merging the branch into main is his call.
+
+---
+
 ## 2026-10-21 — END-TO-END PLAN: written and DECIDED, build not started
 
 - **What:** `docs/studio/END_TO_END_PLAN.md` — raw files to the finished video inside Studio, editing only
