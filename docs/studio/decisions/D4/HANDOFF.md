@@ -1,9 +1,9 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF (D4 builder #4, 2026-10-31 10:45) — **part (c) DONE: (c1) `b7b1648` + (c2) `d9ec730`** ((c2) = the four `decisions:*`
-channels, the handlers, the lazy registration, `src/preload/api/decisions.ts` + its wiring, `electron.d.ts`, the key-save hook; 4 new test files
-/ 41 tests green after a red run; related suites 117 / 118 files green — the 1 = the known `builder-libraries` worktree-only suite; tsc web 25 /
-node 10); **part (d) is next** (the `decide` tool / node + the two built-ins). Part (b) DONE at `ed79420`; part (a) DONE at `c7ad6da`.
-Earlier: D4 builder #3 10:34 — (c1); orchestrator 09:44 —
+status: HANDOFF (D4 builder #5, 2026-10-31 11:16) — **part (d) DONE at `feb5e69`** (the `decide` tool / node + `check_matches_request` +
+`route_request`; 3 new test files + registry.test.ts = 4 files / 38 tests green after a red run; related `agents/tools` + `flows` +
+`shared/agents` 49 / 49 files, 365 tests; tsc web 25 / node 10); **part (e) is next** (the benchmark replay + the gated live test + the D-r21
+stub hook). Part (c) DONE: (c1) `b7b1648` + (c2) `d9ec730`; part (b) DONE at `ed79420`; part (a) DONE at `c7ad6da`.
+Earlier: D4 builder #4 10:45 — (c2); D4 builder #3 10:34 — (c1); orchestrator 09:44 —
 D3 judged **FAIL, the local rung stays empty → part (g) is NOT built**; rulings **D-r16** (binds (b), (d), (e)) and **D-r17** (builder #1's
 four contract decisions, accepted 10:02).
 
@@ -46,7 +46,7 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 | (a) | `src/decision-engine/` types + validate / ladder / calibration-table / cache, tests first; `src/shared/types/decisions.ts` (§3) | **DONE** | `c7ad6da` |
 | (b) | `providers/system-one-provider.ts` (injected `fetch`) + contract tests on D1's recorded responses (scrubbed fixtures) + dry-run bodies; `decision-engine.ts` + `presets.ts` + `index.ts`; the LLM-fallback provider (§5.4) | **DONE** | `ed79420` |
 | (c) | `src/main/services/decisions/` (decision-init from credentials like `image-init.ts`, decision-usage, decision-settings, decision-runtime); registry `typesafe` + `'decision'` capability + label; `openrouter` gains `'decision'`; IPC (§12) + preload + status; the preload-surface test | **DONE** — (c1) services + registry + wire types; (c2) IPC + preload + key-save hook + the preload-surface test | (c1) `b7b1648`, (c2) `d9ec730` |
-| (d) | `src/main/services/agents/tools/decide.ts` (tool + flow node via `ports`) + `check_matches_request` + `route_request`; T2 / T3 unit tests through an injected provider; the no-claim test | TODO | — |
+| (d) | `src/main/services/agents/tools/decide.ts` (tool + flow node via `ports`) + `check_matches_request` + `route_request`; T2 / T3 unit tests through an injected provider; the no-claim test | **DONE** | `feb5e69` |
 | (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`); **+ the dev-only stub hook of ruling D-r21** (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL`, honoured only unpackaged + loopback; unit-tested) — (h) and the verifier need it for §15.3 1 / 3 / 4 / 5 | TODO | — |
 | (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | TODO | — |
 | (g) | ONLY if D3 PASSED — `src/local-decider-engine/` + the worker on the `pytorch` runtime path + the download entry | **NOT BUILT — D3 FAILED** (`D3-mapika-report.md` §6–§7: 3 PASS / 4 FAIL). The ladder starts at Jev; the local rung is reported in `skipped` as `'no local model'` (D2 §6); `local-decider-provider.ts` is NOT written in this slice; `provider: 'local'` pinned → `no-provider` | — |
@@ -318,6 +318,70 @@ ProviderKeyRow.tsx`; `src/main/services/agents/tools/{registry-core,generate-tex
    real key; this covers non-engine throws (settings DB, credential store). A key of another shape in such a throw is not masked (none is known
    to carry one).
 
+**Part (d) — `feb5e69` (2026-10-31 11:15), 14 paths, all as of `feb5e69`:**
+- `src/main/services/agents/tools/decide.ts` (116) — `decideTool` :48: zod args `state`, `type` (`choice` | `noul`), `instructions`, `options?`
+  (record or one `id: description` per line), `family?` (default `other`), + the common `threshold?` / `provider?` / `allowUncalibrated?`;
+  ports: input `state`; outputs = `DECIDE_OUTPUTS`; config `type`, `instructions`, `options`, `threshold`, `provider`, `family`,
+  `allowUncalibrated`; a choice with < 2 distinct options → `TOO_FEW_OPTIONS`, no call; a noul goes out WITHOUT criteria (the caller frames,
+  D-r16 (d); the OpenRouter adapter adds its own).
+- `decide-run.ts` (140) — `runDecision` :84 (the one call path: lazy `import('../../decisions/decision-runtime')` → `getDecisionRuntime().decide(
+  { state, questions: { decision: question }, provider, featureSource, allowUncalibrated, family }, { signal: ctx.signal })` → outcome → `{ content:
+  [decisionText], fields: { band, answer, p?, note? } }`; any throw → `decisionErrorText`, `isError`), `decisionFeatureSource` :76 (`flows` →
+  `decision-flow`, else `decision-agent`), `DECIDE_PROVIDERS` :15 (auto / jev / openrouter-decisions / llm — no local), `DECIDE_OUTPUTS` :36
+  (`band` text `field:band` FIRST, `answer` text, `p` number `field:p`), `DECIDE_COMMON_FIELDS` / `_DEFAULTS` / `decideCommonSchema`,
+  `parseDecisionOptions` :120, `TOO_FEW_OPTIONS`.
+- `decide-outcome.ts` (69) — `decisionOutcome` :35 (D-r18), `decisionText` :45 (§10.1's shapes + `(act — uncalibrated)` + `uncertain — no
+  answer (escalate)` for a refusal), `DECISION_ERROR_SENTENCES` :51 (one per `DecisionErrorCode`, no digit), `decisionErrorText` :63 (duck-typed
+  `code`; unknown → provider-error; never the engine's message).
+- `check-matches-request.ts` (99) — `CHECK_MATCHES_STATE` :11 (D1's T3 rule verbatim), `CHECK_MATCHES_CRITERIA` :16 (`NOUL_T3` verbatim),
+  `checkMatchesQuestion` :33 (D1's per-kind header + the item + `Request:` / `Script line:` + `JSON.stringify(request)`; kinds `item` (default:
+  "Does this item do what the request asks?") / `template` / `caption` / `clip`), `checkMatchesRequestTool` :51 (inputs `item`, `request`; family
+  `verify`).
+- `route-request.ts` (96) — `DEFAULT_ROUTE_SUBJECT = 'tool family'` :22, `defaultRoutingRule` :25, `routeQuestion` :32 ("Which ONE <subject>
+  must act on this request? Request: <JSON>"), `routeRequestTool` :53 (input `request`; config `options`, `subject`, `rule` (sent VERBATIM when
+  not blank), common; family `routing`).
+- `registry.ts` — imports + `registerTool(decideTool | checkMatchesRequestTool | routeRequestTool)` at the end; `src/shared/agents/tool-ids.ts`
+  — the three ids appended to `AGENT_TOOL_IDS` (append-only). `STUDIO_TOOL_IDS` untouched.
+- Fixtures `src/main/services/decisions/benchmark/fixtures/`: `t2-routing.json` + `t3-verify.json` (byte copies of D1's, `cmp` identical) and
+  `d1-dry-run-t2-t3.json` (68 KB — D1's Jev T2 / T3 dry-run bodies' `state` + `questions`, model dropped; built by
+  `C:\Users\hasan\AppData\Local\Temp\claude\d--repos-VidTSX-STUDIO\d49810c3-af6a-4487-806f-0a54cc0c7f22\scratchpad\make-dryrun-fixture.cjs`
+  from `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D1\hosted-dryrun\jev-t{2-choice,3-noul}.json`; one body of 40 questions each; MSD1's
+  dry-run bodies carry the SAME state + questions — checked).
+- Tests: `decide.test.ts` (223 — request shape, both featureSources, canvas option lines, noul without criteria, < 2 options, band over both
+  bands, confidence ignored, noul `max(p, 1 − p)`, threshold, uncalibrated ± allow, refused, every error code, ports + `mapOutputs`, the
+  description), `decide-builtins.test.ts` (156 — the REAL `DecisionEngine` + `SystemOneProvider` with a fake `fetch` and a fake key: every T3 row's
+  and every T2 row's HTTP body has `state` + the ONE question EQUAL to D1's dry-run body (`toEqual` on type + instructions + criteria), family
+  verify / routing, featureSource, the band on the fake answers; the canvas-lines form; the default rule), `decide-no-claim.test.ts` (133 — every
+  T3 row × 2 bands × 2 tools (160 texts), every T2 row × 2 bands × 2 tools, uncalibrated ± allow, refused, every error code × 3 tools, the
+  descriptions); `registry.test.ts` (the three in `NODE_TOOLS`, primary output `band`, registered but absent from `STUDIO_TOOL_IDS`).
+
+**Decisions builder #5 made (the orchestrator may overrule any):**
+1. **The no-claim strings are matched as WHOLE WORDS (`\bcertain\b`, `\bsure\b`, `\bmatch\b`, …) plus `%` anywhere and no digit at all** —
+   D2 §10.1's own escalate text is "Decision: uncertain — top answer billing (escalate)", which a substring test for `certain` would fail; the
+   brief mandates that exact text. The verifier must read §15.1's list as words (`uncertain` is the hedge, not a claim).
+2. **`p` is a third output PORT (`number`, `field:p`)** — the flow runner files ONLY port values in `run.json` (`flow-args.ts` `mapOutputs` →
+   `FlowNodeRunState.outputs`), so a port is the only way §15.3 3's "the run record holds `p`" can hold without changing the runner. The band is
+   `outputs[0]`, the only output the canvas previews (`CustomNode.tsx` OutputPreview / `StepsStrip.tsx` read `outputs[0]`), so the canvas shows the
+   band only; but the node DRAWS a `p (run record)` handle (no value shown) that a flow author could wire to a number input or declare as a flow
+   output (then `RunOutputs.tsx` would show the number). Hiding it needs a `PortDef` flag + a renderer filter — (f)'s call, not done here.
+3. **`p` = the top answer's probability** (the gate's quantity: choice `probabilities[choice]`; noul `max(p, 1 − p)`), not P(true) — so
+   `p ≥ threshold` ⇔ act (when calibrated) reads straight off the run record.
+4. **`allowUncalibrated` lifts only the calibration requirement — the threshold still applies** (uncalibrated + allow + top < threshold →
+   escalate). D2 §10.1 / the brief read "then act"; a gate that acts on an uncalibrated 0.4 would defeat its purpose (the LLM fallback's chosen
+   answer is 1.0, so it always acts when allowed). It is also passed to the request (`allowUncalibrated`), so `auto` may end at the LLM rung.
+5. **A refused answer → `escalate`, answer '', no `p`** (text "Decision: uncertain — no answer (escalate)"); an engine ERROR → `isError` + one
+   fixed sentence per code (no number, never the engine's message) — in a flow that fails the node, as any tool error does.
+6. **`route_request` has an optional `subject` (default D1's "tool family")** so the default question IS D1's measured "Which ONE tool family must
+   act on this request? …"; a flow routing to teams sets `subject: team`. The default rule: "You route a request to the ONE <subject> that must act
+   on it: a (…), b (…), or c (…)." A given `rule` is sent verbatim (not trimmed).
+7. **`check_matches_request`'s `itemKind`** (`item` default / `template` / `caption` / `clip`) picks D1's T3 header and request label; the
+   `item` input is D1's item line as is (e.g. `Template "App Launch Teaser": …`). The `caption` header says "match" — it is in the request to the
+   decider, never in the agent's text.
+8. **Not `priced`, no `needs`** on the three nodes (no `'decision-provider'` need exists; costs are < $0.012 / 1,000 decisions) — (f) may add a
+   price hint. Node category `text` (there is no `decision` category).
+9. A test-harness lesson: `beforeEach(() => fn.mockReset())` RETURNS the mock, and vitest calls a function returned from `beforeEach` as a
+   teardown — with a throwing implementation that fails the test with the mock's own error. Use a block body.
+
 ## Verified
 
 All from the worktree root, as of `c7ad6da` (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
@@ -393,24 +457,39 @@ Part (c2), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vid
   electron.d.ts 656 → 661). Key scan over the 7 new files: only `sk-test-FAKE-handlers-0011` / `-keys-0021` / `-preload-0007`. No hosted
   call, no app launch, no package.json / lock change.
 
+Part (d), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
+- RED (10:59, the 3 test files + the registry.test.ts edits written, no (d) source): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs
+  run src/main/services/agents/tools/decide.test.ts src/main/services/agents/tools/decide-builtins.test.ts
+  src/main/services/agents/tools/decide-no-claim.test.ts src/main/services/agents/tools/registry.test.ts` → `Test Files 4 failed (4)`, `Tests 5
+  failed | 8 passed (13)`; 3 files fail only on "Cannot find module '/src/main/services/agents/tools/decide' | '…/check-matches-request'", the
+  registry file on its 5 new / changed assertions (`d-red.log`).
+- GREEN (11:09): the same command → `Test Files 4 passed (4)`, `Tests 38 passed (38)` (`d-green-4.log`). (`d-green-1..3.log` = the fix-up runs:
+  the defaultConfig `instructions: ''` that failed the schema, and the `beforeEach` teardown trap of decision 9.)
+- Related suites (11:14–11:15): `… vitest.mjs run src/main/services/agents/tools src/main/services/flows src/shared/agents` → `Test Files 49 passed
+  (49)`, `Tests 365 passed (365)` (`d-green-5.log`). `registry.test.ts` is NOT a worktree-only `stream` suite here (it passed at 10:55 before any
+  edit: 12 / 12), so the registration is proven by it directly.
+- tsc (11:09–11:14): `… tsc -p tsconfig.web.check.json --noEmit` → **25** (`tsc-web-d.log`); `-p tsconfig.node.check.json --noEmit` → **10**
+  (`tsc-node-d.log`, after typing the fixture rows' `kind` in the two tests — the first run counted 12, both in those test lines).
+- House rules (11:15): the 5 new sources import only `zod`, `shared/types/{decisions,ai-usage,flows}`, `./types`, intra-tools, and (dynamic)
+  `../../decisions/decision-runtime` — none from studio / asset-library / renderer / features, and not the engine; the tests also import
+  `decision-engine` (the real engine + `DecisionError`), `../../flows/flow-args` (`mapOutputs`), the fixtures, `fs` / `path`; no `any`, no
+  `export default`; longest source `decide-run.ts` 140, longest test `decide.test.ts` 223. Fixture key scan: `grep -noE
+  'sk-[A-Za-z0-9]|sk-or-|[Bb]earer|[Aa]uthorization|api_key|apikey|x-api-key|TYPESAFE_API|OPENROUTER_API'
+  src/main/services/decisions/benchmark/fixtures/*.json` → empty (exit 1); the only ≥ 32-char runs in `t2-routing.json` are repo paths. Tests'
+  key: `sk-test-FAKE-decide-0031` / `-0041`. No hosted call, no app launch, no package.json / lock change.
+
 ## Next step
 
-Part (d), in a FRESH builder context — red first: write `src/main/services/agents/tools/decide.test.ts` (+ the two built-ins' tests) BEFORE
-any source, then `src/main/services/agents/tools/decide.ts` — the `decide` agent tool that is also a flow node (one `registerTool` with
-`ports`, D2 §11) plus the two built-ins `check_matches_request` and `route_request` (D2 §10.1–10.2), every call through
-`getDecisionRuntime().decide(…)` (`src/main/services/decisions/decision-runtime.ts:100`; tests inject a fake runtime / provider — no hosted
-call). Bind: D-r16 (b) + (c) — the built-ins' request bodies EQUAL D1's (`check_matches_request`: `state` = D1's T3 rule verbatim, ONE `noul`
-whose `instructions` carry the item + request as D1's T3 rows' `question`, D1's T3 criteria `NOUL_T3`; `route_request`: `state` = the routing
-rule — D1's T2 rule in the test — and ONE `choice` "Which ONE … must act on this request? Request: <JSON>" with the caller's options as
-criteria), asserted over every row of `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\fixtures\t2-routing.json` / `t3-verify.json` (copy into
-the tree only what the tests need; (e) owns `src/main/services/decisions/benchmark/fixtures/`, so put (d)'s copies there or share them with (e));
-D-r18 (1) — `band = act` iff the TOP probability (choice: `probabilities[choice]`; noul: `max(p, 1 − p)`) ≥ `threshold` AND `calibrated`, else
-`escalate`; the tool's text = answer + band only and passes §15.1's no-claim test (no `%`, `match`, `matches`, `sure`, `confident`,
-`definitely`, `certain`, `probability`) over every T2 / T3 row and both bands; the run record keeps `p` (§15.3 3); `featureSource`
-`decision-agent` for the tool, `decision-flow` for the node; `family` set by the built-ins (`verify` / `routing`). Read first: D2 §10.1, §10.2,
-§11, §15.1 (no-claim + calibration), ORCHESTRATOR D-r16 + D-r18; `src/main/services/agents/tools/{registry-core,generate-text}.ts` (a tool with
-`ports` is also a flow node); `K1\hosted-run.cjs:45-57` in D1's kit (the request shape + `NOUL_T3`); `decision-runtime.ts`'s public API only
-(`getDecisionRuntime`, `decide`, `toDecisionsWireError`). Do not touch (c)'s IPC — the agent tool runs in main and never crosses IPC.
+Part (e), in a FRESH builder context — red first: in `src/main/services/decisions/benchmark/` (fixtures dir ALREADY holds `t2-routing.json`,
+`t3-verify.json` and `d1-dry-run-t2-t3.json` from (d) — do not re-copy them) add the RECORDED Jev + MSD1 T2 / T3 answer files (D1's
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\answers\hosted-{jev,openrouter-msd1}-t{2-choice,3-noul}.json`, scrubbed, key-scanned), the
+tree's scorer (accuracy, Brier, ECE the way D1's `K1\measures.cjs` computes them) and the replay test = table equality with D1's `c-hosted.md` §2
+(Jev T2 40 / 40, T3 40 / 40, Brier 0.021 / 0.003, ECE 0.059 / 0.044; MSD1 40 / 40, 40 / 40, Brier 0.014 / 0.002), the gated live test (skipped
+unless `VIDTSX_DECISIONS_LIVE=1`; sends D1's fixtures through the product adapter in D-r16's shape — reuse `check_matches_request` /
+`route_request`'s framing or `d1-dry-run-t2-t3.json`; ≤ 4 requests; never run by a builder), and ruling D-r21's dev-only stub hook in
+`decision-init.ts` (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL` honoured only when NOT packaged AND the URL is loopback
+`http://127.0.0.1:<port>/…`; injected + unit-tested). Read first: D2 §15.1, ORCHESTRATOR D-r16 (c) + D-r21 (full text), part (b)'s
+`providers/fixtures/d1-scored-t2-t3.json` (already holds D1's scored probs — reuse before copying more) and `decision-init.ts`.
 
 ## Open problems
 
@@ -437,6 +516,15 @@ D-r18 (1) — `band = act` iff the TOP probability (choice: `probabilities[choic
    from library search's registration on purpose.
 9. (f) wires the TypeSafe row's Test button to `window.api.decisionsDecide({ test: 'jev' })` (D-r19 (3): disabled until a key is SAVED) and
    gates the free-form tester behind the dev-preview flag (D2 §12 / D-r19 (2)) — main does not gate either.
+10. **For the orchestrator (builder #5's decisions 1–9, part (d)):** the two that shape §15 are **#1** (the no-claim list is matched as whole
+    words — §10.1's mandated escalate text contains "uncertain"; the D5 brief should say so) and **#2** (`p` is a drawn output port — the only
+    way into `run.json` without touching the flow runner; the canvas PREVIEWS only the band, but a `p (run record)` handle is visible and
+    wireable; a hidden-port flag would be a renderer change for (f)). Also #4 (`allowUncalibrated` keeps the threshold — D2's text says "act").
+11. §15.3 3's live check names `input_text → check_matches_request`: `check_matches_request` has TWO required text inputs (`item`, `request`),
+    so the verifier's two-node flow needs both wired (two `input_text` nodes, or one wired to `item` with `request` bound by a run param) — the
+    D5 brief should say so.
+12. `docs/studio/decisions/ORCHESTRATOR.md` is still modified in the working tree (not this builder's edit) — left unstaged in `feb5e69` and
+    (d)'s docs commit.
 
 ## Do-not-redo
 
@@ -453,6 +541,10 @@ D-r18 (1) — `band = act` iff the TOP probability (choice: `probabilities[choic
 - **Part (c) is DONE** — (c2) at `d9ec730`: the four channels, `decisions-handlers.ts`, `registrations/decisions.ts` (lazy, quiet start),
   `src/preload/api/decisions.ts` + `api/index.ts` + the `preload.ts` spread, the four `electron.d.ts` lines, `decisionsKeysChanged()` in the
   key save, and their 4 test files. Do not re-wire them; (f) only CALLS `window.api.decisions*`.
+- **Part (d) is DONE at `feb5e69`** — `decide.ts`, `decide-run.ts`, `decide-outcome.ts`, `check-matches-request.ts`, `route-request.ts`, their
+  registration (`registry.ts`, `AGENT_TOOL_IDS`), the 3 test files + the registry.test.ts additions, and the benchmark fixtures `t2-routing.json`
+  / `t3-verify.json` / `d1-dry-run-t2-t3.json` (key-scanned). The D-r16 (c) equality is proven on all 80 rows through the real engine — (e) need
+  not repeat it; its live test may reuse the built-ins' framing.
 
 ## Agents so far
 
@@ -464,3 +556,5 @@ D-r18 (1) — `band = act` iff the TOP probability (choice: `probabilities[choic
   registry + wire types green → `b7b1648`; HANDOFF + LOG → (c2).
 - 2026-10-31 10:36–10:46 · D4 builder #4 · ~38 tool calls · part (c) sub-checkpoint (c2): 4 test files red → channels + handlers + lazy
   registration + preload + `electron.d.ts` + the key-save hook green → `d9ec730`; part (c) DONE; HANDOFF + LOG → part (d).
+- 2026-10-31 10:49–11:17 · D4 builder #5 · ~68 tool calls (incl. ~7 on the `beforeEach` teardown trap) · part (d): 3 test files + registry.test.ts
+  red → `decide` / the two gates / the shared run + outcome modules green → `feb5e69`; part (d) DONE; HANDOFF + LOG → part (e).
