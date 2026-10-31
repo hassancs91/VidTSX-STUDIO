@@ -1,5 +1,9 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF — **D4 builder #9, 2026-10-31 17:50: part (f) DONE** (step 5: build + two CDP stills on `decisions-D4`, one wording fix
+status: HANDOFF — **D4 builder #10, 2026-10-31 18:05: part (h)'s stub live checks ALL PASS — §15.3 4 PASS (one keyless agent run, 1 / 3
+used) and §15.3 5 PASS** (mode off → `no-provider`, 0 hits on both ports; `jev` out of the order + a fake OpenRouter key → port B with the noul
+criteria, `openrouter-decisions` / `microsoft/microsoft-decision-1-20261009`, usage cost = the stub's `usage.cost`; restored) — "Part (h) — stub
+live checks" under Verified. No `src/` change (as of `8f55668`). **Next step: the gate half of (h).** 0 hosted calls. Previous status (builder #9,
+17:50): HANDOFF — **D4 builder #9, 2026-10-31 17:50: part (f) DONE** (step 5: build + two CDP stills on `decisions-D4`, one wording fix
 `3f50e63`, docs `f86221c`); **part (h)'s stub live checks: §15.3 2 PASS, §15.3 1 PASS, §15.3 3 PASS** (every term, on the stub serving D1's
 recorded numbers — "Part (h) — stub live checks" under Verified); **§15.3 4 (the keyless agent run) and §15.3 5 (settings) are NOT run — the
 Next step.** 0 keyless runs used, 0 hosted calls. Previous status (builder #9, 17:46): part (f) DONE. Previous status:
@@ -69,7 +73,7 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 | (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`); **+ the dev-only stub hook of ruling D-r21** (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL`, honoured only unpackaged + loopback; unit-tested) — (h) and the verifier need it for §15.3 1 / 3 / 4 / 5 | **DONE** (live test written + dry-run-proven, NOT run — DEFERRED-HASAN / the verifier) | `5605c48` |
 | (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | **DONE** (builder #9, 17:46) — steps 1–4 (f1 + f2); step 5: worktree build + profile `decisions-D4` + two CDP stills `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\f5-settings-decisions-row.png` / `f5-providers-decisions.png` (DOM: `f5-settings-dom-2.json`, `f5-providers-dom.json`); one wording fix found in the first still ("no key · no key" → `rungLineText`) | (f1) `cc754fa`, (f2) `8f6ff6f`, (f3) `3f50e63` |
 | (g) | ONLY if D3 PASSED — `src/local-decider-engine/` + the worker on the `pytorch` runtime path + the download entry | **NOT BUILT — D3 FAILED** (`D3-mapika-report.md` §6–§7: 3 PASS / 4 FAIL). The ladder starts at Jev; the local rung is reported in `skipped` as `'no local model'` (D2 §6); `local-decider-provider.ts` is NOT written in this slice; `provider: 'local'` pinned → `no-provider` | — |
-| (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | **IN PROGRESS** — stub live checks §15.3 2 / 1 / 3 PASS (builder #9, 17:46–17:49); §15.3 4 / 5 TODO; then the gate half (full vitest + fresh-worktree proofs, tsc, house-rules sweep `b2b8a02..HEAD`, Status.md row, TESTING.md §20) for the builder after | — (no code change in (h) so far) |
+| (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | **IN PROGRESS** — stub live checks §15.3 2 / 1 / 3 PASS (builder #9, 17:46–17:49); §15.3 4 / 5 PASS (builder #10, 17:58–18:02; 1 / 3 keyless runs); next the gate half (full vitest + fresh-worktree proofs, tsc, house-rules sweep `b2b8a02..HEAD`, Status.md row, TESTING.md §20) for the builder after | — (no code change in (h) so far) |
 
 ## Rulings that bind this part (ORCHESTRATOR.md "Rulings (session 2)")
 
@@ -552,6 +556,20 @@ ProviderKeyRow.tsx`; `src/main/services/agents/tools/{registry-core,generate-tex
 5. The Settings row's "no key · no key" was fixed in step 5 (`rungLineText`) — a wording fix found in the still, per the step's "a layout fix
    found there is part of step 5".
 
+**Decisions builder #10 made (the orchestrator may overrule any):**
+1. **§15.3 4's agent is a scratch USER agent dropped into the profile's agents folder** (`d4/decide-probe`, unsigned, `tools: ['decide']`),
+   whose AGENT.md hands the model D1's T2 framing to copy (D1's routing rule as `state`, D1's question template with the user's message as the
+   request, the six family ids with D1's meanings, `family: routing`) and asks for one line `TOOL TEXT: <verbatim>`; the run's prompt is the T2
+   row's request alone (t2-01). So "the T2 framing" in D-r26 (6) is read as D1's T2 dry-run body — and the `calls.json` args were checked EQUAL to
+   it (state, instructions, options = criteria).
+2. **The tool text is recomputed through the tree's whole read chain**, not just `decisionText`: the stub's served raw answer →
+   `readSystemOneAnswers` → `isDecisionCalibrated('jev', served model, family)` → `decisionOutcome` (threshold 0.9 default, no
+   `allowUncalibrated`) → `decisionText` — kit-only vitest file (`D4\h4-text\`, own config, imports the tree by relative path), not in `src/`.
+3. **§15.3 5's call is a `decision-test` noul WITHOUT criteria** (the `decide` tool's shape), so port B's log showing `criteria: ["true","false"]`
+   proves the adapter added OpenRouter's required noul criteria (D-r23 (7)) rather than the caller; the same request in (a) and (b), on a T3
+   row (t3-30) unused since the app start (D-r26 (3)).
+4. **"ZERO new hits on both stub ports" is read on each port's own `/__stub/stats` plus the stub log's line count** (31 before = 31 after).
+
 ## Verified
 
 All from the worktree root, as of `c7ad6da` (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
@@ -838,9 +856,55 @@ Part (h) — stub live checks (builder #9, 17:46–17:49, app built from `3f50e6
     `9465485c-06b9-43c2-a20a-e514312c6e4a`, 15:58:54.399Z, `provider: 'typesafe'`, model `jev-1.14.0`, `featureSource: 'decision-agent'`,
     `requestType: 'decision'`, `inputTokens: 416`, outputTokens 0, durationMs 520, **`costUsd: 0.000017472` = 416 × 0.042 / 1,000,000 =
     0.000017472**.
-- §15.3 5: see below (builder #10).
+- **§15.3 5 (settings) — PASS** (builder #10, 18:01–18:02, the same instance as §15.3 4, AFTER it; outputs in
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`). The patch fields are `mode` / `hostedOrder` / `openRouterModel`
+  (`src/shared/ipc/types/decisions.ts:61-65` `DecisionsSettingsSetRequest` — NOT `decisionsMode`; those are the KV names in
+  `decision-settings.ts`). `make-h5-driver.cjs` writes `h5-off.js` / `h5-or-call.js` with ONE T3 row, **`t3-30`** (true, clip, Arabic; recorded
+  Jev noul 0.95; not used since the 17:58 start), framed as `check_matches_request` frames it (state = `t3-verify.json` `instruction`, the
+  row's question as the noul's instructions) but **without criteria** (the `decide` tool's shape — so the OpenRouter adapter must add its own),
+  `featureSource: 'decision-test'`, `family: 'verify'`.
+  - **(a) mode off** (`h5-off.js` → `h5-off.json`, 18:01:53): `curl …:18471/__stub/reset` → stats A 0 / B 0, stub log 31 lines;
+    `decisionsSettingsSet({ mode: 'off' })` → `mode: 'off'`, both rungs `available: false`, `why: 'Decisions are off in Settings'`;
+    `decisionsDecide({ request })` → **`ok: false`, `error.code: 'no-provider'`** ("Decisions are switched off in Settings."), 1 ms;
+    `decisionsSettingsSet({ mode: 'auto' })` → `jev.available: true` again. Stats after, read on BOTH ports (`curl …:18471/__stub/stats`,
+    `…:18472/__stub/stats`): **A 0 hits, B 0 hits**; stub log still 31 lines, its last line the 15:58:54 §15.3 4 hit.
+  - **The fake OpenRouter key** (`open-providers.js` → `h5-open-providers.json`, then `h5-or-key-save.js` → `h5-or-key-save.json`, 18:02:02):
+    the API keys table's OpenRouter row (`aria-label` "OpenRouter API key", the one visible input, NOT inside `[data-decisions-providers]` — the
+    Decisions section lists OpenRouter "Uses the OpenRouter key in API keys above", D-r24 (1)) typed `sk-or-v1-FAKE-D4-h-0002` (native setter +
+    `input`) + "Save changes" → `openrouter-decisions`: `hasKey: false` / `why: 'no key'` → **`hasKey: true`, `available: true`**; input cleared;
+    stub stats still A 0 / B 0 (the save made no decisions call).
+  - **(b) `jev` removed from the order** (`h5-or-call.js` → `h5-or-call.json`, stub reset first, 18:02:10): `decisionsSettingsSet({ hostedOrder:
+    ['openrouter-decisions'] })` → `jev`: `enabled: false`, `available: false`, `why: 'switched off in Settings'`; the same `decisionsDecide` →
+    **`ok: true`, provider `openrouter-decisions`, model `microsoft/microsoft-decision-1-20261009`**, `calibrated: true`, answer noul `p: 0.95`,
+    usage 267 tokens / $0.000011214, 524 ms, `cached: false`, `skipped: [{ local, 'no local model' }]`. **Stub** (`stub-log.jsonl`,
+    16:02:11.068Z): **port B, `variable: VIDTSX_DECISIONS_OPENROUTER_URL`, `/api/alpha/decisions`**, hit 1, requested model
+    `microsoft/microsoft-decision-1`, 1 question `decision` type `noul` **criteria keys `["true","false"]`** (sent without — added by the adapter,
+    `noulCriteriaRequired`, D-r23 (7)), matched `t3-30` exact (recorded 0.95), served `microsoft/microsoft-decision-1-20261009`, 267 input
+    tokens, 200; stats A 0 / B 1 (200). **Usage row** (`aiUsageGetLog({ featureSource: 'decision-test' })`, rows since the call's start = 1):
+    id `3cdfef89-0c82-415d-a40e-9a24b678acee`, `provider: 'openrouter'`, model `microsoft/microsoft-decision-1-20261009`, `requestType:
+    'decision'`, `inputTokens: 267`, **`costUsd: 0.000011214` = the stub's `usage.cost`** (`stub-server.mjs:124`: `cost: (inputTokens × 0.042) /
+    1e6` = 267 × 0.042 / 1,000,000 = 0.000011214).
+  - **Restore** (`h5-restore.js` → `h5-restore.json`, 18:02:21, after `open-providers.js`): `decisionsSettingsSet({ mode: 'auto', hostedOrder:
+    ['jev', 'openrouter-decisions'] })`; the OpenRouter row's "Remove this key on save" + "Save changes" → final status **mode `auto`, order
+    `['jev', 'openrouter-decisions']`, `jev.hasKey: true` / `available: true` (the fake TypeSafe key of §15.3 2 stays, as builder #9 left it),
+    `openrouter-decisions.hasKey: false` / `why: 'no key'`**; stub stats unchanged (A 0 / B 1).
+  - Key scan after the checks: `grep -c FAKE-D4` → `app.log` 0, `stub-log.jsonl` 0, every `h4-*.json` / `h5-*.json` 0 files; `app.log` has no
+    `openrouter` line besides the two `dev stub URL` lines. App + stub stopped 18:02 (only the 4 `electron.exe` whose command line holds the
+    `decisions-D4` profile, and the stub's `node`); afterwards 0 `electron.exe`, nothing listening on 9302 / 18471 / 18472.
+- Keyless claude-subscription runs used in (h): **1 / 3**. Hosted calls: 0.
 
 ## Next step
+
+**The gate half of (h), in a FRESH builder context** (no app needed; §15.3 1–5 are all measured on the stub — do not re-run them): the full
+vitest gate from the worktree, logged to a file, with the app OFF (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run >
+C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\gate-<stamp>.log 2>&1`, DRIVING's load rules — rerun a timeout-flaky file in isolation);
+each worktree-only red (the LS-r1b / LS-r1c 25 + the 3 E-d2a `shot-bundle*`) proven green in a fresh `git worktree add --detach` at the gate's
+HEAD (commands + outputs recorded, the scratch worktree removed after); any other red is real; tsc web / node ≤ 25 / 10; the house-rules sweep
+over `b2b8a02..HEAD -- src` (feature isolation, ≤ ~300 lines, no `any`, named exports, `package.json` / lock unchanged, the preload's four
+`decisions:*` functions, no electron / Node import in `src/shared/types/decisions.ts`); then a Status.md row (top, dated) and a TESTING.md §20
+block (after §19) with the measured numbers (the §15.3 numbers are under "Part (h) — stub live checks").
+
+<details><summary>Builder #9's Next step for §15.3 4 / 5 (DONE by builder #10 — kept for the record)</summary>
 
 **§15.3 4 then §15.3 5 (D-r25 (3) / (4)), in a FRESH builder context, on the SAME instance setup** (the profile `decisions-D4` already holds
 the FAKE TypeSafe key `ts-FAKE-D4-h-0001`, saved through the UI; the Studio root is the scratch root; no OpenRouter key). Start the stub
@@ -868,6 +932,8 @@ model `microsoft/microsoft-decision-1`, the noul question's `criteria` keys pres
 `microsoft/microsoft-decision-1-20261009`; then restore (order `['jev', 'openrouter-decisions']`, remove the fake OpenRouter key, mode
 `auto`). Record every number with its driver + output file under "Part (h) — stub live checks"; then the gate half of (h) is for the next
 builder. Stop only your electron.exe (Name='electron.exe' + the profile path) and the stub (its `node` process) before handing back.
+
+</details>
 
 ## Open problems
 
@@ -936,6 +1002,22 @@ builder. Stop only your electron.exe (Name='electron.exe' + the profile path) an
     the open canvas) without hanging — `restore.ps1` reported `was iconic: True` on the good retry. Always look at the still.
 22. The Explore agent's pointers used in the Next step for §15.3 4 (agent folder drop under `<profile>\agents\<ns>\<name>\`, `agentSessionCreate`
     / `agentRunSend`, tool results not stored, decision usage rows without `agentId`) are NOT yet checked against the code by a builder.
+    → **RESOLVED (builder #10):** checked against `manifest.ts`, `agent-store.ts`, `agent-runner.ts`, `tool-call-log.ts`,
+    `src/preload/api/agents.ts` + `ipc/types/agents.ts` (file:line under §15.3 4) — all held; the one correction: the settings patch fields are
+    `mode` / `hostedOrder` (not `decisionsMode`).
+23. **For the orchestrator / the D5 brief (builder #10):** a decision result's `skipped` lists only `{ local, 'no local model' }` when `jev` is
+    REMOVED from `decisionsHostedOrder` (§15.3 5 (b)) — the removed rung is not in the result's `skipped`, though `decisionsStatus` reports it
+    `why: 'switched off in Settings'`. Not a §15 term (§15.3 5 asks only that port B is called); noted in case D5 reads `skipped` as the ladder's
+    full record.
+24. The §15.3 4 run proves the act band only (t2-01's recorded Jev answer = cut 1.0 → `Decision: cut (act)`); the escalate wording through an
+    agent is covered offline by `decide-no-claim.test.ts` (every T2 / T3 row × both bands) and on the stub by §15.3 3 (t3-27). One run is what
+    D-r25 (3) asks; the other 2 keyless runs were left unused for D5's budget.
+25. The fake OpenRouter key's save re-initialises the other engines that read the OpenRouter key (image / llm / stt — `provider-keys-handlers.ts`);
+    no call was observed (no `openrouter` line in `app.log` besides the two stub-URL lines; no decisions stub hit at save). The key was removed
+    at the end (`h5-restore.json`), so the profile is back to: fake TypeSafe key only, mode `auto`, order `['jev', 'openrouter-decisions']`.
+26. The scratch agent `d4/decide-probe` stays installed in the `decisions-D4` profile (`<profile>\agents\d4\decide-probe\`) with its one session
+    `s-a6550d3a` — harmless (unsigned, `tools: ['decide']`), reusable by D5 if it uses this profile; its source is
+    `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\h4-agent\` + `make-agent.cjs`.
 
 ## Do-not-redo
 
@@ -967,6 +1049,9 @@ builder. Stop only your electron.exe (Name='electron.exe' + the profile path) an
   the stills or re-create the profile (it now holds the fake TypeSafe key — reuse it).
 - **Part (h) §15.3 2, 1 and 3 are measured PASS** on the stub (builder #9, 17:46–17:49) — do not re-run them; §15.3 4 and 5 remain. The stub
   kit and drivers exist — reuse them, do not rewrite.
+- **Part (h) §15.3 4 and 5 are measured PASS** on the stub (builder #10, 17:58–18:02; 1 / 3 keyless runs used) — do not re-run them, do not
+  spend another keyless run; the drivers (`make-agent.cjs`, `h4-*.js`, `h4-text\`, `make-h5-driver.cjs`, `h5-*.js`) and outputs (`h4-*.json`,
+  `h5-*.json`) exist. The profile is restored (fake TypeSafe key only, mode `auto`, default order).
 
 ## Agents so far
 
@@ -992,3 +1077,8 @@ builder. Stop only your electron.exe (Name='electron.exe' + the profile path) an
   (two ports, D1's recorded bodies), §15.3 2 PASS (fake key via the UI, 401 echo scrubbed, removal, bundle scan), §15.3 1 PASS (max gap
   20.4 ms over 20 concurrent calls), §15.3 3 PASS (act / act / escalate, `p` in run.json, no `p` handle; one restart for the cache); §15.3 4 / 5
   handed on; HANDOFF + LOG.
+- 2026-10-31 17:55–18:06 · D4 builder #10 · ~50 tool calls · part (h): the agent pointers checked against the code; a scratch agent
+  `d4/decide-probe`; §15.3 4 PASS on ONE keyless run (1 / 3; calls.json = D1's T2 framing, no isError; stub t2-01; quote "Decision: cut (act)"
+  = the tree's chain from the served numbers, kit vitest 1 / 1; no-claim 0; usage typesafe / decision / 416 × 0.042e-6) → `8f55668`; §15.3 5
+  PASS (off → no-provider, 0 / 0 hits; fake OpenRouter key via the UI; jev out → port B with noul criteria, MSD1 snapshot, cost = stub's;
+  restored); app + stub stopped; no `src/` change; HANDOFF + LOG.
