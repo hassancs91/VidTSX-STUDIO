@@ -207,6 +207,19 @@
   `electron.exe` all belong to another session (CDP 9341, its scratchpad profile `…\13c78195-…\scratchpad\part4\profile`) — none ours.
   → **T3 DONE (PASS). The run stops here (the paste-in: on PASS, records, the LS-r8 line, then STOP).** Not pushed, not merged.
 - 2026-10-31 07:36 · Hasan's answers (Stops). T4 (the M22 test) builder to spawn; tree clean at `c4a901a`, 0 instances of ours.
+- 07:37 · T4 builder spawned (HEAD `f654baf`).
+- 07:46 · **T4 builder DONE** (55 calls, ~10 min): `3d26cea` = ONLY `src/main/ipc/studio-handlers-agent-send.test.ts` (72 lines) — the real
+  `handleStudioAgentSend` with `studioAgent` (the only `stream/promises` path, per the tracer) and `electron` mocked; the captured prompt
+  builder → `:59` the 2-clip `timelineCuts` gives `- V1 (master track): 2 clips · 1 cut — cut 1 at 0:03.00.` right after `- Timeline: 0:06
+  long.`; `:67` no field → no cuts line. Red: the M22 deletion → 1 failed / 1 passed (`…\vidtsx-e2e\timeline\T4\m22-red.log`), line restored
+  (sha256 equal). tsc 25 / 10; full run (07:43:45–07:44:38, default workers) `28 failed | 519 passed | 6 skipped (553)` = exactly the 25 +
+  3, T3's set plus this file; no `src/` code change → no rebuild. Records `95eb2ab` (the M22 notes in Status.md's 2026-10-30 entry and
+  TESTING.md §19.5; `useStudioAgent.ts` / `EditorShell.tsx` still untested — named). **Orchestrator re-check (07:47):** tree clean at
+  `95eb2ab`; `3d26cea` = the one test file; the test → 1 file / 2 passed; **my own M22 mutation** in a scratch detached worktree
+  (`.vidtsx-temp\timeline\T4\orch-m22-wt`, the spread deleted) → `1 failed | 1 passed`, Expected the cuts line / Received `- Captions: none
+  set.`; scratch removed. → **T4 DONE. The run stops.** Not pushed, not merged; landing waits for the main checkout's other-session work
+  (`end-to-end-p0` is checked out there with 20 uncommitted paths; the chain main ← end-to-end-p0 ← end-to-end-p0-e ← library-search is
+  linear, library-search 445 commits ahead of main).
 
 ## Builder brief (T2; every builder gets it unchanged)
 
