@@ -18,8 +18,25 @@ import { IMAGE_PROVIDER_PRESETS } from '../../image-engine/presets';
 import { STT_PROVIDER_PRESETS } from '../../transcription-engine/presets';
 import { VIDEO_PROVIDER_PRESETS } from '../../video-engine/presets';
 import { AUDIO_GENERATION_PRESETS } from '../../audio-engine/generation/presets';
+import { DECISION_PROVIDER_PRESETS } from '../../decision-engine/presets';
 
 const registryIds = new Set<string>(PROVIDER_KEY_IDS);
+
+// DECISION_MODELS_DESIGN.md §8: Jev's key is a new `typesafe` row (capability 'decision', a decision test button); the existing
+// OpenRouter key also unlocks Microsoft-Decision-1, so its row gains 'decision'. The 'decision' badge reads "Decisions".
+describe('provider registry — decisions (§8)', () => {
+  it('a typesafe row: decisions only, the TypeSafe placeholder, a decision test', () => {
+    const typesafe = PROVIDER_REGISTRY.find((p) => p.id === 'typesafe');
+    expect(typesafe).toMatchObject({ id: 'typesafe', capabilities: ['decision'], keyPlaceholder: 'TypeSafe API key', test: 'decision' });
+  });
+
+  it('openrouter keeps its capabilities and gains decision; the label is "Decisions"', () => {
+    const openrouter = PROVIDER_REGISTRY.find((p) => p.id === 'openrouter');
+    expect(openrouter?.capabilities).toEqual(['image', 'llm', 'stt', 'decision']);
+    expect(openrouter?.test).toBe('image');
+    expect(PROVIDER_CAPABILITY_LABELS.decision).toBe('Decisions');
+  });
+});
 
 describe('provider registry', () => {
   it('has unique ids and a badge label for every capability', () => {
@@ -44,6 +61,7 @@ describe('provider registry', () => {
       assemblyai: true,
       elevenlabs: true,
       zai: true,
+      typesafe: true,
     };
     const fromRuntime = Object.fromEntries(PROVIDER_KEY_IDS.map((id) => [id, true])) as Record<
       ProviderKeyId,
@@ -82,9 +100,10 @@ describe('provider registry', () => {
       stt: new Set(STT_PROVIDER_PRESETS.flatMap((p) => (p.credentialId ? [p.credentialId] : []))),
       video: new Set(VIDEO_PROVIDER_PRESETS.map((p) => p.credentialId)),
       audio: new Set(AUDIO_GENERATION_PRESETS.map((p) => p.credentialId)),
+      decision: new Set(DECISION_PROVIDER_PRESETS.map((p) => p.credentialId)),
     };
     for (const entry of PROVIDER_REGISTRY) {
-      for (const cap of ['llm', 'image', 'stt', 'video', 'audio'] as const) {
+      for (const cap of ['llm', 'image', 'stt', 'video', 'audio', 'decision'] as const) {
         const declared = entry.capabilities.includes(cap);
         const consumed = consumers[cap].has(entry.id);
         expect({ id: entry.id, cap, declared }).toEqual({ id: entry.id, cap, declared: consumed });

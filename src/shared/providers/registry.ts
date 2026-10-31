@@ -12,10 +12,13 @@
  * entry's `capabilities` array is the badge order.
  */
 
-export type ProviderCapability = 'llm' | 'image' | 'video' | 'stt' | 'audio';
+export type ProviderCapability = 'llm' | 'image' | 'video' | 'stt' | 'audio' | 'decision';
 
-/** Engine whose test button a key row offers. Only 'image' has a handler today. */
-export type ProviderTestKind = 'image' | 'video' | 'llm';
+/**
+ * Engine whose test button a key row offers. 'decision' = one tiny `noul` pinned to Jev with the SAVED key, through
+ * `decisions:decide` `{ test: 'jev' }` (DECISION_MODELS_DESIGN.md §8) — no key crosses the decisions IPC.
+ */
+export type ProviderTestKind = 'image' | 'video' | 'llm' | 'decision';
 
 export interface ProviderExtraField {
   /** Plain (non-secret) settings field that rides along with the key. */
@@ -61,7 +64,8 @@ const REGISTRY = [
     name: 'OpenRouter',
     keyHint: 'openrouter.ai/keys',
     keyPlaceholder: 'sk-or-…',
-    capabilities: ['image', 'llm', 'stt'],
+    // 'decision': the same key unlocks Microsoft-Decision-1 over OpenRouter's Decisions API (src/decision-engine).
+    capabilities: ['image', 'llm', 'stt', 'decision'],
     test: 'image',
   },
   {
@@ -101,6 +105,15 @@ const REGISTRY = [
     keyPlaceholder: 'API key',
     capabilities: ['llm'],
   },
+  {
+    // Jev (jev-1.14.0) — typed questions → probabilities (DECISION_MODELS_DESIGN.md §8, E-f).
+    id: 'typesafe',
+    name: 'TypeSafe',
+    keyHint: 'typesafe.ai → API keys — Jev decisions',
+    keyPlaceholder: 'TypeSafe API key',
+    capabilities: ['decision'],
+    test: 'decision',
+  },
 ] as const satisfies readonly ProviderDefinitionShape[];
 
 /** Union of registry ids — replaces the hand-written credentials interface. */
@@ -128,6 +141,7 @@ export const PROVIDER_CAPABILITY_LABELS: Record<ProviderCapability, string> = {
   llm: 'LLMs',
   stt: 'Transcription',
   audio: 'Sound & music',
+  decision: 'Decisions',
 };
 
 export function isProviderKeyId(value: string): value is ProviderKeyId {
