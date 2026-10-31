@@ -445,7 +445,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D3 — the Mapika spike (no product code) | **DONE — verdict FAIL: the local rung stays empty** (a note, no STOP; D4 (g) not built) | 3 | orchestrator re-check 09:30 (headline re-scored equal) + 09:44 (report) | docs `b5a3d3e` `17b3348` `15b00d8` `048c8a7` `2082918` | GPU headline T2 38 / 40 Brier 0.053, T3 33 / 40 Brier 0.122, off-list 0, warm p95 92.5 / 227.2 ms, peak RSS 4,483.7 MB → 3 PASS / 4 FAIL; `D3-mapika-report.md` 264 lines | 2026-10-31 08:53 / 09:43 |
-| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) `c7ad6da`, (b) `ed79420`, (c) `b7b1648` + `d9ec730` DONE; (d) next | 4 | (a) 10:02, (b) 10:19, (c1) 10:36, (c2) 10:48 | code `c7ad6da` `ed79420` `b7b1648` `d9ec730` | engine + services + IPC + preload + registry: 188 tests; tsc 25 / 10 | 2026-10-31 09:46 / — |
+| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) `c7ad6da`, (b) `ed79420`, (c) `b7b1648` + `d9ec730`, (d) `feb5e69` DONE; (e) next | 5 | (a) 10:02, (b) 10:19, (c1) 10:36, (c2) 10:48, (d) 11:23 | code `c7ad6da` `ed79420` `b7b1648` `d9ec730` `feb5e69` | 188 + 38 tests (d); tsc 25 / 10 | 2026-10-31 09:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 2 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-2.md, verbatim)
@@ -577,6 +577,21 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   jev" — the URL host:port only). The key still comes from the credential store (a FAKE key saved through the Providers row in a test
   profile); the stub never logs request headers. Two variables (not one) so §15.3 5 can tell the OpenRouter-shaped call from Jev's. Tests:
   packaged → ignored; non-loopback → ignored; unpackaged + loopback → used; unset → the preset URL.
+- **D-r22 (orchestrator, 11:20) — D4 builder #5's (d) decisions, accepted (two shape how §15 is read — the verifier gets this ruling).**
+  (1) **The no-claim test matches its words as WHOLE words** (case-insensitive) plus `%` anywhere and no digit in the agent text: D2 §10.1
+  MANDATES "Decision: uncertain — top answer billing (escalate)", which contains the substring `certain` that §15.1 forbids — a substring
+  reading would make D2 contradict itself; the word `certain` (and `sure`, `match`, …) never appears as a word. (2) **`p` is a third OUTPUT
+  PORT** — the flow runner writes only port values into `run.json`, so it is the only way `p` reaches the run record without changing the
+  runner; the canvas previews `outputs[0]` = `band`. Its handle is drawn on the canvas labelled "p (run record)" (a value never shown); part
+  (f) hides that handle IF the node renderer supports a record-only port with a small change (≤ ~20 lines), otherwise the label stays and it is
+  a note. (3) `p` = the TOP answer's probability (choice `probabilities[choice]`; noul `max(p, 1 − p)`), not P(true) — D-r18. (4)
+  **`allowUncalibrated` lifts ONLY the calibration term; the threshold still applies** (`decide-outcome.ts:38-41`) — D2 §10.1's "then band =
+  act with note 'uncalibrated'" is read inside its own first sentence ("act iff the top probability ≥ threshold AND calibrated"); acting on an
+  uncalibrated 0.4 would defeat the gate. (5) A `refused` answer → `escalate` with no answer and no `p`; an engine error → `isError` + one fixed
+  sentence per code (`decide-outcome.ts:51-60`), which fails the node in a flow. (6) `route_request.subject` (default "tool family" = D1's
+  measured wording); (7) `check_matches_request.itemKind` (item / template / caption / clip → D1's header); (8) the nodes are not marked
+  priced (< $0.0001 a call) and need no capability. **For D5's §15.3 3:** the two-node flow wires both required inputs (`item`, `request`) of
+  `check_matches_request`.
 
 ## Stops (session 2)
 
@@ -690,4 +705,16 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 - 10:46–10:48 · **Orchestrator re-check:** HEAD `1ede633`; vitest over the four new files + `src/main/services/decisions` + `src/decision-engine` +
   `src/shared/providers` → **188 passed**; tsc **web 25 / node 10**; `src/preload/api/decisions.ts` read (four functions; the envelope rebuild);
   **found: no way to point the presets at §15.3's stub server** (`presets.ts:12,22` fixed URLs) → rulings **D-r20** and **D-r21** (the dev-only
-  stub hook, built in part (e)). D4 builder #5 (part (d)) to spawn.
+  stub hook, built in part (e)). D4 builder #5 (part (d)) to spawn. (Commit `dca7023`, 10:48:17.)
+- 10:49 · D4 builder #5 spawned (HEAD `dca7023`; part (d) — `decide` tool / node + `check_matches_request` + `route_request`, D-r16 body equality
+  over every T2 / T3 row, D-r18 band, the no-claim test; T2 / T3 fixtures to `src/main/services/decisions/benchmark/fixtures/`).
+- 11:12 · D4 builder #5 HANDOFF (~99 calls, ~30 min — over budget; code `feb5e69`, docs `28f6d7f`): **part (d) DONE** — `agents/tools/{decide,
+  check-matches-request,route-request,decide-run,decide-outcome}.ts` (longest 140 lines), registered in `registry.ts` + appended to
+  `src/shared/agents/tool-ids.ts` (`STUDIO_TOOL_IDS` untouched); fixtures `benchmark/fixtures/{t2-routing,t3-verify}.json` (byte copies of D1's) +
+  `d1-dry-run-t2-t3.json` (key scan empty); red 4 files / 5 tests → green 4 / 38 (`decide`, `decide-builtins`, `decide-no-claim`, `registry`): the
+  built-ins' HTTP bodies through the real engine + System One adapter (fake fetch, fake key) EQUAL D1's dry-run state + question + criteria on all
+  40 T2 + 40 T3 rows; band both ways + uncalibrated; no-claim over every row, both bands, every error text; featureSource agent / flow; ports via
+  the flow runner's `mapOutputs`; related suites 49 / 365; tsc 25 / 10. Nine decisions (→ D-r22).
+- 11:18–11:23 · **Orchestrator re-check:** HEAD `28f6d7f`; the four test files → **38 passed** (23 s — the registry import graph); tsc **web 25 /
+  node 10** (finished in the background at ~11:23); `decide-outcome.ts` read in full (band = D-r18; texts = D2 §10.1; error sentences
+  number-free) → ruling **D-r22**. D4 builder #6 (part (e) + the D-r21 stub hook) to spawn.
