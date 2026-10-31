@@ -225,6 +225,11 @@ app.whenReady().then(async () => {
   // Scratch folders and Remotion asset copies a crash or a kill left behind
   // (Stage 4) — disk only, off the startup path.
   void sweepExportScratch().catch(() => {});
+  // Library index v2 (E1): back up a pre-E1 index once, back-fill `kind`,
+  // then probe durations in the background. Never blocks startup.
+  void import('./services/library/library-migrate')
+    .then(({ migrateLibraryIndexAtStartup }) => migrateLibraryIndexAtStartup())
+    .catch(() => {});
   // Webpack bundle folders unused for 7 days (bundle-cache-prune.ts), except any
   // a saved render-queue job still points at. Disk only, off the startup path;
   // when the queue cannot be read, nothing is pruned.

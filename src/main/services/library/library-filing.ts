@@ -56,6 +56,23 @@ export function sanitizeFolder(folder: string | undefined, fallback: string): st
   return parts.length > 0 ? parts.join('/') : fallback;
 }
 
+/** Most tags one entry carries (E2 / T6). */
+export const TAGS_MAX = 20;
+
+/** Search tags as the index stores them (E2): trimmed, lower-cased, empties
+ *  dropped, duplicates removed, at most `TAGS_MAX`. `undefined` when nothing
+ *  is left, so an entry never carries an empty `tags: []`. */
+export function normalizeTags(tags: string[] | undefined): string[] | undefined {
+  if (!tags) return undefined;
+  const seen = new Set<string>();
+  for (const raw of tags) {
+    const tag = raw.trim().toLowerCase();
+    if (tag.length > 0) seen.add(tag);
+    if (seen.size >= TAGS_MAX) break;
+  }
+  return seen.size > 0 ? [...seen] : undefined;
+}
+
 /**
  * Reserve a non-colliding file path inside the library: `<folder>/<base><ext>`,
  * then `<base>-2<ext>`, `-3`, … The folder is created; the file is NOT — the

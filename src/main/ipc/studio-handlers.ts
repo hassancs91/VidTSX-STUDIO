@@ -79,10 +79,10 @@ import {
 import {
   classifyMediaKind,
   hashFileHead,
-  importMediaFiles,
   MEDIA_DIALOG_FILTERS,
   probeMedia,
 } from '../services/studio/media-import';
+import { importMediaFilesMarkingLibrary } from '../services/studio/pool-import';
 import { getProjectCacheDir, getProjectDir, safeResolveCachePath } from '../services/studio/studio-paths';
 import { flushProjectPoster, scheduleProjectPoster } from '../services/studio/project-poster';
 import { getLibraryRoot } from '../services/library/library-paths';
@@ -294,7 +294,9 @@ export async function handleStudioMediaImport(
       }
       filePaths = result.filePaths;
     }
-    const { assets, errors } = await importMediaFiles(data.projectId, filePaths);
+    // A pool import of a file that lies under the library root is a `library:`
+    // landing too (T6 usedIn) — the seam marks it (pool-import.ts, tested there).
+    const { assets, errors } = await importMediaFilesMarkingLibrary(data.projectId, filePaths);
     return { success: true, assets, errors: errors.length > 0 ? errors : undefined };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to import media') };

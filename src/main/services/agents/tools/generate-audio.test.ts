@@ -21,6 +21,7 @@ beforeEach(() => {
     relPath: 'agents/test/sfx-a-fast-whoosh.mp3',
     kind: 'sfx',
     durationSeconds: 3,
+    normalized: true,
     description: 'a fast whoosh',
     providerId: 'elevenlabs',
     model: 'eleven_text_to_sound_v2',

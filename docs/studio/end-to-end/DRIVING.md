@@ -161,6 +161,68 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
 
 - 2026-10-23 · B6 · **The Assistant's live state:** `agent` props read up from the textarea's `__reactFiber$` were a STALE alternate — busy / pending frozen at the first streamed words for 12 min while the turn had ended in 26 s (the AI-usage row and the visible Send button said so). Read busy from a visible `button[title="Stop the assistant"]`, and the props by walking DOWN from the container's `__reactContainer$….stateNode.current` (B6 `run.mjs` `findCur`). A cut card with 0 accepted items (a lone fluff) has a disabled Apply — answer it with "Reject all"; the editor's "Review outcome" turn still continues the run. Per-turn usage: `window.api.aiUsageGetLog({ limit })` rows (`featureSource 'auto-cut'` for Studio assistant turns).
 
+- 2026-10-23 · E1 · The Assets screen scans the library on its FIRST mount only; going Home and back
+  does NOT rescan (it stays mounted) — click its visible `Refresh` button to drive a reconcile pass. The
+  root view shows folders (`e1-seed`, `presets`): `dblclick` the folder's card to list files. The bundled
+  Remotion ffprobe n7.1 counts a LAME mp3's encoder delay + padding in `format.duration` (+44 ms on a
+  1.3 s tone; ffprobe n8 trims it) — fixed in `probeMedia` via `mp3-gapless.ts`; compare durations against
+  an independent ffprobe of a NEWER build, and expect old-build numbers for mp3 to differ.
+
+## Track E (session 4, 2026-10-23) — the worktree
+
+- Track E works ONLY in the worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch
+  `end-to-end-p0-e`). The main checkout `D:\repos\VidTSX-STUDIO` has another session's uncommitted files and
+  Hasan's own dev app running from it (his real profile, Vite 5173): never edit, stage, stash, build or
+  launch there, never touch its `out/`, never `git stash` anywhere. Commit with explicit paths.
+- No `node_modules` in the worktree; never `npx` / `npm` there. Tests:
+  `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run [files]`; types:
+  `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` (and
+  `tsconfig.node.check.json`), count `error TS` lines — baseline web 26 / node 10.
+- Per-part scratch (drivers, small logs, kits): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\<PART>\`
+  (outside the worktree's tree). Profiles: `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\<PART>…\profile`,
+  copied from `profiles\source\profile` WITHOUT `settings\settings.db*`. The library root of such a profile
+  is `<profile>\assets` — confirm from the running app before any library write.
+- **The vitest gate from the worktree (orchestrator, 2026-10-23 20:50):** three files cannot resolve
+  packages from a worktree with no `node_modules` of its own — `builder-libraries.test.ts` (`@remotion/paths
+  … is not installed`), `shot-bundle.test.ts` and `shot-bundle-in-place.test.ts` (esbuild `Could not resolve
+  "chroma-js"` …); they look under `<root>/node_modules` only. A `node_modules` junction in the worktree was
+  **refused by the permission classifier** (shared resource) — do not create one, copy one or work around
+  it. Rule: the counted full run is the worktree run (`--maxWorkers=2` while headroom < 10 GB), green
+  except those three files, each failing ONLY with a package-resolution error; for those three, show they
+  are independent of track E's diff (none of the files `git diff --name-only 5d77600..HEAD` lists is in
+  their import graph; say the method: static walk / esbuild metafile, `vi.mock`'d modules not followed)
+  and say so in STATUS. Any other failure is real (DRIVING's load-timeout rule still applies).
+  **WITHDRAWN 2026-10-23 23:00 — the former rule (a)** (`--root <wt>` started from the main checkout's
+  directory): `vitest.config.ts` builds its aliases with `resolve('src/…')`, relative to the cwd, so that
+  run loads the MAIN checkout's `@shared` / `@main` code (E1 verifier round 3). Do not use it as evidence.
+- **E-d13 — the vitest gate under EXTERNAL CPU load (orchestrator, 2026-10-28 21:30):** when another process (measured — e.g.
+  `vmmemWSL` at ~60 % of all cores, 21:27) holds the CPU and DRIVING's load rule above cannot be met in 3 default tries + one
+  `--maxWorkers=4` run, the counted full run is `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --maxWorkers=2
+  --testTimeout=20000 --hookTimeout=20000` (4× the 5000 ms default; it does not change explicit `vi.waitFor` / per-test timeouts). It
+  must be green except the three E-d2a suites (resolution only) and DRIVING's named known list (`flow-render.test.ts:255`,
+  `shot-module-resolver.test.ts:151`, the zip-package suites), each of those green ALONE. Record the CPU measurement (top processes
+  over 5 s) with the run, and say in STATUS that E-d13 was used. Any other failure, or a timeout that persists at 20 s, is real.
+- **Studio root FIRST (E1 verifier round 3, 2026-10-23):** a fresh isolated profile's Studio root defaults to
+  Hasan's real projects folder and the Home screen lists them on launch. Set `studioRootSet` in the first
+  CDP call after the page is ready, before any navigation, and check it with `studioRootGet`; pass the path
+  from a FILE-based driver (shell escaping mangled it twice in E1).
+- **Launch recipe from the worktree (E1 builder #4, 2026-10-23, worked first time, twice):**
+  1. Build the worktree's own `out/` (app stopped; rewrites only `wt/out`, ~125 MB, ~2 min), Bash from the
+     worktree root: `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+     D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build > <log> 2>&1` (rc 0, only
+     "use client" warnings). Rebuild after every `src/` change before a live check.
+  2. Launch with NO Vite server (`ELECTRON_RENDERER_URL` unset → main loads `out/renderer/index.html`), from
+     a script FILE run with Bash `run_in_background` (kit `E1/launch.sh`): `cd <wt>; unset
+     ELECTRON_RUN_AS_NODE ELECTRON_RENDERER_URL; exec D:/repos/VidTSX-STUDIO/node_modules/electron/dist/electron.exe .
+     --user-data-dir=<profile> --remote-debugging-port=926x --disable-features=CalculateNativeWinOcclusion
+     --disable-backgrounding-occluded-windows --disable-renderer-backgrounding > <app.log> 2>&1`. Ready
+     (`window.api` + a visible nav button) in under 10 s; the window opens MINIMISED — restore it without
+     activating (kit `E1/restore.ps1`) in the same call as a CDP screenshot, else `captureScreenshot` hangs.
+  3. Stop: PowerShell, `Get-CimInstance Win32_Process -Filter "Name='electron.exe'"` whose CommandLine holds
+     the profile path → `Stop-Process`. **Filter by Name too**: an unfiltered CommandLine match also hits
+     the PowerShell/bash running the stop command (the path is in its own command line) — it killed its
+     own shell once (exit 255). The background launcher then reports exit 127 (killed `exec`) — expected.
+
 ## video-14 (track A, from A3 on) — orchestrator rules
 
 - Work only on the shared copy `.vidtsx-temp/end-to-end/v14-root/projects/video-14` (set the

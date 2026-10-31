@@ -14,7 +14,76 @@ import type { StudioAssetProbe } from './studio';
 
 export type LibraryAssetOrigin = 'imported' | 'generated' | 'captured';
 
-export interface LibraryIndexEntry {
+/** What a library file is, from the one extension table (`src/shared/media-kinds.ts`). */
+export type LibraryAssetKind = 'video' | 'audio' | 'image' | 'model3d' | 'font' | 'data' | 'other';
+
+/** The kinds a timeline clip can be (= `StudioAssetKind`). */
+export type PlayableMediaKind = 'video' | 'audio' | 'image';
+
+/**
+ * Sound-library metadata (T6): what the reference SFX/music catalogs carry
+ * per clip. Filled by generation (E2) and the catalog importer (E4).
+ */
+export interface LibraryAudioMeta {
+  /** e.g. motion / tension / emphasis / snap / foley / reward / texture / impact. */
+  category?: string;
+  /** Integrated loudness, LUFS. Generation (E2) records the value RE-MEASURED after its normalize step. */
+  loudnessLufs?: number;
+  /**
+   * Peak, dBFS. Generation (E2) writes the TRUE peak (dBTP — `loudnorm`'s `input_tp`, re-measured after the
+   * re-encode; it is ≥ the sample peak, so the −1.5 ceiling on it holds for the sample peak too) with
+   * `peakKind: 'true'`; the catalog importer (E4) carries the catalogs' SAMPLE peak with `peakKind: 'sample'`.
+   */
+  peakDbfs?: number;
+  /** Which peak `peakDbfs` is; absent = unknown (written before E2). */
+  peakKind?: 'true' | 'sample';
+  /** Where the sound came from — the audio provider id ('elevenlabs', the dev 'standin') or e.g. 'synth'. */
+  source?: string;
+  /** The generating model, when one made it. */
+  model?: string;
+  /** The gain the normalize step applied at generation, dB (0 = already at the target, or nothing to apply). */
+  gainDb?: number;
+  /** Set when the normalize step failed and the file was kept as generated (un-normalized). */
+  normalizeError?: string;
+  /**
+   * The licence as the source recorded it, verbatim (the catalog importer, E4). Absent when none was
+   * recorded — the importer then says "no licence recorded in the catalog" in the entry's description.
+   */
+  license?: string;
+}
+
+/**
+ * Index v2 fields (T6, E1). All optional so an index written before E1 reads
+ * unchanged — and, the other way round, the pre-E1 reader keeps them on the
+ * entries it does not rewrite (E-d5; `pre-e1-control.test.ts` pins which).
+ */
+export interface LibraryIndexV2Fields {
+  /** From the one extension table; back-filled by the migration / on read. */
+  kind?: LibraryAssetKind;
+  /** Free-form search tags (E2 / E4). */
+  tags?: string[];
+  /** Sound metadata (E2 / E4). */
+  audio?: LibraryAudioMeta;
+  /** Ids of the projects a `library:` ref of this file landed in (E2). */
+  usedIn?: string[];
+  /**
+   * The file version (size + mtime) `probe` was measured on — with `failed`, the version
+   * whose probe failed (E1 fix round 1). A stamp that no longer matches the entry's
+   * size/mtime marks the probe stale (an older app refreshed size/mtime but kept it) and
+   * it is re-probed; a failed stamp stops retries until the file changes. A probe with no
+   * stamp (written before the stamp existed) is trusted.
+   */
+  probeStamp?: LibraryProbeStamp;
+}
+
+/** See `LibraryIndexV2Fields.probeStamp`. */
+export interface LibraryProbeStamp {
+  size: number;
+  mtimeMs: number;
+  failed?: true;
+}
+
+export interface LibraryIndexEntry extends LibraryIndexV2Fields {
   /** Key: path relative to the assets root, POSIX separators. */
   relPath: string;
   /**
@@ -29,7 +98,11 @@ export interface LibraryIndexEntry {
   brandId?: string;
   origin: LibraryAssetOrigin;
   addedAt: string;
-  /** Cached media probe; refreshed on mtime change. Filled lazily. */
+  /**
+   * ffprobe result for audio/video (duration, size, codec). Written on upsert
+   * and by the reconcile scan (new / edited files), kept across moves, and
+   * back-filled in the background for entries that lack it (E1).
+   */
   probe?: StudioAssetProbe;
   /** Change-detection bookkeeping (internal to the reconcile scan). */
   size?: number;
@@ -41,7 +114,7 @@ export interface LibraryIndexEntry {
  * pending move) or re-import of the same content can resurrect its
  * description instead of losing it.
  */
-export interface LibraryTombstone {
+export interface LibraryTombstone extends LibraryIndexV2Fields {
   relPath: string;
   hash?: string;
   description?: string;
@@ -49,10 +122,23 @@ export interface LibraryTombstone {
   origin: LibraryAssetOrigin;
   addedAt: string;
   missingSince: string;
+  /** Same bytes come back → same probe (E1). */
+  probe?: StudioAssetProbe;
 }
 
+/** The index revision E1 writes (see `LibraryIndexFile.rev`). */
+export const LIBRARY_INDEX_REV = 2;
+
 export interface LibraryIndexFile {
+  /**
+   * Stays 1 on purpose (E-d5): the pre-E1 reader (installed 1.1.x app, main
+   * branch) returns an EMPTY index for any other version and its next write
+   * rebuilds the index from disk, losing descriptions, origins, brand ids,
+   * hashes and tombstones. "Index v2" is `rev` instead.
+   */
   version: 1;
+  /** 2 once the E1 migration ran; absent = written by pre-E1 code (re-migrate). */
+  rev?: number;
   entries: LibraryIndexEntry[];
   tombstones: LibraryTombstone[];
 }

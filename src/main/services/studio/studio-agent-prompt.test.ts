@@ -90,6 +90,48 @@ describe('buildAgentSystemPrompt — run_auto_cut takes the project cut style (B
   );
 });
 
+describe('buildAgentSystemPrompt — reuse before generate: search the library before generating any sound (E3)', () => {
+  const prompt = buildAgentSystemPrompt({ projectName: 'T', assets: [], shots: [], toolsAvailable: true, reviewOpen: false });
+
+  it('list_assets is where a sound is looked up first', () => {
+    expect(prompt).toContain(
+      'For any SOUND (a whoosh, a hit, a chime, a music bed) search it first: `list_assets(scope: "library", kind: "audio", query: "whoosh")`',
+    );
+  });
+
+  it('generate_sfx / generate_music say they check the library first and that `force` is the way past it', () => {
+    expect(prompt).toContain('`generate_sfx(prompt, durationSeconds?, loop?, promptInfluence?, force?)`');
+    expect(prompt).toContain('It checks the library FIRST: when sounds there match the prompt it returns up to three `library:<path>` refs instead of generating');
+    expect(prompt).toContain('pass `force: true` only when none of them fits');
+    expect(prompt).toContain('The same library check as generate_sfx (a bed shorter than the length you ask is not offered)');
+  });
+
+  it('the full-edit Sound step searches the library before generating, and library sounds need no provider', () => {
+    expect(prompt).toContain('6. Sound: search the library before generating any sound — `list_assets(scope: "library", kind: "audio", query: …)`');
+    expect(prompt).toContain('only when nothing fits, `generate_sfx`');
+    expect(prompt).toContain('Library sounds need no provider; skip only the generation');
+    expect(prompt).not.toContain('6. Sound: `generate_sfx` for a transition');
+  });
+
+  it('the preset mapping: an `sfx` / `music` step lists the library first', () => {
+    expect(prompt).toContain('an `sfx` step means `list_assets(scope: "library", kind: "audio")` FIRST and a library sound that fits, else `generate_sfx`');
+    expect(prompt).toContain('a `music` step the same — a library bed first, else `generate_music`');
+    expect(prompt).not.toContain('an `sfx` step means `generate_sfx` + `insert_asset');
+  });
+
+  it('the miss rule (E-d15, fix round 3): a miss answers the closest library sounds; `force: true` is the only way to generate while the library scores', () => {
+    expect(prompt).toContain('Even a sound the library lacks starts there: on a miss generate_sfx / generate_music answer the closest library sounds before anything is generated.');
+    expect(prompt).toContain('When nothing matches well it STILL generates nothing: it answers the three closest library sounds — place one that fits, or call again with `force: true` to generate; it generates without `force` only when nothing in the library scores at all.');
+    expect(prompt).toContain('and the same miss rule — the closest library beds instead of a new track, `force: true` to generate');
+    expect(prompt).toContain('A miss answers the closest library sounds, not a new file — call again with `force: true` only when none of them fits either.');
+    expect(prompt).toContain('on a miss either tool answers the closest library sounds instead of generating — `force: true` generates when none fits');
+  });
+
+  it('the recall fill (E-d16, fix round 4): up to three labelled library sounds; only weak matches → the library "may have" it', () => {
+    expect(prompt).toContain('— the matches first, then the closest other library sounds, each row labelled `matched`, `weak match` or `closest` (only weak matches: the library "may have" the sound); place the one that fits');
+  });
+});
+
 describe('buildAgentSystemPrompt — W3 state block and workflows', () => {
   const base = {
     projectName: 'Test',

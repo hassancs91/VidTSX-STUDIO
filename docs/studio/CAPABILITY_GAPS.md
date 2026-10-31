@@ -126,6 +126,15 @@ library, no placement, no proposal runner.
 Also: `StudioAssetKind` is `video | audio | image`, so an SFX library would
 arrive as undifferentiated audio assets today.
 
+**Narrowed by E (2026-10-28):** a library (index v2 — category / tags / LUFS /
+peak / `usedIn`, E1–E2), the 45 + 6 catalog clips importable (E4), generation
+normalized and filed (E2), reuse before generate (E3: `generate_sfx` /
+`generate_music` answer the top-3 library matches unless `force`; the prompt
+rule), placement as an ask-first `insert_asset` card, and the Assets screen
+plays sounds and filters by origin / tag chips (E3). Still open: the cue plan /
+`sfx-plan` runner with audition (`propose_sfx`) — not in this plan (ask-first
+stays).
+
 ### G5 · Studio's lint is stricter than Studio's runtime — *blocked all 24 shots*
 
 Every shot failed the import gate on `react/jsx-runtime` and

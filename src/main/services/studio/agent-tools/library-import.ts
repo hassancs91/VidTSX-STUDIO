@@ -7,6 +7,7 @@ import fs from 'fs/promises';
 import type { StudioMediaAsset } from '../../../../shared/types/studio';
 import { getLibraryRoot, resolveLibraryPath, toLibraryRelPath } from '../../library/library-paths';
 import { loadIndex } from '../../library/library-store';
+import { markLibraryUsedIn } from '../../library/library-used-in';
 import { hashFileHead, importMediaFiles } from '../media-import';
 import { loadProject } from '../project-store';
 import { matchExistingAsset, parseLibraryRef } from '../shot-asset-refs';
@@ -43,17 +44,22 @@ export async function importLibraryFile(
   const project = await loadProject(ctx.req.projectId);
   const known = [...project.assets, ...ctx.state.importedAssets.values()];
   const existing = matchExistingAsset(known, absPath, hash);
-  if (existing) return existing;
+  // Both returns are a landing of a `library:` ref in this project (T6 usedIn);
+  // the mark is an index patch that never throws — a re-mark is a no-op.
+  const libraryRelPath = toLibraryRelPath(root, absPath);
+  if (existing) {
+    await markLibraryUsedIn(root, [libraryRelPath], project.id);
+    return existing;
+  }
 
   const { assets, errors } = await importMediaFiles(project.id, [absPath]);
   if (assets.length === 0) {
     throw new Error(`Could not import library asset ${relPath}: ${errors.join(' ') || 'unknown error'}`);
   }
   const index = await loadIndex(root);
-  const description = index.entries.find(
-    (e) => e.relPath === toLibraryRelPath(root, absPath),
-  )?.description;
+  const description = index.entries.find((e) => e.relPath === libraryRelPath)?.description;
   const asset: StudioMediaAsset = { ...assets[0], ...(description ? { description } : {}) };
+  await markLibraryUsedIn(root, [libraryRelPath], project.id);
   ctx.state.importedAssets.set(asset.id, asset);
   ctx.emit({ projectId: ctx.req.projectId, kind: 'assets-imported', assets: [asset] });
   return asset;

@@ -7,6 +7,8 @@ import { useBrands } from '../hooks/useBrands';
 import { usePresets } from '../hooks/usePresets';
 import { useLibraryDescribe } from '../hooks/useLibraryDescribe';
 import { useLibraryOrganize } from '../hooks/useLibraryOrganize';
+import { useAudioPlayback } from '../hooks/useAudioPlayback';
+import { selectedAssetUrls } from '../services/asset-urls';
 import { AssetToolbar } from './AssetToolbar';
 import { BrandsDialog } from './BrandsDialog';
 import { PresetsDialog } from './PresetsDialog';
@@ -24,6 +26,7 @@ import {
   flattenAssetFiles,
   formatBytes,
   type CategoryFilter,
+  type ChipFilter,
 } from '../services/asset-search';
 import type { AssetEntry } from '../types';
 
@@ -77,6 +80,8 @@ export function AssetLibraryScreen() {
   }, []);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');
+  const [chip, setChip] = useState<ChipFilter | null>(null);
+  const playback = useAudioPlayback();
 
   const metaFor = useCallback(
     (absPath: string) =>
@@ -86,13 +91,10 @@ export function AssetLibraryScreen() {
 
   // Searching flattens the listed subtree — the breadcrumb is the scope,
   // so searching at the root searches the whole library.
-  const searching = query.trim() !== '' || category !== 'all';
+  const searching = query.trim() !== '' || category !== 'all' || chip !== null;
   const displayedEntries = useMemo(
-    () =>
-      searching
-        ? filterAssets(flattenAssetFiles(nodes), query, category, (p) => metaFor(p)?.description)
-        : entries,
-    [searching, nodes, query, category, entries, metaFor]
+    () => (searching ? filterAssets(flattenAssetFiles(nodes), query, category, metaFor, chip) : entries),
+    [searching, nodes, query, category, chip, entries, metaFor]
   );
 
   const subtitleFor = useCallback(
@@ -210,14 +212,7 @@ export function AssetLibraryScreen() {
     selectedPath !== null
       ? displayedEntries.find((e) => e.node.path === selectedPath && e.node.type === 'file')
       : undefined;
-  const selectedPreviewUrl =
-    selectedEntry && selectedEntry.category === 'image' && moduleServerUrl
-      ? `${moduleServerUrl}/asset?path=${encodeURIComponent(selectedEntry.node.path)}`
-      : null;
-  const selectedGlbUrl =
-    selectedEntry && selectedEntry.category === 'model3d' && selectedEntry.ext.toLowerCase() === '.glb' && moduleServerUrl
-      ? `${moduleServerUrl}/asset?path=${encodeURIComponent(selectedEntry.node.path)}`
-      : null;
+  const selectedUrls = selectedAssetUrls(selectedEntry, moduleServerUrl);
   const currentFolderBytes = sizes?.folders[toLibraryRelPath(rootPath, currentPath)];
 
   const handleDelete = (entry: AssetEntry) => {
@@ -248,6 +243,7 @@ export function AssetLibraryScreen() {
 
   return (
     <div className="flex flex-col h-full bg-app-base">
+      <audio {...playback.sharedProps} />
       <header
         className="flex flex-col gap-3 px-4 py-3"
         style={{ borderBottom: '0.5px solid var(--color-border)' }}
@@ -286,7 +282,14 @@ export function AssetLibraryScreen() {
             {organize.error}
           </div>
         )}
-        <AssetSearchBar query={query} onQuery={setQuery} category={category} onCategory={setCategory} />
+        <AssetSearchBar
+          query={query}
+          onQuery={setQuery}
+          category={category}
+          onCategory={setCategory}
+          chip={chip}
+          onClearChip={() => setChip(null)}
+        />
         <AssetBreadcrumb rootPath={rootPath} currentPath={currentPath} onNavigate={navigate} />
       </header>
 
@@ -299,6 +302,7 @@ export function AssetLibraryScreen() {
             selectedPath={selectedPath}
             moduleServerUrl={moduleServerUrl}
             subtitleFor={subtitleFor}
+            playback={playback}
             onSelect={setSelectedPath}
             onOpen={handleOpen}
             onCopyUrl={copyAssetUrl}
@@ -312,8 +316,12 @@ export function AssetLibraryScreen() {
           <AssetDetailsPanel
             entry={selectedEntry}
             meta={metaFor(selectedEntry.node.path)}
-            previewUrl={selectedPreviewUrl}
-            glbUrl={selectedGlbUrl}
+            previewUrl={selectedUrls.image}
+            glbUrl={selectedUrls.glb}
+            audioUrl={selectedUrls.audio}
+            chip={chip}
+            onChip={setChip}
+            onAudioPlay={playback.claim}
             onSaveDescription={saveDescription}
             onClose={() => setSelectedPath(null)}
           />

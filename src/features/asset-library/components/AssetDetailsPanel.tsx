@@ -3,7 +3,10 @@ import { Euler } from 'three';
 import { GlbViewer } from '@shared/components/GlbViewer';
 import type { LibraryIndexEntry } from '@shared/types/asset-library';
 import type { AssetEntry } from '../types';
-import { formatBytes } from '../services/asset-search';
+import { formatBytes, type ChipFilter } from '../services/asset-search';
+import { soundFieldsOf } from '../services/sound-fields';
+import { AudioPreview } from './AudioPreview';
+import { AssetChips } from './AssetChips';
 
 /** TripoSR's axis convention (see 3D Studio's GlbViewer wrapper) — the library's only generator of GLBs. */
 const TRIPOSR_TO_THREE = new Euler(-Math.PI / 2, -Math.PI / 2, 0, 'YXZ');
@@ -14,6 +17,13 @@ interface AssetDetailsPanelProps {
   previewUrl: string | null;
   /** Module-server URL of a selected .glb (plan §5 step 6) — rendered in the shared viewer. */
   glbUrl?: string | null;
+  /** Module-server URL of a selected audio file (E3) — null when the server isn't running. */
+  audioUrl?: string | null;
+  /** E3: the screen's chip filter, set by clicking an origin / tag chip. */
+  chip?: ChipFilter | null;
+  onChip?: (chip: ChipFilter | null) => void;
+  /** E3: the details player started — the screen pauses its shared tile player. */
+  onAudioPlay?: (player: HTMLMediaElement) => void;
   onSaveDescription: (relPath: string, description: string) => Promise<boolean>;
   onClose: () => void;
 }
@@ -29,6 +39,10 @@ export function AssetDetailsPanel({
   meta,
   previewUrl,
   glbUrl = null,
+  audioUrl = null,
+  chip = null,
+  onChip,
+  onAudioPlay,
   onSaveDescription,
   onClose,
 }: AssetDetailsPanelProps) {
@@ -81,11 +95,16 @@ export function AssetDetailsPanel({
           className="w-full aspect-square rounded overflow-hidden"
         />
       )}
+      {entry.category === 'audio' && <AudioPreview url={audioUrl} onPlay={(p) => onAudioPlay?.(p)} />}
+      {meta && onChip && <AssetChips meta={meta} active={chip} onChip={onChip} />}
 
       <dl className="flex flex-col gap-1 text-[11px]">
         <Row label="Type" value={entry.category + (entry.ext ? ` (${entry.ext.replace('.', '')})` : '')} />
         {meta?.size !== undefined && <Row label="Size" value={formatBytes(meta.size)} />}
         {meta && <Row label="Origin" value={meta.origin} />}
+        {soundFieldsOf(meta).map((field) => (
+          <Row key={field.label} label={field.label} value={field.value} />
+        ))}
         {meta && <Row label="Added" value={new Date(meta.addedAt).toLocaleDateString()} />}
         {meta && <Row label="Path" value={meta.relPath} />}
       </dl>
@@ -127,7 +146,7 @@ export function AssetDetailsPanel({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-2">
-      <dt className="w-[48px] shrink-0 text-text-dim">{label}</dt>
+      <dt className="w-[56px] shrink-0 text-text-dim">{label}</dt>
       <dd className="text-text-secondary break-all">{value}</dd>
     </div>
   );

@@ -13,6 +13,7 @@ vi.mock('electron', () => ({
 import {
   captureDescription,
   domainFolder,
+  normalizeTags,
   reserveLibraryFile,
   sanitizeFolder,
   slugify,
@@ -77,6 +78,22 @@ describe('sanitizeFolder', () => {
   it('falls back when empty or absent', () => {
     expect(sanitizeFolder(undefined, 'generated')).toBe('generated');
     expect(sanitizeFolder('  /  ', 'generated')).toBe('generated');
+  });
+});
+
+describe('normalizeTags (E2)', () => {
+  it('trims, lower-cases, drops empties, deduplicates and caps at 20', () => {
+    const many = Array.from({ length: 25 }, (_, i) => `T${i}`);
+    const out = normalizeTags([' Whoosh', 'air', 'whoosh ', '', '   ', 'AIR', ...many]);
+    expect(out?.slice(0, 2)).toEqual(['whoosh', 'air']);
+    expect(out).toHaveLength(20);
+    expect(out?.[19]).toBe('t17');
+  });
+
+  it('returns undefined for no tags or nothing left after cleaning', () => {
+    expect(normalizeTags(undefined)).toBeUndefined();
+    expect(normalizeTags([])).toBeUndefined();
+    expect(normalizeTags(['', '  '])).toBeUndefined();
   });
 });
 

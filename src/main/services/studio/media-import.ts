@@ -9,17 +9,19 @@ import type {
   StudioAssetProbe,
   StudioMediaAsset,
 } from '../../../shared/types/studio';
+import { extensionsOfKind, isPlayableMediaKind, mediaKindOf } from '../../../shared/media-kinds';
 import { getProjectCacheDir, getProjectDir } from './studio-paths';
 import { parseSvgDimensions } from './svg-dimensions';
+import { gaplessDuration, readMp3Gapless } from './mp3-gapless';
 
 const log = logEngine.createLogger('StudioMediaImport');
 
-const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v', '.mts', '.m2ts']);
-const AUDIO_EXTS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus']);
-// SVG (video-10 import gap 6): the asset route already serves it and Chromium
-// draws it in an <img>, so it is an image clip like any other — only the probe
-// and the thumbnail differ, because ffmpeg/ffprobe cannot read SVG (below).
-const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.svg']);
+// The extension → kind table is shared with the Assets screen and the library
+// index (src/shared/media-kinds.ts, E1). SVG (video-10 import gap 6): the asset
+// route already serves it and Chromium draws it in an <img>, so it is an image
+// clip like any other — only the probe and the thumbnail differ, because
+// ffmpeg/ffprobe cannot read SVG (below).
+const bare = (exts: string[]): string[] => exts.map((e) => e.slice(1));
 
 function isSvg(filePath: string): boolean {
   return path.extname(filePath).toLowerCase() === '.svg';
@@ -28,19 +30,17 @@ function isSvg(filePath: string): boolean {
 export const MEDIA_DIALOG_FILTERS = [
   {
     name: 'Media',
-    extensions: [...VIDEO_EXTS, ...AUDIO_EXTS, ...IMAGE_EXTS].map((e) => e.slice(1)),
+    extensions: bare([...extensionsOfKind('video'), ...extensionsOfKind('audio'), ...extensionsOfKind('image')]),
   },
-  { name: 'Video', extensions: [...VIDEO_EXTS].map((e) => e.slice(1)) },
-  { name: 'Audio', extensions: [...AUDIO_EXTS].map((e) => e.slice(1)) },
-  { name: 'Images', extensions: [...IMAGE_EXTS].map((e) => e.slice(1)) },
+  { name: 'Video', extensions: bare(extensionsOfKind('video')) },
+  { name: 'Audio', extensions: bare(extensionsOfKind('audio')) },
+  { name: 'Images', extensions: bare(extensionsOfKind('image')) },
 ];
 
+/** video / audio / image from the one kind table; null for anything a timeline cannot play. */
 export function classifyMediaKind(filePath: string): StudioAssetKind | null {
-  const ext = path.extname(filePath).toLowerCase();
-  if (VIDEO_EXTS.has(ext)) return 'video';
-  if (AUDIO_EXTS.has(ext)) return 'audio';
-  if (IMAGE_EXTS.has(ext)) return 'image';
-  return null;
+  const kind = mediaKindOf(filePath);
+  return isPlayableMediaKind(kind) ? kind : null;
 }
 
 async function getBinaryPath(type: 'ffmpeg' | 'ffprobe'): Promise<string> {
@@ -60,7 +60,15 @@ interface FfprobeStream {
   height?: number;
   r_frame_rate?: string;
   avg_frame_rate?: string;
+  disposition?: { attached_pic?: number };
 }
+
+/**
+ * A real picture stream — NOT an attached picture (an mp3's ID3 cover, an m4a's
+ * artwork), which ffprobe also lists as `codec_type: 'video'` (E1 V1-1/V1-2).
+ */
+const isRealVideoStream = (s: FfprobeStream): boolean =>
+  s.codec_type === 'video' && s.disposition?.attached_pic !== 1;
 
 function parseFps(stream: FfprobeStream | undefined): number | undefined {
   const rate = stream?.r_frame_rate ?? stream?.avg_frame_rate;
@@ -109,9 +117,16 @@ export async function probeMedia(filePath: string, kind: StudioAssetKind): Promi
     streams?: FfprobeStream[];
     format?: { duration?: string };
   };
-  const videoStream = data.streams?.find((s) => s.codec_type === 'video');
+  const videoStream = data.streams?.find(isRealVideoStream);
   const audioStream = data.streams?.find((s) => s.codec_type === 'audio');
-  const duration = kind === 'image' ? 0 : parseFloat(data.format?.duration ?? '0') || 0;
+  let duration = kind === 'image' ? 0 : parseFloat(data.format?.duration ?? '0') || 0;
+  // The bundled ffprobe counts a LAME mp3's encoder delay + padding in its duration:
+  // (delay + padding) / sample rate — about −25 ms at 48 kHz to −160 ms at 8 kHz; the lower
+  // the rate, the more (measured 44.1/48 kHz −27…−51, 22.05 kHz −54…−76, 16 kHz −72…−90,
+  // 11.025 kHz −115…−151, 8 kHz −156…−160). Cover art does not block it.
+  if (!videoStream && audioStream?.codec_name === 'mp3') {
+    duration = gaplessDuration(duration, await readMp3Gapless(filePath));
+  }
 
   return {
     duration,
