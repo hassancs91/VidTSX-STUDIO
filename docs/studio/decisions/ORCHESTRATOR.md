@@ -782,8 +782,8 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   (session 2)), all still stamped 11:47–11:49 — unchanged since the pause. Resources 17:11: C: 42.99 GB free; memory commit headroom
   63.29 GB (36.41 of 99.70 GB committed); RAM 31.98 GB free → the guard holds (≥ 3 GB / ≥ 6 GB).
 - The model is Opus 5.5 → commits end `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- **Caps ledger (E-g, whole run):** hosted 0 / 60 requests, $0.000 / $0.50 (D5 ≤ 20 / ≤ $0.05); keyless claude-subscription **1 / 10**
-  (D4 builder #10's §15.3 4 agent run, 17:58).
+- **Caps ledger (E-g, whole run):** hosted **4 / 60** requests, **$0.001298388** / $0.50 (all four = D5's one gated live test, 18:28; D5 ≤ 20 /
+  ≤ $0.05 held); keyless claude-subscription **2 / 10** (D4 builder #10's §15.3 4 agent run 17:58; D5's, result file written 18:39:35).
 - Folders / ports as session 2: D4 builders CDP **9302**, profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile`
   (not yet created); the verifier CDP **9305**, profile `…\profiles\decisions-D5-verify\profile`; both copied from `profiles\source\profile`
   WITHOUT `settings\settings.db*`. Kits `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\` and `\D5\`; scratch
@@ -793,7 +793,7 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 |---|---|---|---|---|---|---|
 | D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | **DONE** (step 5 at `3f50e63` / docs `f86221c`) | 2 (#8, #9) | re-check 17:25 → D-r24; 17:54 (stills looked at) | code `cc754fa` `8f6ff6f` `3f50e63` | related 482 tests + 58; tsc 25 / 10; stills `B4\f5-{settings-decisions-row,providers-decisions}.png` | 2026-10-31 17:13 / 17:46 |
 | D4 (h) — the exit check | **DONE → D4 DONE** (records `ecb69d8`) | 3 (#9, #10, #11) | re-check 17:54 → D-r26; 18:05 → D-r27; 18:20 → D-r28 | docs `8b24e81` `8f55668` `efb1ee9` `ecb69d8` (no `src/` change after `3f50e63`) | stub §15.3 1–5 PASS (max IPC gap 20.4 ms; flow act / act / escalate, p in run.json; agent "Decision: cut (act)", 416 × 0.042e-6; off → 0 / 0 hits; OpenRouter port with criteria); gate 564 passed / 3 failed = E-d2a (import graph 0 / 0 / 0); tsc 25 / 10; sweep clean | 2026-10-31 17:46 / 18:19 |
-| D5 — the verifier (D2 §15) | TODO → spawning | — | — | — | — | — |
+| D5 — the verifier (D2 §15) | **DONE — PASS, round 1** (no FAIL round) | — | **PASS** (report `docs/studio/decisions/D5/REPORT.md`, filed by the orchestrator) | verified at `b8e85d0` (`src/` = `3f50e63`) | gated live 2 / 2 PASS: Jev T2 / T3 40 / 40, Brier 0.0199 / 0.0031, 797 / 279 ms; MSD1 40 / 40, 0.0146 / 0.0029, T3 698 ms (T2 2,626 ms excluded); 4 requests $0.001298388; gate 564 / 3 E-d2a (own import-graph proof); tsc 25 / 10; 4 / 4 mutants bite; §15.3 1–5 PASS on its own stub (max gap 19 ms); §15.3 6 DEFERRED-HASAN | 2026-10-31 18:22 / 18:41 |
 
 ## Answers in force (session 3 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-3.md, verbatim)
 
@@ -981,3 +981,22 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 - 18:19–18:20 · **Orchestrator re-check** (details in D-r28) → **D4 DONE**; ruling **D-r28** (the gate reading for D5). D5 (the independent
   verifier, round 1) to spawn — its brief = D2 §15 + rulings D-r16 … D-r23 verbatim + the ruling text of D-r24 … D-r28 (without the
   orchestrator's re-check numbers) + the commit range `b2b8a02..HEAD`; NOT the HANDOFFs, LOGs or this Log.
+- 18:21 · D5 verifier round 1 spawned (HEAD `b8e85d0`; isolated profile `decisions-D5-verify`, CDP 9305, its own stub on 18481 / 18482;
+  hosted ≤ 8, keyless ≤ 3).
+- 18:42 · **D5 verifier round 1 → PASS** (~107 tool calls, ~21 min, 18:22:50 → 18:41:29): every §15 term PASS — §15.1 fixtures / shape / replay
+  (= `c-hosted.md` §2 lines 48 / 49 / 51 / 52, string-equal) / calibration table (six rows) / **the gated live test with Hasan's keys (run once:
+  `Tests 2 passed (2)`, `verdict PASS`, `violations []`, 4 requests, $0.001298388; Jev T2 / T3 40 / 40, Brier 0.0199 / 0.0031, 797 / 279 ms; MSD1
+  40 / 40 / 40 / 40, Brier 0.0146 / 0.0029, T3 698 ms, T2 2,626 ms = the excluded first call)** / no-claim; 4 / 4 mutants bite; §15.2 gate (try 3
+  counted: 564 passed / 3 E-d2a, its own import-graph proof 0 range files in 4 roots, positive control 32; `shot-module-resolver` red in tries 1–2,
+  green alone), tsc 25 / 10, house rules over 117 paths, package files unchanged, preload = the four, `decisions.ts` imports only `./ai-usage`;
+  §15.3 on its own profile + stub: 2 keys PASS (fake key via the UI; 401-echo withheld; removal flips back; bundle clean), 1 max gap 19 ms
+  (20 / 20), 3 act / act / escalate with `p` in `run.json` and no `p` handle, 4 one keyless run "Decision: cut (act)" = the tree's chain, usage
+  typesafe / decision-agent / 339 × 0.042e-6, 5 off → 0 hits, OpenRouter port with criteria; §15.3 6 DEFERRED-HASAN. Its numbers agree with
+  TESTING §20 where both measured (the §15.3 4 token counts differ by stub estimate, D-r26 (4)). **The harness refused the verifier's Write of
+  `D5/REPORT.md`** ("Subagents should return findings as text, not write report files"), so it returned the report as text and committed nothing.
+- 18:44–18:45 · **Orchestrator spot-check:** HEAD `b8e85d0`, tree clean; `live-result-20261031-182824.json` (`vidtsx-decisions-live/1`, verdict
+  PASS, violations [], requests 4, Σ costUsd 0.001298388; 0 key-shaped strings there and in `live-run-1.log`); `gate-3.log` = `Test Files 3 failed
+  | 564 passed | 7 skipped (574)`, `Tests 9 failed | 5890 passed | 39 skipped (5938)`, the three E-d2a files; 0 `electron.exe`, nothing on 9305 /
+  18481 / 18482, no stub `node`. The verifier's text filed VERBATIM as `docs/studio/decisions/D5/REPORT.md` (the orchestrator's docs folder) with
+  a header saying so. **D5 → PASS.** The verifier's numbers differ from Status.md / TESTING §20 (the live test now RUN and PASS; §15.3 1 19 ms;
+  §15.3 4 339 tokens; D5's verdict) → a records builder updates those two files, then STOP (E-h).
