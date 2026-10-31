@@ -14,7 +14,10 @@ the baseline (D-r2); warm p95 ≥ 353 ms** — steps 3–6 are done; **D-r7 (bui
 (`K\reports\c-laya.md` §8; T1 noul 17.2 %, T1 choice 50.4 % / best R@1 55.6 % at wc 39.2 %, T2 55.0 %, T3 60.0 % — unverified, never
 eligible)**; **step 7 DONE (builder #8, 19:59): `docs/studio/decisions/D1-spike-report.md` → `status: BLOCKED` — STOP 1 (no local candidate
 passes the evaluable terms), STOP 2 (no measured decision model beats the baseline under D-r2; hosted DEFERRED-HASAN) and STOP 3 for the
-local leg** — D1 waits on Hasan (the report's §13–§14)
+local leg** — D1 waited on Hasan (the report's §13–§14); **RESUMED 2026-10-31 on his answers (D-r8 … D-r10): THE HOSTED LEG DONE (builder #9,
+07:45–07:47) — Jev + Microsoft-Decision-1 via OpenRouter LIVE, 38 requests / ≈ $0.038, T2 100.0 % and T3 100.0 % on both, T1 choice Jev 85.0 %
+(D-r2 τ 0.5 R@1 79.1 % at wrong-confident 9.6 %) / MSD1 73.8 % (66.8 % / 10.0 %) → STOP 1 and STOP 2 STAND (`K\reports\c-hosted.md`); T1 noul
+HELD (D-r9); the Laya official-runtime check (D-r10 b) follows**
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -321,6 +324,31 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   the rule as D-r1 reads it (term by term → no local default); §12 STOP judgement; §13 DEFERRED-HASAN; §14 open questions; §15 provenance;
   **`status: BLOCKED`** (STOP 1, STOP 2, STOP 3 for the local leg).
 
+- **The hosted leg — DONE for D-r9's scope (D-r8 … D-r10 (a); builder #9, 2026-10-31 07:45–07:47; recorded in the commit that adds this
+  line).** Kit (outside the tree, in `K`): **`hosted-live.sh`** (the D-r8 launcher: `set -a; . <the two .env files>; set +a` with the sourcing's
+  stderr to `/dev/null`, a trailing-CR strip by parameter expansion, `export JEV_API_KEY="$TYPESAFE_API_KEY"`, `exec node hosted-run.cjs "$@"`;
+  nothing echoes); **`hosted-run.cjs` changed:** each request's HTTP `status`, served `model` and `usage` go into the answer file's `requests[]`
+  and the ledger's `result` line, and the raw response (scrubbed) is written to `B\hosted-responses\<requestId>.json`. Dry check through the
+  launcher: `JEV_API_KEY` set, `OPENROUTER_API_KEY` set, `OPENAI_API_KEY` unset (no OpenAI key exists — the `openai` provider did not run); the
+  138-request / $0.334 plan unchanged. Guard 07:45: C: 32 GB free, commit headroom 62.19 GB, 0 `electron.exe`, CPU quiet (MsMpEng 9.6 %). Live,
+  per provider: the probe `--task t2 --mode choice --max-requests 1` (= the whole T2 run, one request), `--task t3 --mode noul` (1), `--task t1
+  --mode choice` (17); **T1 noul NOT run (D-r9 HELD)**. **`K\hosted-calls.jsonl` = 38 `sent` / 38 `result`, all HTTP 200** (Jev `jev-1.14.0` 19
+  requests, 268–743 ms; OpenRouter `microsoft/microsoft-decision-1-20261009` 19, 664–2,983 ms). Answers `K\answers\hosted-{jev,openrouter-msd1}-
+  {t2-choice,t3-noul,t1-choice}.json`, scores `K\reports\c-hosted-<provider>-<task>-<mode>.md|json`, write-up **`K\reports\c-hosted.md`**.
+  Results: **Jev T2 100.0 %** (Arabic 10 / 10; Brier 0.021, ECE 0.059), **T3 100.0 %** (7 / 7; 0.003, 0.044), **T1 choice 85.0 %** (Arabic 10 / 10;
+  Brier 0.131, ECE 0.094; CORPUS 88.9 / HELD-OUT 82.3); D-r2 τ 0.5 R@1 148 / 187 = **79.1 %**, wrong-confident 23 / 240 = **9.6 %** (8 named / 15 ∅),
+  correct none 38 / 53 = 71.7 %; τ 0.7 67.9 % / 7.5 %; τ 0.9 53.5 % / 3.8 %. **MSD1 T2 100.0 %** (0.014, 0.044), **T3 100.0 %** (0.002, 0.013), **T1
+  choice 73.8 %** (Brier 0.191, ECE 0.169, over-confident — 0.9–1.0 bin 84.5 % right; HELD-OUT 66.0 %); τ 0.5 R@1 66.8 % / wc 10.0 %, τ 0.7 63.6 %
+  / 7.1 %, τ 0.9 56.1 % / 4.6 %. → **STOP 2 NOT overturned by either** (wrong-confident < 6.3 % only where R@1 < 75.7 %; both measures are
+  non-increasing in τ, so no τ between the three helps); **the rule's two hosted terms FAIL for both GGUFs** (Qwen2.5-0.5B T1 choice 27.1 / T2
+  75.0 % vs the best hosted 85.0 / 100.0, Brier 0.210 / 0.155 vs 0.131 / 0.014 + 0.05; Qwen3.5-0.8B 47.5 / 82.5 %, Brier 0.269 / 0.205) → STOP 1
+  stands. Latency p50 / p95 per request end to end: Jev T1 choice 404 / 743 ms (cold 641; 29.2 / 51.9 ms per question), T2 499, T3 342; MSD1 T1
+  choice 978 / 1,145 (cold 1,115), T2 2,983 (the first call on that endpoint), T3 1,084; CPU quiet beside each (MsMpEng 9.4–11.4 %, System
+  6.0–6.8 %, 0 electron). Cost: Jev 479,417 input tokens → $0.0201 at $0.042 / M (ledger upper $0.0235); MSD1 418,770 → $0.0176 = OpenRouter's
+  own `usage.cost` Σ $0.017588; ≈ $0.038 in all; T1 choice ≈ $0.07–0.08 per 1,000 decisions, T2 / T3 < $0.012. Shapes: both return the full
+  `probabilities` map (Σp = 1.0000) + `confidence`; **Jev rounds every probability to hundredths** (P24). D-r10 sanity: Jev T2 100 % on 6 families,
+  499 ms for 40 questions, vs the experiment's 90.0 % / p50 793 ms per 7-question email — the same direction, not a replication.
+
 ### Step 3 so far (builder #3)
 
 - **Route (1) `laya-ts` — did not run, two reasons (read 2026-10-30 16:16):** (a) its npm name is `laya-ts` (upstream
@@ -456,7 +484,26 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   processes 0. No download, no install, no app launch, no provider call, no keyless call (still 16 / 40). `date '+%Y-%m-%d %H:%M'` →
   `2026-10-30 19:59`.
 
+- Builder #9 (the hosted leg, 2026-10-31, from `K`): `bash hosted-live.sh --dry-run | grep -E '"(JEV_API_KEY|OPENAI_API_KEY|OPENROUTER_API_KEY|
+  totalCalls|totalUsdUpper|fitsCalls|fitsUsd)"'` → `"JEV_API_KEY": "set"`, `"OPENAI_API_KEY": "unset"`, `"OPENROUTER_API_KEY": "set"`,
+  `"totalCalls": 138`, `"totalUsdUpper": 0.334023296`, `fitsCalls` / `fitsUsd` `true`, rc 0 (07:45:03); `df -h /c` → `32G` free; `bash
+  hosted-live.sh --provider jev --task t2 --mode choice --max-requests 1` → `jev-t2-choice-001: ok (499 ms, 40 q)`, rc 0 (07:45:22); `… --task t3
+  --mode noul` → `ok (342 ms, 40 q)`; `… --task t1 --mode choice` → 17 × `ok`, 268–743 ms, rc 0 (07:45:39–07:45:47); `… --provider openrouter-msd1
+  --task t2 --mode choice --max-requests 1` → `ok (2983 ms, 40 q)` (07:46:03); `t3 noul` → `ok (1084 ms, 40 q)`; `t1 choice` → 17 × `ok`, 664–1,145
+  ms (07:46:39–07:46:56); `grep -c '"kind":"sent"' hosted-calls.jsonl` → `38`, `grep -c '"ok":true'` → `38`; `node score.cjs answers/hosted-<p>-<t>-<m>.json
+  --out reports/c-hosted-<p>-<t>-<m>` × 6 → the tables in `c-hosted.md` §2–§3. No key value was printed, logged or written (only the runner's
+  set / unset line was quoted).
+
 ## Next step (ONE concrete instruction)
+
+**Builder #9, 2026-10-31 (after the hosted leg) — the ONE next instruction: D-r10 (b), the Laya official-runtime reference check** (in progress
+by builder #9 when this line was written; if it is not marked DONE above, continue it): venv `B\py-scratch\laya-venv` (system Python, CPU torch
+from `https://download.pytorch.org/whl/cpu`, then `pip install laya`; sizes in `B\py-scratch\pip-setup.log` / `pip-laya.log`); `K\laya-official-check.py`
+(E1 / E2 / E3 copied from `K\laya-run.cjs` `EXAMPLES`, `HF_HUB_DISABLE_XET=1`, `USE_TF=0`, `laya.load("convaiinnovations/laya", subfolder="multilingual",
+device="cpu")`, the cached checkpoint — no download expected), run with the venv's python `-I` → both examples' full probabilities → does E2 answer
+`billing`? → section "Official runtime vs the community export" in `K\reports\c-laya.md` + the P19 answer. Then hand off to the orchestrator, who
+re-judges the STOPs on `c-hosted.md` §3–§4 (as the files stand: STOP 1 and STOP 2 stand; T1 noul held) and writes D2. The orchestrator's 07:45
+instruction below is DONE except its item (5).
 
 **Orchestrator, 2026-10-31 07:45 — the run RESUMED on Hasan's answers (ORCHESTRATOR.md "Stops", rulings D-r8 … D-r10). Builder #9's step =
 THE HOSTED LEG:** (1) write `K\hosted-live.sh` per D-r8 — a bash launcher that, in a subshell, `set -a; . /d/repos/VidTSX-STUDIO/.env;
@@ -645,7 +692,22 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   local leg is a different runtime — P15, P16, P19) and NOT judgeable for the hosted leg (no keys). The orchestrator may re-word it before it
   goes to Hasan; the numbers behind it are in the report's §12.
 
+- **P24 (hosted, D2) — Jev returns every probability rounded to hundredths** (`c-hosted.md` §1: all 4,872 T1 choice values, 240 T2 and 40 noul
+  values are multiples of 0.01; a P of 1 means "≥ 0.995") — a threshold above 0.99 is unreachable on Jev; MSD1 returns full floats and a separate
+  `confidence` slightly below its top probability (t2_01: 0.9955 vs 0.9963 — what it is is not stated by the sources read).
+- **P25 (hosted, Hasan) — T1 noul is the one unmeasured hosted cell** (27 requests / 4,632 questions per provider, $0.0527 upper each — inside
+  both caps under the requests reading): STOP 2 is re-judged on T1 **choice** only (`c-hosted.md` §3); D-r9 holds noul until Hasan confirms the
+  600 reading. The counter stands at 38 of 600, ≈ $0.038 of $3.
+- **P26 (hosted, D2, not a block) — the T1 choice framing bills the 20 clip lines with every question** (~2,000 tokens per decision → $0.07–0.08
+  per 1,000 vs < $0.012 for T2 / T3; `c-hosted.md` §6); a state-sharing framing (clip lines once in `state`) was not measured. Also 15 of Jev's 23
+  wrong-confident picks at τ 0.5 are ∅ rows (it names a clip where the label says nothing fits; correct none 71.7 % vs S1's 79.2 %) — a margin
+  rule between the top clip and "none" is a D2 experiment, not run.
+
 ## Do-not-redo
+
+- The hosted leg (builder #9): the 38 live calls (`K\hosted-calls.jsonl`, `K\answers\hosted-*`, `B\hosted-responses\`) — never re-call; re-score
+  only by `node score.cjs`; `K\hosted-live.sh` is the only way to run the runner live (D-r8), and T1 noul stays HELD until Hasan's confirmation is
+  recorded in ORCHESTRATOR.md. `c-hosted.md` is written — edit it only for a ruling or a new run.
 
 - D-r7 + step 7 (builder #8): the four Laya NOTE runs + scores + OOF-T (`K\answers\laya-multilingual-*`, `K\reports\c-laya-*`, c-laya.md §8)
   — re-score only by `node score.cjs`; `D1-spike-report.md` is written — edit it only for a ruling or a hosted run's numbers.
