@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | **STOP — BLOCKED** (STOP 1 + STOP 2 fired; STOP 3 for the local leg) | 8 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
+| D1 — the spike (no product code) | **RESUMED 2026-10-31 — the hosted leg** (Jev + Microsoft-Decision-1 via OpenRouter live; T1 noul held, D-r9); the 2026-10-30 STOP stands until re-judged | 8 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | DRAFT only — waits on Hasan's answer to D1's STOP | — | — | draft `99def5d` | §2 / §5.3 / §15 / §16 pending | 2026-10-30 17:02 / — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -109,6 +109,38 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   step 5 (the keyless baseline — no weights needed) and step 6 (the hosted dry-runs), never touching a download; steps 3 / 4 run when the
   files land; step 7 last.
 
+- **D-r8 (orchestrator, 2026-10-31 07:45) — the hosted keys come from Hasan's `.env` files, loaded into the environment by a launcher,
+  never read by hand.** Hasan: "TYPESAFE_API_KEY is in .env" = `D:\repos\VidTSX-STUDIO\.env` (gitignored; variable NAMES checked, never
+  values). `D:\repos\ai-video-lab\.env` (gitignored) also holds `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`,
+  `CLOUDFLARE_API_TOKEN`; no `OPENAI_API_KEY` anywhere → **D-b resolves to its fallback, Microsoft-Decision-1 via OpenRouter** (D-d names
+  `OPENROUTER_API_KEY`; it is Hasan's own key). The kit launcher `K\hosted-live.sh` sources the two `.env` files in a subshell (`set -a; . <file>`),
+  exports `JEV_API_KEY="$TYPESAFE_API_KEY"`, and `exec`s `hosted-run.cjs` — nothing echoes, nothing is copied, the `.env` files are never
+  opened by a person or a Read tool, and no log line ever carries a value (set / unset only). The runner's own rules stand (refuses on an
+  unset key, scrubs error texts, the shared counter, the $3 check).
+- **D-r9 (orchestrator, 07:45) — P10 ("≤ 600 hosted decision calls"): the small tasks run now under EITHER reading; T1 noul waits.** T2 choice
+  (1 request / 40 questions), T3 noul (1 / 40) and T1 choice (17 / 240) per provider = 19 requests / 320 questions per provider — inside
+  600 whether "calls" means requests or questions. **T1 noul (27 requests / 4,632 questions per provider) is HELD** until Hasan confirms the
+  requests reading (explained to him in plain words in the 07:45 reply). The $3 cap is checked before every call regardless.
+- **D-r10 (orchestrator, 07:45) — the experiment `D:\repos\ai-video-lab\youtube-videos\01-jev-vs-clef` (2026-10-05, LOG.md) is a PRIMARY
+  source for D1 / D2** (Hasan's own measurements from this desk): Jev `jev-1.13.0` routing 6 teams + 1 noul over 200 + 200 emails —
+  90.0 % / 85.5 % (fresh), p50 793 ms / p95 1,568 ms end to end, $0.026 per 1,000, **≥ 0.95 confidence → 96.5 % right (171 / 200), below
+  0.95 → 33–62 %**; the cascade "decide when ≥ 0.85 sure, else the LLM" held on fresh emails at ~1/6 of the LLM bill; Arabic 12 / 12 (dialects
+  + Arabizi); judgment that needs arithmetic / reference is where deciders slip; Jev rejects images (HTTP 400). **Clef-flash / Clef
+  (Cloudflare, Apache-2.0, Jev-API compatible: same body, `{"result": …}` wrapper)** scored 91.5 / 91.0 % (fresh 90.0 / 90.0), 748 / 893 ms,
+  $0.047 / $0.12, read images, best of all on 77 options (35 / 40); **GPT-6 Luna as a chat LLM** 91.5 % at $0.061 / 1,000 but 2.8 s and no
+  usable confidence. **Local: Mapika decider-2b** (Apache-2.0, Qwen3.5-2B-Base fine-tune, 3.76 GB bf16, per-type fitted temperatures, System One
+  API, `decider-ai` + torch cu130, `TORCHDYNAMO_DISABLE=1`) 87.5 % / 83.5 % fresh at 152–162 ms on THIS laptop's A3000, "≥ 0.90 → 96.8–98.8 %
+  right", Arabic 9 / 12; **Laya typed-decisions on the OFFICIAL Python runtime** 70.5 % / 60.5 % fresh, under-confident (never > 0.80),
+  "multilingual: confidently wrong (0.61–0.87)" on the smoke set — the official runtime agrees with D1's reading that zero-shot Laya is not
+  usable; Strands 2B 75–76 %, GLiNER 51–59 %. The experiment's venvs (`tools/laya/.venv`, `tools/deciders/.venv`) are GONE (gitignored, deleted);
+  their rebuild recipes are in the two `README.md`s; the weights remain (HF cache: Laya english + typed-decisions 808 MB + multilingual 647 MB;
+  `tools/deciders/models/Mapika/decider-2b` 3.6 GB). **Consequences:** (a) Clef-flash and Mapika are the two candidates the brief did not name
+  that Hasan's own data ranks first in their class — proposed to him (07:45 reply), run only on his yes; (b) the Laya reference check (his
+  "yes") = a CPU-torch venv under `B\py-scratch\laya-venv\` (outside every repo; sizes stated first) running the official `laya` package on E1 /
+  E2 with the CACHED multilingual checkpoint (`HF_HUB_DISABLE_XET=1`, `USE_TF=0`); (c) for D2: the app's `python-models` service spawns a
+  Python process PER REQUEST (`src/local-python-engine/python-runner.ts:102`) for `image` / `3d` catalogue models on a `pytorch` runtime it
+  installs — a Python decider in the app would need a persistent worker (a new piece), not that path as is.
+
 ## Stops
 
 (one line per stop: what was reported, what Hasan said)
@@ -119,7 +151,11 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   export failed its card's example — NOTE only); no measured decision model beats the keyless baseline on T1 (best R@1 48.7 % at
   wrong-confident 38.3 % vs 80.7 % / 7.1 %); STOP 3 for the local leg. D2 left as a DRAFT. Questions for Hasan: the design direction (hosted
   only + the keyless LLM for T1's pick, or a new local runtime), set the keys for the hosted runs, P10 (600 = requests or questions), Laya's
-  `pip install laya` reference check, d1-omni's licence / runtime, T2 / T3 labels. Hasan said: (pending)
+  `pip install laya` reference check, d1-omni's licence / runtime, T2 / T3 labels. **Hasan said (2026-10-31 ~07:30):** (1) "check the
+  experiment we did here: D:\repos\ai-video-lab\youtube-videos\01-jev-vs-clef and how it might help us here"; (2) "TYPESAFE_API_KEY is in
+  .env"; (3) "I don't understand" (the 600-calls reading — explained in the reply, the small tasks run first, T1 noul held); (4) "yes you can"
+  (the `pip install laya` reference check); (5) "not now" (d1-omni); (6) "what are these? I don't understand?" (the T2 / T3 labels —
+  explained; no action, labels stand). → **the run RESUMES: D1's hosted leg** (rulings D-r8 … D-r10), then the STOPs re-judged, then D2.
 
 ## Log
 
@@ -297,4 +333,12 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   τ 0.5 (= 87.0 %), the baseline's T1 choice accuracy 0.8875 (= 88.8 %), `c-llama.md` :190 / :194 hold 482.7 and 353.3 ms. **STOP 3 wording
   accepted as written** (it separates the measured local leg from the unmeasured hosted leg). **D1 → STOP (BLOCKED by Hasan's own STOP
   rules).** Per the paste-in ("STOP and ask me if …"), D2 is NOT finished: `DECISION_MODELS_DESIGN.md` stays the 17:02 DRAFT (its header now
-  says it waits on Hasan's answer). → the stop report.
+  says it waits on Hasan's answer). → the stop report (20:02; commits `ddf317f`, `e48f7c7`).
+- **2026-10-31 07:33 · RESUMED** on Hasan's six answers (Stops). Start checks: main checkout `end-to-end-p0`, Hasan's dev app not checked
+  for a launch (none needed — no app launch in this leg); 0 model processes. Read: the experiment's `RESEARCH.md`, `PLAN.md`, `LOG.md`,
+  `tests/run.py`, `tests/teams.py`, `results/summary.json`; `tools/laya/README.md`, `tools/deciders/README.md`, Mapika's card +
+  `decider_config.json`; the app's `src/local-python-engine/` + `python-models/registry.ts`; `.env` variable NAMES in both repos (values
+  never printed; both files gitignored). Rulings D-r8 … D-r10. The model is now Fable 5.1 (commit attribution changes accordingly).
+- 07:45 · D1 builder #9 (the hosted leg: `K\hosted-live.sh`, one probe call per provider, then T2 / T3 / T1 choice for `jev` and
+  `openrouter-msd1`; scores; the rule's two hosted terms + STOP 2 re-judged for these; then the Laya reference check per D-r10 (b) if budget
+  remains) to spawn.

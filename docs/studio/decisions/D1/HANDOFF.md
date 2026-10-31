@@ -458,6 +458,27 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
 
 ## Next step (ONE concrete instruction)
 
+**Orchestrator, 2026-10-31 07:45 — the run RESUMED on Hasan's answers (ORCHESTRATOR.md "Stops", rulings D-r8 … D-r10). Builder #9's step =
+THE HOSTED LEG:** (1) write `K\hosted-live.sh` per D-r8 — a bash launcher that, in a subshell, `set -a; . /d/repos/VidTSX-STUDIO/.env;
+. /d/repos/ai-video-lab/.env; set +a; export JEV_API_KEY="$TYPESAFE_API_KEY"; exec node K/hosted-run.cjs "$@"` — with NO `echo`, `set -x`,
+`env`, `printenv` or `cat` anywhere near it; never open either `.env` with a Read tool or print any variable; check only that the launcher
+reports "set" for `JEV_API_KEY` and `OPENROUTER_API_KEY` (the runner prints set / unset). (2) Resource check (C: ≥ 3 GB). (3) Per provider
+`jev` then `openrouter-msd1`: the probe `--task t2 --mode choice --max-requests 1` (one call: key, shape, answer mapping; read the answer file),
+then `t3 noul`, then `t1 choice` (17 requests). **Do NOT run `t1 noul` (D-r9: held until Hasan confirms the 600 reading).** Every call goes
+through the runner's counter (`K\hosted-calls.jsonl`) and the $3 check; expected ≈ 19 requests / ≈ $0.025 per provider (`c-hosted-dryrun.md`
+§3). Log the p50 / p95 per request end to end from this desk, with the CPU load beside it, and the network state (the experiment measured Jev
+at p50 793 ms for a 6-option + 1-noul request, so a 240-question T1 choice request will be slower — record it). (4) `node K\score.cjs` each
+answer file → `K\reports\c-hosted-<provider>-<task>-<mode>`; write `K\reports\c-hosted.md`: the table per provider × task (accuracy, Brier,
+ECE, selective accuracy, the Arabic subset), T1 choice under D-r2 at τ 0.5 / 0.7 / 0.9 beside S1 (80.7 % / 6.3 %) and the baseline re-run
+(7.1 %), latency, cost from `usage.input_tokens` × the price (and the runner's own ledger), and — for each GGUF that ran — the rule's two hosted
+terms now evaluable (T1 + T2 accuracy within 5 points of the best hosted; Brier ≤ hosted + 0.05), and whether STOP 2 is overturned for either
+provider (wrong-confident < 6.3 % at a τ with R@1 ≥ 75.7 %). (5) If budget remains, D-r10 (b): `python -m venv B\py-scratch\laya-venv`
+(outside every repo), `pip install torch --index-url https://download.pytorch.org/whl/cpu` + `laya` (state the download sizes first; C: check),
+then the official runtime on E1 / E2 with the CACHED multilingual checkpoint (`HF_HUB_DISABLE_XET=1`, `USE_TF=0`, `laya.load("convaiinnovations/
+laya", subfolder="multilingual", device="cpu")` — the experiment's `tests/run.py:77-87` pattern) → does E2 answer `billing`? → a section in
+`K\reports\c-laya.md` ("official runtime vs the community export") and the P19 answer. Then hand off (the orchestrator re-judges the STOPs and
+writes D2). Commit attribution from now on: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+
 **Builder #8, 19:59 — D1 is at its end: `status: BLOCKED`.** The ONE next instruction is the orchestrator's: put the report's STOP
 (`D1-spike-report.md` §12) and its questions (§13 DEFERRED-HASAN, §14 open questions) to Hasan and record his answers under ORCHESTRATOR.md
 "Stops"; no further D1 builder work until he answers (the hosted runs need his keys: `node K\hosted-run.cjs --provider <p> --task t2 --mode
