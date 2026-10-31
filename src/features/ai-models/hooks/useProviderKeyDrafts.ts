@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { LlmProviderConfig, ProviderKeyId } from '@shared/ipc/types';
 import type { useLlmProviders } from '@renderer/hooks/useLlmProviders';
 import type { useProviderKeys } from '@renderer/hooks/useProviderKeys';
+import { runDecisionKeyTest } from '../services/decision-providers';
 
 export type ProviderKeysApi = ReturnType<typeof useProviderKeys>;
 export type LlmProvidersApi = ReturnType<typeof useLlmProviders>;
@@ -85,6 +86,13 @@ export function useProviderKeyDrafts(keys: ProviderKeysApi, llm: LlmProvidersApi
     [drafts, accountIdDraft],
   );
 
+  /** The TypeSafe row: `decisions:decide` `{ test: 'jev' }` on the SAVED key — the typed draft is never read or sent (D-r19). */
+  const testDecision = useCallback(async (id: ProviderKeyId) => {
+    setTests((prev) => ({ ...prev, [id]: { testing: true } }));
+    const result = await runDecisionKeyTest(window.api);
+    setTests((prev) => ({ ...prev, [id]: result }));
+  }, []);
+
   const { saveKeys } = keys;
   const save = useCallback(async () => {
     let ok = true;
@@ -128,6 +136,7 @@ export function useProviderKeyDrafts(keys: ProviderKeysApi, llm: LlmProvidersApi
     setAccountIdDraft,
     updateLlm,
     test,
+    testDecision,
     save,
   };
 }

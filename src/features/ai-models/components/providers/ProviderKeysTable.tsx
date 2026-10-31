@@ -1,6 +1,7 @@
 import { Panel } from '@shared/components';
 import { PROVIDER_REGISTRY, isProviderKeyId } from '@shared/providers/registry';
 import type { LlmProvidersApi, ProviderKeyDrafts, ProviderKeysApi } from '../../hooks/useProviderKeyDrafts';
+import { isDecisionOnlyProvider } from '../../services/decision-providers';
 import { LlmKeyRow } from './LlmKeyRow';
 import type { LlmProviderTestState } from './LlmProviderRow';
 import { ProviderGridHeader } from './ProviderGridRow';
@@ -27,7 +28,10 @@ export function ProviderKeysTable({ keys, llm, drafts }: ProviderKeysTableProps)
   // flag restores it along with the presets.
   const allProvidersFlag =
     import.meta.env.VITE_FF_ALL_PROVIDERS === '1' || import.meta.env.VITE_FF_ALL_PROVIDERS === 'true';
-  const sharedRows = PROVIDER_REGISTRY.filter((row) => row.id !== 'zai' || keys.hasKeys.zai || allProvidersFlag);
+  // A decision-only provider (TypeSafe) keeps its key row in the Decisions section instead (D2 §8).
+  const sharedRows = PROVIDER_REGISTRY.filter(
+    (row) => !isDecisionOnlyProvider(row) && (row.id !== 'zai' || keys.hasKeys.zai || allProvidersFlag),
+  );
 
   // Own-key LLM providers: api-key auth, not a shared credential, not a custom endpoint.
   const llmKeyRows = llm.providers.filter(

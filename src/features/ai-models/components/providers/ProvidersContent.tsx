@@ -5,6 +5,7 @@ import { useProviderKeys } from '@renderer/hooks/useProviderKeys';
 import { useProviderKeyDrafts } from '../../hooks/useProviderKeyDrafts';
 import { configuredProviderIds } from '../../services/catalog-groups';
 import { CustomEndpointsSection } from './CustomEndpointsSection';
+import { DecisionsProvidersSection } from './DecisionsProvidersSection';
 import { ModelCatalogSection } from './ModelCatalogSection';
 import { ProviderDefaultsBar } from './ProviderDefaultsBar';
 import { ProviderKeysTable } from './ProviderKeysTable';
@@ -57,6 +58,14 @@ export function ProvidersContent() {
       <section>
         <SectionHeader>API keys</SectionHeader>
         <ProviderKeysTable keys={keys} llm={llm} drafts={drafts} />
+      </section>
+
+      <section data-decisions-providers>
+        <SectionHeader>Decisions</SectionHeader>
+        <p className="-mt-2 mb-3 max-w-[70ch] text-[10px] text-text-dim">
+          Calibrated yes / no and pick-one answers for flows and the agent. No call happens without one of these keys.
+        </p>
+        <DecisionsProvidersSection keys={keys} drafts={drafts} />
       </section>
 
       <section>

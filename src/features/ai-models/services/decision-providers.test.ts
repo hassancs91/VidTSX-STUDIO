@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { DecisionsDecideResponse } from '../../../shared/ipc/types/decisions';
 import { PROVIDER_REGISTRY } from '../../../shared/providers/registry';
-import { decisionKeyTestGate, decisionSectionRows, decisionTestResult, isDecisionOnlyProvider } from './decision-providers';
+import {
+  decisionKeyTestGate,
+  decisionSectionRows,
+  decisionTestResult,
+  isDecisionOnlyProvider,
+  runDecisionKeyTest,
+} from './decision-providers';
 
 describe('decisionSectionRows — the AI → Providers "Decisions" section (D2 §8, §15.3 2)', () => {
   it('gives TypeSafe its key row there and lists OpenRouter under it too', () => {
@@ -69,5 +76,22 @@ describe('decisionTestResult — shown as the other rows’ results are (plain w
   it('no-provider and timeout get their own plain sentence', () => {
     expect(decisionTestResult({ ok: false, error: { code: 'no-provider', message: 'x' } }).error).toMatch(/no saved TypeSafe key|off/i);
     expect(decisionTestResult({ ok: false, error: { code: 'timeout', message: 'x' } }).error).toMatch(/in time/);
+  });
+});
+
+describe('runDecisionKeyTest — the TypeSafe row’s Test button (D-r19: the SAVED key, test mode only)', () => {
+  const FAKE_KEY = 'sk-test-FAKE-keytest-0091';
+
+  it('sends exactly { test: "jev" } — no key, no request — and reads the answer as a row result', async () => {
+    const decide = vi.fn(async (): Promise<DecisionsDecideResponse> => ({ ok: false, error: { code: 'timeout', message: 'x' } }));
+    const out = await runDecisionKeyTest({ decisionsDecide: decide });
+    expect(decide).toHaveBeenCalledTimes(1);
+    expect(decide.mock.calls[0]).toEqual([{ test: 'jev' }]);
+    expect(out).toEqual({ testing: false, success: false, error: 'Jev did not answer in time' });
+  });
+
+  it('a rejected invoke reads as a plain failure, never the thrown text', async () => {
+    const out = await runDecisionKeyTest({ decisionsDecide: async () => Promise.reject(new Error(`bad ${FAKE_KEY}`)) });
+    expect(out).toEqual({ testing: false, success: false, error: 'Test request failed' });
   });
 });

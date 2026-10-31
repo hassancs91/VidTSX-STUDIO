@@ -2,7 +2,7 @@
 // D-r20). Pure. The test rides `decisions:decide` `{ test: 'jev' }` and tests the SAVED key — a typed, unsaved key is never sent, so the
 // button stays disabled until the key is saved; its result reads as the other rows' do (plain words, no probability).
 
-import type { DecisionsDecideResponse } from '@shared/ipc/types';
+import type { DecisionsDecideRequest, DecisionsDecideResponse } from '@shared/ipc/types';
 import type { ProviderDefinition } from '@shared/providers/registry';
 
 /** A provider whose only capability is `decision` (TypeSafe): its key row lives in the Decisions section, not the API keys table. */
@@ -50,4 +50,15 @@ export function decisionTestResult(response: DecisionsDecideResponse): DecisionK
   if (code === 'no-provider') return { testing: false, success: false, error: 'No saved TypeSafe key, or Decisions are off in Settings' };
   if (code === 'timeout') return { testing: false, success: false, error: 'Jev did not answer in time' };
   return { testing: false, success: false, error: message || 'The test failed' };
+}
+
+/** The Test button: `decisions:decide` `{ test: 'jev' }` — nothing else rides along (no key, no state); main tests the SAVED key. */
+export async function runDecisionKeyTest(api: {
+  decisionsDecide: (data: DecisionsDecideRequest) => Promise<DecisionsDecideResponse>;
+}): Promise<DecisionKeyTestResult> {
+  try {
+    return decisionTestResult(await api.decisionsDecide({ test: 'jev' }));
+  } catch {
+    return { testing: false, success: false, error: 'Test request failed' };
+  }
 }

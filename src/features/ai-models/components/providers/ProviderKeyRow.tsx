@@ -18,6 +18,8 @@ interface ProviderKeyRowProps {
     state?: KeyTestState;
     /** Disabled until a key exists to test (saved or typed), plus the Cloudflare account id. */
     disabled: boolean;
+    /** The button's tooltip (the decision test says why it is disabled); default = the image / video wording. */
+    title?: string;
     onTest: () => void;
   };
   /** Cloudflare's plain (non-secret) account id, rendered under the key. */
@@ -122,7 +124,11 @@ export function ProviderKeyRow({
               onClick={test.onTest}
               disabled={test.disabled || result?.testing}
               className="cursor-pointer text-[10px] text-text-dim transition-colors hover:text-text-secondary disabled:cursor-default disabled:opacity-40"
-              title={row.test === 'video' ? 'Checks this key against the video API — generates nothing' : 'Generates a tiny test image with this key'}
+              title={
+                test.title ??
+                (row.test === 'video' ? 'Checks this key against the video API — generates nothing' : 'Generates a tiny test image with this key')
+              }
+              data-provider-test={row.id}
             >
               {result?.testing ? (
                 <span className="flex items-center gap-1">
