@@ -61,7 +61,10 @@
   `99c35b1` `cf4fb0c` `021a2d6`), T3 verifier round 1 PASS at `9e2ff69` — 4 / 4 turns placed (whoosh-soft 2.70 / 2.75 s, crash-tumble
   3.00 / 3.00 s; 0 claims, 0 generated), 24 / 25 mutants caught (M22 survives: the `timelineCuts` handler spread has no test — a NOTE);
   LS-r8 settled by measurement (`48de8b0`); records `84f8537` (Status.md top entry, TESTING.md §19.5). Open for Hasan: whether to add a
-  test for the `timelineCuts` wiring (M22); the by-ear check; landing `library-search`. Hasan said: (waiting)
+  test for the `timelineCuts` wiring (M22); the by-ear check; landing `library-search`. **Hasan said (2026-10-31 07:36): (1) M22 —
+  "yes add"; (2) the by-ear check — "I will check and test" (his, DEFERRED-HASAN stays); (3) landing — "ok" (read as acknowledged, NOT
+  an instruction to merge); "what is next now? are we done?"** → follow-up **T4 — the M22 test** (one builder, then the orchestrator's
+  own mutation re-check; no model call, no live turn).
 
 ## Log
 
@@ -203,6 +206,7 @@
   title and first bullets read; §19.5 placement read; tree clean; `git worktree list` = the 5 worktrees (no scratch); the 5 running
   `electron.exe` all belong to another session (CDP 9341, its scratchpad profile `…\13c78195-…\scratchpad\part4\profile`) — none ours.
   → **T3 DONE (PASS). The run stops here (the paste-in: on PASS, records, the LS-r8 line, then STOP).** Not pushed, not merged.
+- 2026-10-31 07:36 · Hasan's answers (Stops). T4 (the M22 test) builder to spawn; tree clean at `c4a901a`, 0 instances of ours.
 
 ## Builder brief (T2; every builder gets it unchanged)
 
