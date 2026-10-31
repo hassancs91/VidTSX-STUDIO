@@ -954,7 +954,7 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   per request (bar ≥ 38 / ≤ 0.05 / 0 / ≤ 2,000 ms); at 0.9 act-right 36 / act-wrong 0 / escalate 4 (t3-07, t3-12, t3-27, t3-37 — each answered
   right); 40 requests, $0.000701652. Confound stated (framing + packing changed together; one run). Offered: MSD1 the same way (≤ 40 more
   requests) and / or the D1-framed one-row-per-request control (40 more) — 16 requests remain under E-g's 60, so only one fits. **Hasan said
-  (19:3x): "enough, what is next ?"** → no MSD1 run, no control; D6 closed. Told him what is left: his in-app key test (§15.3 1's 5 real calls,
+  (~19:45, just before commit `e9e8586` at 19:45:56): "enough, what is next ?"** → no MSD1 run, no control; D6 closed. Told him what is left: his in-app key test (§15.3 1's 5 real calls,
   §15.3 6), question 3 (`skipped`), and the landing — `decision-models` is STACKED (it contains all of `end-to-end-p0` and `end-to-end-p0-e`
   and `library-search` up to `efa5e0b`; `library-search` has 28 later commits it lacks; `main` has 9 it lacks), so it cannot land alone.
 
