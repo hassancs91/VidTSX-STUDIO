@@ -42,6 +42,7 @@ import { studioSyncCheckApi } from './api/studio-sync-check';
 import { updaterApi } from './api/updater';
 import { libraryApi } from './api/library';
 import { librarySearchApi } from './api/library-search';
+import { decisionsApi } from './api/decisions';
 import { memoryApi } from './api/memory';
 import { studioNotesApi } from './api/studio-notes';
 import { studioBrandFontsApi } from './api/studio-brand-fonts';
@@ -93,6 +94,7 @@ const api = {
   ...updaterApi,
   ...libraryApi,
   ...librarySearchApi,
+  ...decisionsApi,
   ...memoryApi,
   ...studioNotesApi,
   ...studioBrandFontsApi,

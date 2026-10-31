@@ -607,6 +607,12 @@ export const IPC = {
   LIBRARY_SEARCH_STATUS: 'library:search:status',
   LIBRARY_SEARCH_SETTINGS_SET: 'library:search:settings:set',
   LIBRARY_SEARCH_EVENT: 'library:search:event',
+  // Decisions (DECISION_MODELS_DESIGN.md §12) — the shared decision engine; no key crosses (has-key booleans only).
+  // DECISIONS_EVENT is push-only (a rung became available / unavailable after a key or settings change).
+  DECISIONS_DECIDE: 'decisions:decide',
+  DECISIONS_STATUS: 'decisions:status',
+  DECISIONS_SETTINGS_SET: 'decisions:settings:set',
+  DECISIONS_EVENT: 'decisions:event',
   // Agents (docs/agents-plan.md) — installed declarative agents, their saved
   // sessions, and one run stream. AGENT_RUN_EVENT is push-only (deltas, tool
   // chips, artifacts, interaction requests, render job requests).
