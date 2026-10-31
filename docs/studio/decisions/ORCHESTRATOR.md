@@ -1087,3 +1087,25 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   0.0042375, ECE 0.05625, sel ≥ 0.9 36 acted / 100 %; template 16 / caption 10 / clip 14 / Arabic 7 all 100 % — equal to the builder's; the
   result JSON: `http` reached 40 / attempts 40 / cap 40, not stopped early, model `jev-1.14.0`, calibrated true, 0 cached, 0 errors, act-wrong 0,
   escalate t3-07 / t3-12 / t3-27 / t3-37, Σ cost $0.000701652; 0 `sk-…` / `Bearer ` in the D6 outputs. **D6 → DONE (HOLDS).**
+- 19:56 · landing builder spawned on Hasan's "go" (records on `decision-models` first, then the four merges into `main` in a landing worktree).
+- 20:17 · **landing builder DONE** (~111 tool calls, ~21 min): records `eef98f0` on `decision-models` (Status.md row + TESTING.md §20: Hasan's
+  test DONE, question 3 closed, the D6 note); landing worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\landing\wt` on `main`; merges `--no-ff`
+  **(a) `a4854b1` end-to-end-p0 · (b) `1282169` end-to-end-p0-e · (c) `3ee1580` library-search · (d) `9d74db5` decision-models**; no
+  `fix(merge)` commit; conflicts all mechanical, both sides kept (Status.md every merge, newest first; (d) TESTING.md §19.5 then §20; (d)
+  `NEXT-SESSION.md` add/add → decision-models' copy = library-search's + a SPENT header; (d) `tool-ids.ts` / `registry.ts` / `registry.test.ts`:
+  `join_clips` then `decide` / `check_matches_request` / `route_request`); tsc main 26 / 10 → (a) 26 / 10 → (b) 26 / 10 → (c) 25 / 10 → (d) 25 / 10
+  (each list ⊆ its main-side parent's); counted vitest per step = the 3 E-d2a files only (main 415 passed / 3 failed files; (d) 578 passed / 3
+  failed / 7 skipped files, 6,013 passed tests); (b) try 1 had `library-migrate.test.ts` red (back-fill `candidates: 0` vs 7) — green alone 9 / 9
+  and in try 2; (c) try 1 `shot-module-resolver` (DRIVING load list) — green alone + try 2; build rc 0; launch smoke on a fresh `landing-smoke`
+  profile (deleted after): `decisionsStatus` answers, exactly the 4 `decisions*` functions, 6 built-in flows incl. `vidtsx/interior-staging`, the
+  Settings Library + Decisions rows; Status.md "LANDED" row `bbee598` on main. Not pushed.
+- 20:18–20:19 · **Orchestrator re-check (on main):** HEAD `bbee598`, landing worktree clean; `main` 553 ahead of `origin/main` (`1395e34`) — nothing
+  pushed; all four branch tips + `84b4ba0` are ancestors of `main`; the four first-parent merges listed above; `git diff <parent> <merge> --
+  Status.md docs/studio/TESTING.md src/shared/agents/tool-ids.ts src/main/services/agents/tools/registry.ts` removes **0** lines against either
+  parent of all four merges; `tool-ids.ts` :65-69 holds `join_clips` + the three decision ids, `registry.ts` :105-110 registers all four;
+  `get_timeline` in 14 `src` files on `main` = on `library-search`; per-step summaries read (`C:\Users\hasan\AppData\Local\vidtsx-e2e\landing\
+  *-summary.txt`). **The (b) `library-migrate` red is NOT a merge red** (ruling): at (b) `src/main/services/library/` is identical to
+  `end-to-end-p0-e` (`git diff end-to-end-p0-e 1282169 -- src/main/services/library` empty) and `main`'s 9 commits touch no library file; the test
+  races its own fire-and-forget back-fill (`library-migrate.ts:58` `void scheduleProbeBackfill(root)` vs the test's own call at
+  `library-migrate.test.ts:70`) — a PRE-EXISTING track-E test flake (green alone 9 / 9, green in try 2), a test-only follow-up for Hasan's list.
+  **LANDED.** The landing worktree is removed next (so `main` can be checked out elsewhere).
