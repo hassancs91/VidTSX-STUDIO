@@ -14,6 +14,7 @@ export * from './home';
 export * from './image-studio';
 export * from './library';
 export * from './library-search';
+export * from './decisions';
 export * from './llm';
 export * from './local-llm';
 export * from './log';

@@ -1,3 +1,6 @@
+> **SPENT — this paste-in ran as session 1 (2026-10-30 → 2026-10-31: D1 DONE-WITH-STOPS, D2 accepted with Hasan's answers). Session 2's
+> paste-in is `docs/studio/decisions/NEXT-SESSION-2.md`.** Kept verbatim below as the run's brief (ORCHESTRATOR.md cites its lines).
+
 # Next session — DECISION MODELS: one shared decision service (Hasan 2026-10-30: "implement the logic of decision models so we can use it anywhere — shared logic, two providers and one local model — search, agents, flows, other places; start with the spikes and small tests")
 
 > Written 2026-10-30 15:21 after the library-search run stopped (S4 PASS, `cf7d550`) and a web search on Jev and the new

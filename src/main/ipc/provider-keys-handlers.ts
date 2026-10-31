@@ -17,6 +17,7 @@ import { initVideoEngine } from '../services/video-init';
 import { initAudioGenerationEngine } from '../services/audio-generation-init';
 import { initLLMEngine } from '../services/llm-init';
 import { initSttEngine } from '../services/stt/stt-init';
+import { decisionsKeysChanged } from '../services/decisions/decision-runtime';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('ProviderKeys');
@@ -66,6 +67,13 @@ export async function handleProviderKeysSave(
     await initAudioGenerationEngine();
     await initLLMEngine();
     await initSttEngine();
+    // A saved / removed TypeSafe or OpenRouter key re-registers the decision rungs and pushes `decisions:event`
+    // (DECISION_MODELS_DESIGN.md §12). A no-op until decisions are first used; its failure never fails the save.
+    try {
+      await decisionsKeysChanged();
+    } catch {
+      log.warn('Decision providers were not re-registered after the key save (the next key save retries)');
+    }
 
     log.info('Provider credentials updated', toHasKeys(next));
     return {

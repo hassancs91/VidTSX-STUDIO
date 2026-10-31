@@ -80,6 +80,11 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // then one packaged-build smoke. Core ships noir / vhs / cinematic-bloom;
   // the volumes reach users as .vidtsxpack files.
   'studio-filters': true,
+  // The Decisions developer tester (docs/studio/DECISION_MODELS_DESIGN.md §8 / §12): the free-form
+  // `decisions:decide` form under Settings › General › Decisions — the one place probabilities show,
+  // as numbers. A dev-preview: on in dev builds, hidden in production. The TypeSafe key test in
+  // AI → Providers is NOT behind it (ruling D-r19 (2)).
+  'decisions-tester': false,
   // Agents (docs/agents-plan.md) — installable declarative agents on their own
   // page. Unhidden for 1.1.0 once all seven stages landed (§9 "Stage 6
   // outcome"): two built-in agents ship in the installer, and this flag is

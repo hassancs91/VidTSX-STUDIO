@@ -13,6 +13,7 @@ import { CrashReportingRow } from './rows/CrashReportingRow';
 import { ProxyGpuEncoderRow } from './rows/ProxyGpuEncoderRow';
 import { NewsRow } from './rows/NewsRow';
 import { LibrarySearchRow } from './rows/LibrarySearchRow';
+import { DecisionsRow } from './rows/DecisionsRow';
 import { UpdateSection } from './UpdateSection';
 
 export function GeneralSettingsContent({
@@ -128,7 +129,10 @@ export function GeneralSettingsContent({
       {/* Image models folder controls moved to the dedicated "AI Models" screen. */}
 
       <SectionHeader>Library</SectionHeader>
-      <LibrarySearchRow />
+      <div className="flex flex-col gap-2">
+        <LibrarySearchRow />
+        <DecisionsRow />
+      </div>
 
       <SectionHeader>Privacy</SectionHeader>
       <div className="flex flex-col gap-2">

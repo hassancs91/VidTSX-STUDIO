@@ -63,6 +63,10 @@ export const AGENT_TOOL_IDS = [
   // VidTSX 2.0: join clips with a cut or a dip to black at a set size and
   // frame rate (the interior staging flow). Node-capable; usable by agents.
   'join_clips',
+  // Decision models (DECISION_MODELS_DESIGN.md §10.1–10.2): the decide tool / node and the two gate nodes.
+  'decide',
+  'check_matches_request',
+  'route_request',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

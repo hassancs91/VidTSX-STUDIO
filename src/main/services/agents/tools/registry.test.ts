@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { AGENT_TOOL_IDS } from '../../../../shared/agents/tool-ids';
@@ -94,6 +96,10 @@ describe('registry ports and node specs', () => {
     'run_agent',
     // VidTSX 2.0: joins with a dip to black.
     'join_clips',
+    // Decision models D4 (d): the decide node and the two gate nodes (DECISION_MODELS_DESIGN.md §10.1–10.2).
+    'decide',
+    'check_matches_request',
+    'route_request',
   ];
 
   it('the wave-1 node catalogue carries ports; agent-only tools do not', () => {
@@ -158,6 +164,20 @@ describe('registry ports and node specs', () => {
       generate_composition: 'composition',
       edit_composition: 'composition',
       render_composition: 'video',
+      // The canvas previews the primary output: for the decision nodes that is the band, never p (§10.2, §15.3 3).
+      decide: 'band',
+      check_matches_request: 'band',
+      route_request: 'band',
     });
+  });
+
+  it('the decision tools are agent tools + nodes, NOT Studio assistant tools (§10.1, §13)', () => {
+    for (const id of ['decide', 'check_matches_request', 'route_request']) {
+      expect(getTool(id)?.id, id).toBe(id);
+    }
+    const studio = readFileSync(join(process.cwd(), 'src/main/services/studio/agent-tools/index.ts'), 'utf8');
+    const list = /STUDIO_TOOL_IDS = \[([\s\S]*?)\]/.exec(studio)?.[1] ?? '';
+    expect(list.length).toBeGreaterThan(0);
+    expect(list).not.toMatch(/'decide'|'check_matches_request'|'route_request'/);
   });
 });

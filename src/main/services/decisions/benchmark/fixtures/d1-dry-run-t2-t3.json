@@ -1,0 +1,813 @@
+{
+  "note": "D1's T2 / T3 dry-run request bodies for jev (hosted-run.cjs --dry-run; state + questions only, model dropped; the MSD1 bodies carry the same state + questions). No key. Used by D4 (d)'s D-r16 (c) equality test.",
+  "t2": {
+    "state": "You route a request a user typed to a video editor's assistant to the ONE tool family that must act on it: cut (remove / trim parts of the footage), audio (sound effects or music), shots (visuals over the footage: titles, lower thirds, charts, images, b-roll, screenshots), captions (subtitles on / off / style), export (render the finished file), or none (no editing tool: a question, thanks, a preference to remember, notes).",
+    "questions": {
+      "t2_01": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Cut out all the ums and uhs from my intro clip.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_02": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Remove the long pauses between my sentences.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_03": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"I flubbed the line twice around the two-minute mark, keep only the last take.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_04": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Tighten the whole talk, it drags in the middle.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_05": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Add a soft whoosh when the slide changes.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_06": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Put some calm lo-fi music under the voiceover.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_07": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Make me a cash register ding for when the price shows up.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_08": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Drop a glass shattering sound where I say the app broke.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_09": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Make a title card that says 'Five tips for better sleep'.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_10": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Show a lower third with my name and role when I first appear.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_11": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Put a screenshot of our pricing page over the part where I talk about plans.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_12": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Animate a bar chart of our revenue growing from 2022 to 2025.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_13": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Turn on subtitles for the whole video.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_14": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Switch the captions to the Word Pop style.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_15": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Make the captions show one big word at a time in the center.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_16": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Turn the captions off, I don't want them on this one.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_17": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Export the final video as an MP4.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_18": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Render it out so I can upload it tonight.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_19": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Queue this edit for rendering with the default settings.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_20": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"I'm done, give me the finished file.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_21": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"What does the Auto Cut button actually do?\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_22": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Thanks, that looks great!\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_23": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Remember that I always want my videos to open on the product shot.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_24": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"What's in my project notes about the sponsor segment?\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_25": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Add captions and then export it.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_26": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Make a 'Subscribe' bumper at the end with a pop sound.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_27": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Remove the silences and put on subtitles.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_28": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Play a ding with a 'Done!' title card when the build finishes.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_29": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Clean up the filler words and render the final cut.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_30": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"Open with a logo reveal and a deep impact sound.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_31": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"احذف كل كلمات الحشو مثل «آآ» و«يعني» من المقطع.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_32": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"أزل فترات الصمت الطويلة بين الجمل.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_33": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"أضف صوت وووش خفيفًا عند تغيير الشريحة.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_34": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"ضع موسيقى هادئة تحت التعليق الصوتي.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_35": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"اصنع بطاقة عنوان مكتوب عليها «خمس نصائح لنوم أفضل».\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_36": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"أظهر اسمي ومسمّاي الوظيفي في الثلث السفلي عندما أظهر أول مرة.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_37": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"فعّل الترجمة النصية للفيديو كله.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_38": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"صدّر الفيديو النهائي بصيغة MP4.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_39": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"شكرًا، يبدو رائعًا!\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      },
+      "t2_40": {
+        "type": "choice",
+        "instructions": "Which ONE tool family must act on this request? Request: \"أضف الترجمة ثم صدّر الفيديو.\"",
+        "criteria": {
+          "cut": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+          "audio": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+          "shots": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+          "captions": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+          "export": "render / export the edit to a file",
+          "none": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)"
+        }
+      }
+    }
+  },
+  "t3": {
+    "state": "You check a video editor's assistant's work. Answer yes only if the item really does what the request or script line asks, by plain meaning; a loosely related or merely similar item is NOT a match.",
+    "questions": {
+      "t3_01": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"App Launch Teaser\": A launch teaser for your app. A laptop, phone or browser rises with your screenshot sliding into the screen, the name and tagline land, three feature chips pop in one by one, and the call-to-action pill holds as a poster.\nRequest: \"Make a short teaser for my new app that shows the screenshot on a phone and lists three features.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_02": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Before / After\": A split-screen comparison. A divider sweeps across the frame and wipes your after image in over the before, overshoots and settles where you set it, while the labels cross-fade and the headline arrives. Both images share one framing, so the comparison stays honest.\nRequest: \"Show my old landing page and the redesigned one with a wipe between them.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_03": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"GitHub Stars\": A star milestone for your repository. A GitHub-style repo card springs in, the counter rolls to your number while the big star fills, contributor avatars orbit behind the card, and the headline holds as a poster.\nRequest: \"Celebrate our repo hitting 10,000 stars on GitHub.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_04": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Key Point Callout\": An annotation that points at something in your footage. A target mark lands where you aim it, a leader line draws out of it, and a label plate wipes open with a headline and an optional detail line.\nRequest: \"Point at the button in the footage and label it 'Click here'.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_05": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Logo Reveal\": A four-second logo opener. Your logo is revealed through a mask — a circle, a wipe, blinds or a diagonal — with an accent edge, the wordmark slides out beside it and the tagline settles between two rules.\nRequest: \"Open the video with my logo revealed through a circle wipe.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_06": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Name & Title\": A lower third that introduces a speaker. A bar, a plate or a single rule builds from the edge, then the name, the role and an optional handle arrive a beat apart, with an avatar or initials beside them.\nRequest: \"Introduce the guest with her name and job title at the bottom of the screen.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_07": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Quote Card\": A cinematic quote or testimonial. The quote reveals word by word in reading rhythm, an accent rule draws under the last word, then the author slides in with a portrait or an initials disc. The type sizes itself to the quote.\nRequest: \"اعرض اقتباس العميل كلمةً كلمة مع اسمه وصورته.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_08": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"YouTube Subs\": A subscriber milestone celebration. A play mark assembles from four shards, the counter rolls up to your number, the bell rings and the milestone plate unrolls, then it holds as a poster.\nRequest: \"Celebrate hitting 100k subscribers on YouTube.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_09": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Social Handle Bug\": A corner bug with your handle. The mark pops in at the corner, a pill or a bar opens out of it with the platform icon and handle, and it settles at a quiet opacity — or folds back to the bare mark after the seconds you choose.\nRequest: \"Add a countdown timer from ten to zero.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_10": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Subscribe Bumper\": A four-second subscribe bumper. The platform mark opens into a button, a pointer glides in and presses it, the button turns to Subscribed with a bloom, and your channel name, handle and note settle underneath.\nRequest: \"Show a map with a route between two cities.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_11": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"GitHub Stars\": A star milestone for your repository. A GitHub-style repo card springs in, the counter rolls to your number while the big star fills, contributor avatars orbit behind the card, and the headline holds as a poster.\nRequest: \"Celebrate reaching 50,000 YouTube subscribers.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_12": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"YouTube Subs\": A subscriber milestone celebration. A play mark assembles from four shards, the counter rolls up to your number, the bell rings and the milestone plate unrolls, then it holds as a poster.\nRequest: \"Celebrate our repo hitting 10,000 stars on GitHub.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_13": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Name & Title\": A lower third that introduces a speaker. A bar, a plate or a single rule builds from the edge, then the name, the role and an optional handle arrive a beat apart, with an avatar or initials beside them.\nRequest: \"Show a split screen of the room before and after cleaning.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_14": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Before / After\": A split-screen comparison. A divider sweeps across the frame and wipes your after image in over the before, overshoots and settles where you set it, while the labels cross-fade and the headline arrives. Both images share one framing, so the comparison stays honest.\nRequest: \"Introduce the speaker with his name and role.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_15": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Quote Card\": A cinematic quote or testimonial. The quote reveals word by word in reading rhythm, an accent rule draws under the last word, then the author slides in with a portrait or an initials disc. The type sizes itself to the quote.\nRequest: \"اعرض رسمًا بيانيًا لنمو الإيرادات.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_16": {
+        "type": "noul",
+        "instructions": "Does this video template do what the request asks?\nTemplate \"Logo Reveal\": A four-second logo opener. Your logo is revealed through a mask — a circle, a wipe, blinds or a diagonal — with an accent edge, the wordmark slides out beside it and the tagline settles between two rules.\nRequest: \"Keep my Instagram handle in the corner for the whole video.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_17": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"Karaoke\": A line of words; the spoken one fills with the accent color.\nRequest: \"Captions where the word being spoken fills with color as I say it.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_18": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"One Word Punch\": One enormous word at a time, centered.\nRequest: \"Show one huge word at a time in the middle of the screen.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_19": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"Boxed Pill\": Words on a rounded background pill — readable over anything.\nRequest: \"Put the subtitles on a rounded background so they're readable over busy footage.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_20": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"Minimal Line\": A quiet single line — no animation, maximum legibility.\nRequest: \"أريد ترجمة بسيطة في سطر واحد بدون أي حركة.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_21": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"Dim Past\": Spoken words dim back, the live word stays bright.\nRequest: \"Make the words already spoken go darker while the current word stays bright.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_22": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"Minimal Line\": A quiet single line — no animation, maximum legibility.\nRequest: \"Each word should punch in big and bold, Hormozi style.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_23": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"One Word Punch\": One enormous word at a time, centered.\nRequest: \"Keep two lines on screen, the previous one above the new one.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_24": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"Karaoke\": A line of words; the spoken one fills with the accent color.\nRequest: \"Captions with no animation at all, just a plain quiet line.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_25": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"Bounce In\": Every group springs in from below with a soft bounce.\nRequest: \"Paint the current word with my brand gradient.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_26": {
+        "type": "noul",
+        "instructions": "Does this caption style match the request?\nStyle \"Bold Stroke\": Thick outlined caps — survives any busy background.\nRequest: \"Show one word at a time.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_27": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/break-glass-crack.mp3 | emphasis | 1.0 s | break, broken, glass, crack, shatter, fail, mess, emphasis | A pane of glass cracking and breaking: one sharp, solid crack that splinters, followed by a short light tinkle of a few small shards, close-miked and clean, about one second, decays cleanly. Not a huge window smash, no explosion, no voices, no music.\nScript line: \"I knocked the glass off the table and it cracked into pieces.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_28": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/break-crash-digital.mp3 | emphasis | 1.0 s | break, broken, crash, software, error, fail, digital, emphasis | A computer app breaking down: one hard, punchy crunch with a short crackle of breaking electronics and a quick falling pitch, like software crashing, dry and close, about one second, ends cleanly. No long static, no beeps, no alarm, no voices, no music.\nScript line: \"And right in the middle of the demo, the whole app crashed.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_29": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/camera-shutter.mp3 | foley | 0.5 s | camera, shutter, photo, capture, screenshot, snap, foley | A single camera shutter firing once: a crisp, quick mechanical click-clack of an SLR photo capture, clean and satisfying, close-mic, premium and understated, very short, dry, no motor wind, no beep, no music.\nScript line: \"I grabbed my camera and snapped a photo of the sunset.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_30": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/crunch-bite.mp3 | foley | 0.7 s | bite, crunch, cookie, biscuit, eat, snack, food, foley | A single bite taken out of a crisp baked cookie: one clean, dry crunch as the teeth break through, with a few small crumbs falling, close-miked and intimate like a foley stage. Exactly ONE bite, about half a second, decaying cleanly. No chewing afterwards, no repeated crunching, no mouth or breath sounds, no voices, no music, no reverb.\nScript line: \"أخذت قضمة من البسكويت المقرمش.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_31": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/flame-snuff.mp3 | foley | 0.6 s | flame, candle, snuff, blow-out, puff, vanish, gone, foley | A small candle flame being snuffed out: one soft, quick, breathy puff with a tiny dying flicker, close-miked, clean and quiet, about half a second. No voices, no music, no wind gust, no whoosh.\nScript line: \"She leaned over and blew out the candle.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_32": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/clock-tick-soft.mp3 | texture | 2.2 s | clock, tick, tock, countdown, timer, chess-clock, texture | A soft mechanical chess clock ticking gently: about three calm tick-tock cycles, muted, precise, quiet, close-mic, no bell, no music.\nScript line: \"الساعة تدق بهدوء بينما ننتظر النتيجة.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_33": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/chess-piece-thock.mp3 | foley | 0.5 s | chess, wood, piece, move, thock, board, foley | A single wooden chess piece placed firmly on a wooden chess board. One short dry warm wooden knock, close-mic, clean and satisfying, no room echo, no voices, no music.\nScript line: \"He set his knight down on the board and waited.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_34": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/chime-reward.mp3 | reward | 0.9 s | chime, reward, positive, free, gift, success | A soft positive reward chime, two gentle warm bell notes rising, premium and understated, like unlocking a free gift in a polished app. Short, clean, no long reverb tail, no music bed.\nScript line: \"The glass slipped and shattered on the floor.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_35": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/crunch-bite.mp3 | foley | 0.7 s | bite, crunch, cookie, biscuit, eat, snack, food, foley | A single bite taken out of a crisp baked cookie: one clean, dry crunch as the teeth break through, with a few small crumbs falling, close-miked and intimate like a foley stage. Exactly ONE bite, about half a second, decaying cleanly. No chewing afterwards, no repeated crunching, no mouth or breath sounds, no voices, no music, no reverb.\nScript line: \"The camera clicked as I took the picture.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_36": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:music/lullaby-tender.mp3 | lullaby | 57.1 s | lullaby, music-box, piano, tender, storybook, emotional, bed | A tender storybook lullaby background bed for a children's bedtime story. Soft delicate music box and gentle felt-piano with warm strings underneath, slow, comforting and emotional, a little wistful and then warm and reassuring. No drums, no vocals, lots of gentle space between phrases, designed to sit softly under a narrator's voice. Around 65 BPM, soothing and consistent, instrumental.\nScript line: \"Now the fast part: an energetic hype track for the product launch.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_37": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/impact-deep-soft.mp3 | emphasis | 1.6 s | impact, deep, reveal, payoff, emphasis, long-tail, boom | A soft, deep impact with a gentle long tail, for a meaningful reveal. A warm low thud that blooms and decays smoothly, premium and restrained, felt in the chest but never loud. Not a harsh trailer slam, no distortion, no music.\nScript line: \"أطفأت الشمعة بنفخة خفيفة.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_38": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/dash-zip.mp3 | motion | 1.0 s | dash, run, zip, sprint, fast, cartoon, skid, motion | A small cartoon character dashing past very fast: a quick zippy whoosh with a light flurry of tiny rapid footsteps, ending in a short soft skid stop on a floor, playful but clean, about one second. No voices, no music, no boing, no slide whistle.\nScript line: \"The clock is ticking down the last ten seconds.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_39": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/glitch-zap.mp3 | texture | 0.7 s | glitch, static, zap, error, digital, corrupt, texture | A short digital glitch stutter: a quick electronic static zap with a subtle pitch drop, dark and restrained, like a video signal corrupting for half a second. Clean, not harsh or screechy, no music.\nScript line: \"I bit into the cookie.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      },
+      "t3_40": {
+        "type": "noul",
+        "instructions": "Is this library clip the sound the script line describes?\nClip: library:sfx/camera-shutter.mp3 | foley | 0.5 s | camera, shutter, photo, capture, screenshot, snap, foley | A single camera shutter firing once: a crisp, quick mechanical click-clack of an SLR photo capture, clean and satisfying, close-mic, premium and understated, very short, dry, no motor wind, no beep, no music.\nScript line: \"انكسر زجاج النافذة.\"",
+        "criteria": {
+          "true": "Yes: the item really does what the request or script line asks, by plain meaning.",
+          "false": "No: the item does something else, or is only loosely related / merely similar."
+        }
+      }
+    }
+  }
+}

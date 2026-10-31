@@ -49,6 +49,9 @@ import { readRunTool } from './read-run';
 import { freezeSessionToFlowTool } from './freeze-session-to-flow';
 import { saveFlowTool } from './save-flow';
 import { joinClipsTool } from './join-clips';
+import { decideTool } from './decide';
+import { checkMatchesRequestTool } from './check-matches-request';
+import { routeRequestTool } from './route-request';
 
 // Wave 1 (plan §1.3).
 registerTool(writeDocumentTool);
@@ -100,3 +103,8 @@ registerTool(saveFlowTool);
 // VidTSX 2.0: clips joined with a dip to black (the interior staging flow);
 // rendered through Remotion because the bundled ffmpeg has no fade filters.
 registerTool(joinClipsTool);
+// Decision models (DECISION_MODELS_DESIGN.md §10.1–10.2): the decide tool / node and the two gate nodes. Agent tools + nodes only — the
+// Studio assistant's STUDIO_TOOL_IDS gets none of them in slice 1 (§13).
+registerTool(decideTool);
+registerTool(checkMatchesRequestTool);
+registerTool(routeRequestTool);

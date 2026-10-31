@@ -644,6 +644,11 @@ export interface ElectronAPI {
   librarySearchStatus: () => Promise<import('../../shared/ipc/types').LibrarySearchStatusResponse>;
   librarySearchSettingsSet: (data: import('../../shared/ipc/types').LibrarySearchSettingsSetRequest) => Promise<import('../../shared/ipc/types').LibrarySearchSettingsSetResponse>;
   onLibrarySearchEvent: (callback: (event: import('../../shared/ipc/types').LibrarySearchEvent) => void) => () => void;
+  // Decisions (DECISION_MODELS_DESIGN.md §12) — preload `api/decisions.ts`; exactly these four, has-key booleans only (no key crosses)
+  decisionsDecide: (data: import('../../shared/ipc/types').DecisionsDecideRequest) => Promise<import('../../shared/ipc/types').DecisionsDecideResponse>;
+  decisionsStatus: () => Promise<import('../../shared/ipc/types').DecisionsStatusResponse>;
+  decisionsSettingsSet: (data: import('../../shared/ipc/types').DecisionsSettingsSetRequest) => Promise<import('../../shared/ipc/types').DecisionsSettingsSetResponse>;
+  onDecisionsEvent: (callback: (event: import('../../shared/ipc/types').DecisionsEvent) => void) => () => void;
   // The embedding model download the Library search row reuses — preload `api/embedding.ts`
   embeddingModelDownload: (data: import('../../shared/ipc/types').EmbeddingModelDownloadRequest) => Promise<import('../../shared/ipc/types').EmbeddingModelDownloadResponse>;
   onEmbeddingDownloadProgress: (callback: (data: import('../../shared/ipc/types').EmbeddingDownloadProgressEvent) => void) => () => void;

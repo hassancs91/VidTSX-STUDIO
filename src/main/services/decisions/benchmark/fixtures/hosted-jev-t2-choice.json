@@ -1,0 +1,458 @@
+{
+ "format": "vidtsx-d1-answers/1",
+ "candidate": "hosted-jev",
+ "task": "t2",
+ "mode": "choice",
+ "probability": "model",
+ "requests": [
+  {
+   "requestId": "jev-t2-choice-001",
+   "latencyMs": 499,
+   "questions": 40,
+   "phase": "cold",
+   "model": "jev-1.14.0"
+  }
+ ],
+ "answers": [
+  {
+   "id": "t2-01",
+   "probs": {
+    "cut": 1,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-02",
+   "probs": {
+    "cut": 1,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-03",
+   "probs": {
+    "cut": 1,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-04",
+   "probs": {
+    "cut": 1,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-05",
+   "probs": {
+    "cut": 0,
+    "audio": 1,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-06",
+   "probs": {
+    "cut": 0,
+    "audio": 1,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-07",
+   "probs": {
+    "cut": 0,
+    "audio": 1,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-08",
+   "probs": {
+    "cut": 0,
+    "audio": 1,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-09",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 1,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-10",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 1,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-11",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 1,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-12",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 1,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-13",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 1,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-14",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 1,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-15",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0.03,
+    "captions": 0.97,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-16",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 1,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-17",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 1,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-18",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 1,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-19",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 1,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-20",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 1,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-21",
+   "probs": {
+    "cut": 0.03,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0.97
+   }
+  },
+  {
+   "id": "t2-22",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 1
+   }
+  },
+  {
+   "id": "t2-23",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 1
+   }
+  },
+  {
+   "id": "t2-24",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 1
+   }
+  },
+  {
+   "id": "t2-25",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0.7,
+    "export": 0.3,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-26",
+   "probs": {
+    "cut": 0.01,
+    "audio": 0.16,
+    "shots": 0.83,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-27",
+   "probs": {
+    "cut": 0.65,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0.34,
+    "export": 0,
+    "none": 0.01
+   }
+  },
+  {
+   "id": "t2-28",
+   "probs": {
+    "cut": 0.01,
+    "audio": 0.52,
+    "shots": 0.33,
+    "captions": 0,
+    "export": 0.08,
+    "none": 0.06
+   }
+  },
+  {
+   "id": "t2-29",
+   "probs": {
+    "cut": 0.4,
+    "audio": 0.01,
+    "shots": 0,
+    "captions": 0,
+    "export": 0.59,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-30",
+   "probs": {
+    "cut": 0.01,
+    "audio": 0.22,
+    "shots": 0.76,
+    "captions": 0,
+    "export": 0,
+    "none": 0.01
+   }
+  },
+  {
+   "id": "t2-31",
+   "probs": {
+    "cut": 0.98,
+    "audio": 0.01,
+    "shots": 0,
+    "captions": 0.01,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-32",
+   "probs": {
+    "cut": 1,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-33",
+   "probs": {
+    "cut": 0,
+    "audio": 1,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-34",
+   "probs": {
+    "cut": 0,
+    "audio": 1,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-35",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 1,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-36",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 1,
+    "captions": 0,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-37",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 1,
+    "export": 0,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-38",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 1,
+    "none": 0
+   }
+  },
+  {
+   "id": "t2-39",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0,
+    "export": 0,
+    "none": 1
+   }
+  },
+  {
+   "id": "t2-40",
+   "probs": {
+    "cut": 0,
+    "audio": 0,
+    "shots": 0,
+    "captions": 0.65,
+    "export": 0.35,
+    "none": 0
+   }
+  }
+ ]
+}

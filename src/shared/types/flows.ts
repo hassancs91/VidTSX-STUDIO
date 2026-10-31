@@ -33,6 +33,8 @@ export interface PortDef {
   argKey?: string;
   /** Outputs: the returned artifact, or a named field of the tool result. */
   from?: 'artifact' | `field:${string}`;
+  /** Outputs: filed in the run record by the flow runner but never drawn on the canvas (no handle) — e.g. the decide nodes' `p` (D-r22 (2)). */
+  recordOnly?: boolean;
 }
 
 /** Inspector field kinds — the existing canvas set, unchanged. */

@@ -1,0 +1,584 @@
+{
+ "task": "t2",
+ "name": "T2 — Studio-assistant request → tool family",
+ "builtAt": "2026-10-30T14:10:25.760Z",
+ "builtBy": "D1 builder #2 (build-t2-t3.cjs)",
+ "families": [
+  "cut",
+  "audio",
+  "shots",
+  "captions",
+  "export",
+  "none"
+ ],
+ "familyTools": {
+  "cut": {
+   "meaning": "remove / trim / tighten parts of the footage (editorial cuts, silence removal; get_transcript is the read step for them)",
+   "tools": [
+    {
+     "id": "propose_cuts",
+     "at": "src/main/services/studio/agent-tools/cut-tools.ts:22"
+    },
+    {
+     "id": "run_auto_cut",
+     "at": "src/main/services/studio/agent-tools/workflow-tools.ts:135"
+    },
+    {
+     "id": "get_transcript",
+     "at": "src/main/services/studio/agent-tools/transcript-tools.ts:13"
+    }
+   ]
+  },
+  "audio": {
+   "meaning": "add or change sound effects or music (library reuse or generation; insert_asset with lane \"audio\")",
+   "tools": [
+    {
+     "id": "generate_sfx",
+     "at": "src/main/services/studio/agent-tools/audio-tools.ts:118"
+    },
+    {
+     "id": "generate_music",
+     "at": "src/main/services/studio/agent-tools/audio-tools.ts:155"
+    },
+    {
+     "id": "insert_asset",
+     "at": "src/main/services/studio/agent-tools/insert-tools.ts:38"
+    }
+   ]
+  },
+  "shots": {
+   "meaning": "visuals over or between the footage: TSX shots (titles, lower thirds, charts, templates), generated images / video b-roll, captures (insert_asset with lane \"broll\" / \"overlay\")",
+   "tools": [
+    {
+     "id": "generate_tsx_shot",
+     "at": "src/main/services/studio/agent-tools/shot-tools.ts:36"
+    },
+    {
+     "id": "list_shots",
+     "at": "src/main/services/studio/agent-tools/shot-tools.ts:157"
+    },
+    {
+     "id": "propose_shots",
+     "at": "src/main/services/studio/agent-tools/shot-tools.ts:171"
+    },
+    {
+     "id": "generate_image",
+     "at": "src/main/services/studio/agent-tools/image-tools.ts:23"
+    },
+    {
+     "id": "generate_video",
+     "at": "src/main/services/studio/agent-tools/video-tools.ts:65"
+    },
+    {
+     "id": "capture_webpage",
+     "at": "src/main/services/studio/agent-tools/capture-tools.ts:20"
+    },
+    {
+     "id": "capture_scripted",
+     "at": "src/main/services/studio/agent-tools/capture-tools.ts:75"
+    },
+    {
+     "id": "remove_background",
+     "at": "src/main/services/studio/agent-tools/image-tools.ts:57"
+    },
+    {
+     "id": "insert_asset",
+     "at": "src/main/services/studio/agent-tools/insert-tools.ts:38"
+    },
+    {
+     "id": "run_flow",
+     "at": "src/main/services/studio/agent-tools/flow-tools.ts:44"
+    }
+   ]
+  },
+  "captions": {
+   "meaning": "word-synced captions on / off / style (transcribe_asset is their prerequisite)",
+   "tools": [
+    {
+     "id": "set_captions",
+     "at": "src/main/services/studio/agent-tools/delivery-tools.ts:23"
+    },
+    {
+     "id": "transcribe_asset",
+     "at": "src/main/services/studio/agent-tools/workflow-tools.ts:73"
+    }
+   ]
+  },
+  "export": {
+   "meaning": "render / export the edit to a file",
+   "tools": [
+    {
+     "id": "export_project",
+     "at": "src/main/services/studio/agent-tools/delivery-tools.ts:101"
+    }
+   ]
+  },
+  "none": {
+   "meaning": "no tool of the five families: answered in chat, or another group (memory, notes, presets, brand, vocabulary, script, accept_proposal)",
+   "tools": []
+  }
+ },
+ "toolIdsSource": "src/main/services/studio/agent-tools/index.ts (STUDIO_TOOL_IDS, 29 ids)",
+ "toolsNotInAFamily": [
+  "propose_memory",
+  "propose_style_promotion",
+  "list_assets",
+  "get_brand",
+  "accept_proposal",
+  "get_script",
+  "propose_vocabulary",
+  "get_preset",
+  "propose_preset_update",
+  "list_notes",
+  "read_note"
+ ],
+ "conventions": {
+  "family": "the primary family by plain meaning",
+  "allowed": "every family that fits (two where the request asks for two things); accuracy = top choice ∈ allowed"
+ },
+ "instruction": "You route a request a user typed to a video editor's assistant to the ONE tool family that must act on it: cut (remove / trim parts of the footage), audio (sound effects or music), shots (visuals over the footage: titles, lower thirds, charts, images, b-roll, screenshots), captions (subtitles on / off / style), export (render the finished file), or none (no editing tool: a question, thanks, a preference to remember, notes).",
+ "selfCheck": {
+  "rows": 40,
+  "arabic": 10,
+  "twoFamily": 7,
+  "byFamily": {
+   "cut": 8,
+   "audio": 7,
+   "shots": 8,
+   "captions": 7,
+   "export": 5,
+   "none": 5
+  },
+  "byFamilyArabic": {
+   "cut": 2,
+   "audio": 2,
+   "shots": 2,
+   "captions": 2,
+   "export": 1,
+   "none": 1
+  },
+  "toolIds": 29,
+  "toolsNotInAFamily": [
+   "propose_memory",
+   "propose_style_promotion",
+   "list_assets",
+   "get_brand",
+   "accept_proposal",
+   "get_script",
+   "propose_vocabulary",
+   "get_preset",
+   "propose_preset_update",
+   "list_notes",
+   "read_note"
+  ]
+ },
+ "rows": [
+  {
+   "id": "t2-01",
+   "request": "Cut out all the ums and uhs from my intro clip.",
+   "family": "cut",
+   "allowed": [
+    "cut"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-02",
+   "request": "Remove the long pauses between my sentences.",
+   "family": "cut",
+   "allowed": [
+    "cut"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-03",
+   "request": "I flubbed the line twice around the two-minute mark, keep only the last take.",
+   "family": "cut",
+   "allowed": [
+    "cut"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-04",
+   "request": "Tighten the whole talk, it drags in the middle.",
+   "family": "cut",
+   "allowed": [
+    "cut"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-05",
+   "request": "Add a soft whoosh when the slide changes.",
+   "family": "audio",
+   "allowed": [
+    "audio"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-06",
+   "request": "Put some calm lo-fi music under the voiceover.",
+   "family": "audio",
+   "allowed": [
+    "audio"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-07",
+   "request": "Make me a cash register ding for when the price shows up.",
+   "family": "audio",
+   "allowed": [
+    "audio"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-08",
+   "request": "Drop a glass shattering sound where I say the app broke.",
+   "family": "audio",
+   "allowed": [
+    "audio"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-09",
+   "request": "Make a title card that says 'Five tips for better sleep'.",
+   "family": "shots",
+   "allowed": [
+    "shots"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-10",
+   "request": "Show a lower third with my name and role when I first appear.",
+   "family": "shots",
+   "allowed": [
+    "shots"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-11",
+   "request": "Put a screenshot of our pricing page over the part where I talk about plans.",
+   "family": "shots",
+   "allowed": [
+    "shots"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-12",
+   "request": "Animate a bar chart of our revenue growing from 2022 to 2025.",
+   "family": "shots",
+   "allowed": [
+    "shots"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-13",
+   "request": "Turn on subtitles for the whole video.",
+   "family": "captions",
+   "allowed": [
+    "captions"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-14",
+   "request": "Switch the captions to the Word Pop style.",
+   "family": "captions",
+   "allowed": [
+    "captions"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-15",
+   "request": "Make the captions show one big word at a time in the center.",
+   "family": "captions",
+   "allowed": [
+    "captions"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-16",
+   "request": "Turn the captions off, I don't want them on this one.",
+   "family": "captions",
+   "allowed": [
+    "captions"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-17",
+   "request": "Export the final video as an MP4.",
+   "family": "export",
+   "allowed": [
+    "export"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-18",
+   "request": "Render it out so I can upload it tonight.",
+   "family": "export",
+   "allowed": [
+    "export"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-19",
+   "request": "Queue this edit for rendering with the default settings.",
+   "family": "export",
+   "allowed": [
+    "export"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-20",
+   "request": "I'm done, give me the finished file.",
+   "family": "export",
+   "allowed": [
+    "export"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-21",
+   "request": "What does the Auto Cut button actually do?",
+   "family": "none",
+   "allowed": [
+    "none"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-22",
+   "request": "Thanks, that looks great!",
+   "family": "none",
+   "allowed": [
+    "none"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-23",
+   "request": "Remember that I always want my videos to open on the product shot.",
+   "family": "none",
+   "allowed": [
+    "none"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-24",
+   "request": "What's in my project notes about the sponsor segment?",
+   "family": "none",
+   "allowed": [
+    "none"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-25",
+   "request": "Add captions and then export it.",
+   "family": "captions",
+   "allowed": [
+    "captions",
+    "export"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-26",
+   "request": "Make a 'Subscribe' bumper at the end with a pop sound.",
+   "family": "shots",
+   "allowed": [
+    "shots",
+    "audio"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-27",
+   "request": "Remove the silences and put on subtitles.",
+   "family": "cut",
+   "allowed": [
+    "cut",
+    "captions"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-28",
+   "request": "Play a ding with a 'Done!' title card when the build finishes.",
+   "family": "audio",
+   "allowed": [
+    "audio",
+    "shots"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-29",
+   "request": "Clean up the filler words and render the final cut.",
+   "family": "cut",
+   "allowed": [
+    "cut",
+    "export"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-30",
+   "request": "Open with a logo reveal and a deep impact sound.",
+   "family": "shots",
+   "allowed": [
+    "shots",
+    "audio"
+   ],
+   "arabic": false,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-31",
+   "request": "احذف كل كلمات الحشو مثل «آآ» و«يعني» من المقطع.",
+   "family": "cut",
+   "allowed": [
+    "cut"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-32",
+   "request": "أزل فترات الصمت الطويلة بين الجمل.",
+   "family": "cut",
+   "allowed": [
+    "cut"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-33",
+   "request": "أضف صوت وووش خفيفًا عند تغيير الشريحة.",
+   "family": "audio",
+   "allowed": [
+    "audio"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-34",
+   "request": "ضع موسيقى هادئة تحت التعليق الصوتي.",
+   "family": "audio",
+   "allowed": [
+    "audio"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-35",
+   "request": "اصنع بطاقة عنوان مكتوب عليها «خمس نصائح لنوم أفضل».",
+   "family": "shots",
+   "allowed": [
+    "shots"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-36",
+   "request": "أظهر اسمي ومسمّاي الوظيفي في الثلث السفلي عندما أظهر أول مرة.",
+   "family": "shots",
+   "allowed": [
+    "shots"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-37",
+   "request": "فعّل الترجمة النصية للفيديو كله.",
+   "family": "captions",
+   "allowed": [
+    "captions"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-38",
+   "request": "صدّر الفيديو النهائي بصيغة MP4.",
+   "family": "export",
+   "allowed": [
+    "export"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-39",
+   "request": "شكرًا، يبدو رائعًا!",
+   "family": "none",
+   "allowed": [
+    "none"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  },
+  {
+   "id": "t2-40",
+   "request": "أضف الترجمة ثم صدّر الفيديو.",
+   "family": "captions",
+   "allowed": [
+    "captions",
+    "export"
+   ],
+   "arabic": true,
+   "labelledBy": "D1 builder #2, plain meaning"
+  }
+ ]
+}

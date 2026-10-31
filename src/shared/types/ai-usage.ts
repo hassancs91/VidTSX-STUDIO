@@ -15,10 +15,15 @@ export type AiFeatureSource =
   | 'library-search-rerank'
   | 'provider-test'
   | 'transcription'
+  // Decision engine callers (DECISION_MODELS_DESIGN.md §9): the agent tool, a flow node, routing hints, the key / developer test.
+  | 'decision-agent'
+  | 'decision-flow'
+  | 'decision-routing'
+  | 'decision-test'
   | 'other';
 
-/** Type of AI request */
-export type AiRequestType = 'llm' | 'image' | 'local-llm' | 'stt' | 'video' | 'audio';
+/** Type of AI request (`decision` = one decision-provider HTTP call, §9). */
+export type AiRequestType = 'llm' | 'image' | 'local-llm' | 'stt' | 'video' | 'audio' | 'decision';
 
 /** A single logged AI API request */
 export interface AiUsageEntry {
