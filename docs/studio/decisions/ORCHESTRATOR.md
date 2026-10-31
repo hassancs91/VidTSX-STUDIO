@@ -445,7 +445,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D3 — the Mapika spike (no product code) | **DONE — verdict FAIL: the local rung stays empty** (a note, no STOP; D4 (g) not built) | 3 | orchestrator re-check 09:30 (headline re-scored equal) + 09:44 (report) | docs `b5a3d3e` `17b3348` `15b00d8` `048c8a7` `2082918` | GPU headline T2 38 / 40 Brier 0.053, T3 33 / 40 Brier 0.122, off-list 0, warm p95 92.5 / 227.2 ms, peak RSS 4,483.7 MB → 3 PASS / 4 FAIL; `D3-mapika-report.md` 264 lines | 2026-10-31 08:53 / 09:43 |
-| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — part (a) | 0 | — | — | — | 2026-10-31 09:46 / — |
+| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) DONE `c7ad6da`; (b) next | 1 | (a) re-checked 10:02 | code `c7ad6da` | (a): 4 files / 66 tests; tsc 25 / 10 | 2026-10-31 09:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 2 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-2.md, verbatim)
@@ -525,6 +525,17 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   (state = the evidence) is NOT measured — an open question for Hasan at the stop**, with D3's CPU-default fact (D3 §10 item 2: 2.6–3.9 s per
   request and ~8.1 GB RSS for a 2B decider on CPU — D2 §5.3's "CPU by default" needs his reading before any later local candidate). Not a
   different design (D2 §10.2 already says the built-ins are `decide` with a fixed instruction, "T3's exact question family").
+- **D-r17 (orchestrator, 10:02) — D4 builder #1's four contract decisions, accepted (they shape how §15 is read — the verifier gets this
+  ruling with §15).** (1) **The second hosted rung's id is `openrouter-decisions` everywhere** (the preset id of D2 §4 / §8 / §10.1); D2 §3's and
+  §15.1's `openrouter` in the provider-id union and the calibration rows name the same rung. The AI-usage row's `provider` column stays the KEY's
+  registry id (`typesafe` / `openrouter`, D2 §9). `'openai'` is removed from the id union (E-e); `'local'` stays (no adapter in this slice).
+  (2) `family?: 'routing' | 'verify' | 'other'` lives on `DecisionRequest` (D2 §15.1: "set by the caller"); absent = `other` = never calibrated.
+  (3) A new error code `invalid-request` for a malformed request; `unsupported` keeps D2 §3's meaning (over every adapter's limits).
+  (4) **The calibration table has six rows, not four:** D2 §15.1's four + (openrouter-decisions, `microsoft/microsoft-decision-1-20261009`,
+  routing | verify) — OpenRouter served that snapshot in all 19 of D1's MSD1 bodies, `DecisionResult.model` is "as served" (§3), so it IS the
+  measured model; any other snapshot stays false (drift is never calibrated). §15.1's "exactly" is read as "exactly the measured
+  (provider, model, family) triples". Also accepted: `src/decision-engine/**/*` added to `tsconfig.node.json`'s `include` (the library-search
+  precedent `62685e9`), so tsc checks the engine before main imports it.
 
 ## Stops (session 2)
 
@@ -591,4 +602,14 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   the bar table = the score files the orchestrator re-ran at 09:30 (T2 95.0 % / 0.053, T3 82.5 % / 0.122) and `d-summary.md`'s RSS / p95;
   §9's runtime facts cite file:line. **D3 → DONE (verdict FAIL — the local rung stays empty).** → ruling **D-r16** (the request shape:
   transport adapter; the built-ins send D1's measured shape; the product-shape question + the CPU default go to Hasan). D4 starts: HANDOFF
-  updated ((g) dropped; D-r16 in (b) / (d) / (e)); D4 builder #1 (part (a)) to spawn.
+  updated ((g) dropped; D-r16 in (b) / (d) / (e)); D4 builder #1 (part (a)) to spawn. (Commit `d190e27` landed 09:45:28.)
+- 09:46 · D4 builder #1 spawned (HEAD `d190e27`; part (a) — the contract types + validate / ladder / calibration-table / cache, red first).
+- 10:00 · D4 builder #1 HANDOFF (~44 calls, ~15 min; code `c7ad6da`, docs `80ca732`): **part (a) DONE** — `src/shared/types/decisions.ts` (imports only
+  `./ai-usage`), `src/decision-engine/{types,validate,ladder,calibration-table,cache}.ts` + four test files (red first: 4 files "Cannot find
+  module"; green 4 / 66); `tsconfig.node.json` include += `src/decision-engine/**/*`; tsc 25 / 10; largest file 213 lines; cache hash via
+  WebCrypto (injectable, no Node import). Part (b) started red: `decision-engine.test.ts` + `presets.test.ts` UNTRACKED on purpose (committing
+  them would put tsc node above 10). Four decisions for the orchestrator (→ D-r17).
+- 10:01–10:02 · **Orchestrator re-check:** HEAD `80ca732`; `d190e27..HEAD` = the 11 decision files + `tsconfig.node.json` + D4 HANDOFF / LOG;
+  vitest on the four (a) files → **4 passed / 66 passed**; tsc web 25 / node 16 with the two untracked red tests, **node 10 without them** (all 6
+  extra errors are in those two files) → HEAD is at the baseline; `calibration-table.ts` read (36 lines; six rows as described). → ruling
+  **D-r17**. D4 builder #2 (part (b)) to spawn.
