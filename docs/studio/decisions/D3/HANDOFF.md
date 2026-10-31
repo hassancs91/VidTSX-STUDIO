@@ -1,5 +1,5 @@
 # D3 — the Mapika spike: decider-2b as the local rung (no product code)
-status: IN PROGRESS (2026-10-31 09:06 — builder #1: step (a) done; step (b) the venv next)
+status: HANDOFF (2026-10-31 09:08 — builder #1: steps (a) facts + (b) venv & GPU smoke DONE; step (c) the worker + host next)
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it unless absolute).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — section "Session 2": its "Answers in force" (Hasan's E-a … E-h,
@@ -83,35 +83,67 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
 
 ## Done
 
-- **(a) facts — `K3\reports\a-facts.md`** (builder #1, 09:05; outside the tree). Raw Hub / PyPI / PyTorch-index responses verbatim in
-  `K3\reports\raw-hub\` (+ `fetched-at.txt`), summarised by `K3\scripts\hub-facts.py` → `raw-hub\hub-facts.out.txt`. Headlines (all in
-  a-facts.md): the local weights = Hub tag **v11** (sha256 `acaef222…817f`, equal; config byte-identical); the Hub `main` is now **v12**
-  (2026-10-20, same 3,763,692,048 B size, different sha256, Noul T 0.05 = uncalibrated yes/no by default); **GGUF / ONNX exist**
-  (`Mapika/decider-2b-GGUF`, v12 builds; community ONNX) — contradicts the paste-in's "likely not"; decider-ai latest 1.10.0 and it
-  declares `flash-linear-attention` as a hard dependency (fla-core needs only `einops`; Triton only in extras); torch 2.14.1+cu130 cp313
-  wheel 1,990.6 MB, sha256 `f064c797…8319`.
+- **(a) facts — `K3\reports\a-facts.md`** (builder #1, written 08:53–08:57; outside the tree; the HANDOFF / LOG lines committed in `b5a3d3e`
+  at 08:57:20 first said "09:05 / 09:06" — guessed times, corrected here). Raw Hub / PyPI / PyTorch-index responses verbatim in
+  `K3\reports\raw-hub\` (+ `fetched-at.txt`: 08:54:00, 08:55:03, 08:55:25), summarised by `K3\scripts\hub-facts.py` →
+  `raw-hub\hub-facts.out.txt`. Headlines (all in a-facts.md): the local weights = Hub tag **v11** (sha256 `acaef222…817f`, equal; config
+  byte-identical); the Hub `main` is now **v12** (2026-10-20, same 3,763,692,048 B size, different sha256, Noul T 0.05 = uncalibrated yes/no
+  by default); **GGUF / ONNX exist** (`Mapika/decider-2b-GGUF`, v12 builds; community ONNX) — contradicts the paste-in's "likely not";
+  decider-ai latest 1.10.0, which declares `flash-linear-attention` as a hard dependency (fla-core needs only `einops`; Triton only in
+  extras); torch 2.14.1+cu130 cp313 wheel 1,990.6 MB, sha256 `f064c797…8319`.
+- **(b) the venv + the one-question GPU smoke — `K3\reports\b-venv.md`** (builder #1, 08:57–09:07). `B3\py-scratch\mapika-venv`: Python
+  3.13.2, torch 2.14.1+cu130 (from pip's cache), decider-ai 1.10.0, transformers 5.22.1, flash-linear-attention 0.6.0 (installed, but
+  transformers falls back to the reference path — no Triton), full freeze `K3\reports\b-pip-freeze.txt`; venv 3,417,428,997 B. **CUDA works
+  — no CPU fallback needed.** Smoke `K3\scripts\b-smoke.py` (one choice question, CUDA-graph Engine, bf16, the config's per-type map): two runs
+  (run 1 at 93 % external CPU load — Defender — so repeated), answers identical (`decider-2b-v11`: billing, x_p_max 0.7817). The numbers are in
+  `K3\reports\b-smoke-gpu-run1.json` / `-run2.json` and b-venv.md §4. Helpers: `K3\scripts\load-snapshot.ps1` (the guard + CPU load + top
+  processes + nvidia-smi), snapshots in `K3\logs\`.
 
 ## Verified
 
-(nothing yet)
+- `Get-FileHash` on `M\model.safetensors` (read-only) → `acaef2228b134dcdc20cad4ee79219482c927ec819aa3687b9b8a575c338817f` = the Hub `v11` tag's
+  lfs sha256 in `raw-hub\api-decider-2b-v11.json`; `cmp raw-hub\hub-v11-decider_config.json M\decider_config.json` → identical.
+- `pip install --dry-run torch==2.14.1 --index-url …/cu130` → "Using cached …torch-2.14.1%2Bcu130-cp313-cp313-win_amd64.whl (1990.6 MB)"; the real
+  install: rc 0, 128 s. `pip install decider-ai==1.10.0`: rc 0, 95 s; `pip check` → "No broken requirements found."
+- `python -c "import torch; …"` → `torch 2.14.1+cu130 cuda 13.0 avail True NVIDIA RTX A3000 Laptop GPU`.
+- Smoke run 2 (`TORCHDYNAMO_DISABLE=1 <venv>\Scripts\python.exe -I K3\scripts\b-smoke.py <M> cuda K3\reports\b-smoke-gpu-run2.json 10`, rc 0,
+  CPU load 6 % before / 13 % after, GPU 576 → 576 MiB): load 11.100 s, process start → first answer 15.896 s, first answer 981.3 ms, warm
+  34.5–37.2 ms, RSS 900.1 MB after load / 1,668.1 MB at the end / peak 4,483.9 MB, VRAM max allocated 3,625.7 MB. No `python` process left
+  after either run (`load-snapshot.ps1` "after" lines: `python_processes=none`).
 
 ## Next step
 
-Step (a) then (b): write `K3\reports\a-facts.md` from the Mapika folder (README.md card, `decider_config.json`, `decider/` source,
-`eval_results.json`) + the Hub card (WebFetch, date read) + `tools\deciders\README.md` / `install.log` + the experiment's `LOG.md` Mapika
-lines; then state the venv's download sizes (and what pip's cache already holds), check the resource guard, and build
-`B3\py-scratch\mapika-venv` with system Python 3.13 (`C:\Python313\python.exe`) per the recipe, recording every version; prove it with a
-one-question `system_one` smoke on the GPU (and say if CUDA fails → CPU torch). Hand off after (b) if the budget says so.
+Step (c): write the persistent worker `K3\mapika_worker.py` + the Node host `K3\mapika-host.cjs` per the Goal's (c) — first read D1's
+`K1\hosted-run.cjs:39-57` (the exact T1 / T2 / T3 question texts + criteria, D-r12), `K1\reports\b-tasksets.md` (the `vidtsx-d1-answers/1`
+answer format) and `K1\llama-run.cjs` / `laya-run.cjs` (how D1 recorded cold / warm / RSS / CPU load); reuse `K3\scripts\b-smoke.py`'s
+fixed `K32GetProcessMemoryInfo` reader for RSS and `load-snapshot.ps1` for the guard; the venv's python is
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D3\py-scratch\mapika-venv\Scripts\python.exe` (spawn it with `TORCHDYNAMO_DISABLE=1` and
+`HF_HUB_OFFLINE=1`, weights from `D:\repos\ai-video-lab\tools\deciders\models\Mapika\decider-2b`); prove the host ↔ worker round trip on 2–3
+T2 rows, then step (d).
 
 ## Open problems
 
-(none yet)
+- **Which RSS the bar reads.** The worker's peak RSS is a load-time peak (4,483.9 MB, run 2) — the weights pass through RAM before moving to VRAM
+  — while the steady RSS after warm requests is 1,668.1 MB (b-venv.md §4). The bar says "RSS ≤ 2 GB (VRAM reported beside)". (d) should record
+  both peak and steady values; the orchestrator / Hasan decide which one the term reads (the Goal's (e) already lets Hasan rule if RSS alone fails
+  because of where the weights live).
+- **Private commit ≈ 6.6 GB** for one worker on CUDA (run 2: 6,651.1 MB). It counts against the commit-headroom guard (≥ 6 GB with C:) and against
+  D4's "nothing blocks main" budget — a fact for the report's "How D4 (g) productises it".
+- **The Hub `main` is v12** (Noul T 0.05 = uncalibrated yes/no by default; a-facts.md §5). D3 measures v11 (on disk). A D4 first-use download
+  must pin `revision="v11"` and check sha256 `acaef222…817f` (the size cannot tell v11 from v12). Whether v12 with its fitted map would score
+  better is outside D3 (no download into Hasan's folder; a v12 measurement would need the orchestrator's yes and a B3 download of 3.76 GB).
+- Not tested: the smoke without `TORCHDYNAMO_DISABLE=1`; the CPU path (planned in (d) as a note); `use_graphs=False` (eager) on CUDA.
 
 ## Do-not-redo
 
 - D1's fixtures, scorer and hosted answers exist and are final — reuse them, never rebuild or re-score the hosted rows.
 - The tsc baseline at `b2b8a02` is measured (web 25 / node 10) — not D3's concern.
+- (a) is done: `K3\reports\a-facts.md` + `raw-hub\` — do not re-fetch the Hub / PyPI facts unless a later step needs a NEW fact (e.g. D4's
+  file list for revision v11 is already in `raw-hub\api-decider-2b-v11.json`).
+- (b) is done: the venv exists and works on CUDA — do not rebuild it; do not reinstall torch (the wheel came from pip's cache).
 
 ## Agents so far
 
-(none)
+- 2026-10-31 08:53–09:08 · builder #1 · ~42 tool calls · read the brief docs + the Mapika card / config / `infer.py` / the deciders recipe +
+  install.log + the experiment LOG's Mapika lines (~1,000 lines of source); step (a) facts (`a-facts.md`, `raw-hub\`), step (b) the venv +
+  two GPU smokes (`b-venv.md`, `b-smoke-gpu-run{1,2}.json`); handed off before (c) (budget).
