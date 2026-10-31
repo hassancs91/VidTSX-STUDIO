@@ -1,6 +1,8 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: IN PROGRESS — **D4 builder #9, 2026-10-31 17:47: part (f) DONE** (step 5: build + two CDP stills on `decisions-D4`, one wording
-fix `3f50e63`); part (h)'s stub live checks (§15.3 1–5) in progress — see "Part (h) — stub live checks" under Verified. Previous status:
+status: HANDOFF — **D4 builder #9, 2026-10-31 17:50: part (f) DONE** (step 5: build + two CDP stills on `decisions-D4`, one wording fix
+`3f50e63`, docs `f86221c`); **part (h)'s stub live checks: §15.3 2 PASS, §15.3 1 PASS, §15.3 3 PASS** (every term, on the stub serving D1's
+recorded numbers — "Part (h) — stub live checks" under Verified); **§15.3 4 (the keyless agent run) and §15.3 5 (settings) are NOT run — the
+Next step.** 0 keyless runs used, 0 hosted calls. Previous status (builder #9, 17:46): part (f) DONE. Previous status:
 HANDOFF — **D4 builder #8, 2026-10-31 17:22: part (f) steps 1–4 BUILT and committed (code + tests green, tsc at baseline); step 5 (the
 worktree's own build + the two CDP stills on profile `decisions-D4`) is NOT done — it is the Next step.** Builder #7's leftovers were judged
 and kept (one fix: the tester's 30 s budget) → sub-checkpoint (f1) `cc754fa`; the UI (Settings › General "Decisions" row, AI → Providers
@@ -65,9 +67,9 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 | (c) | `src/main/services/decisions/` (decision-init from credentials like `image-init.ts`, decision-usage, decision-settings, decision-runtime); registry `typesafe` + `'decision'` capability + label; `openrouter` gains `'decision'`; IPC (§12) + preload + status; the preload-surface test | **DONE** — (c1) services + registry + wire types; (c2) IPC + preload + key-save hook + the preload-surface test | (c1) `b7b1648`, (c2) `d9ec730` |
 | (d) | `src/main/services/agents/tools/decide.ts` (tool + flow node via `ports`) + `check_matches_request` + `route_request`; T2 / T3 unit tests through an injected provider; the no-claim test | **DONE** | `feb5e69` |
 | (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`); **+ the dev-only stub hook of ruling D-r21** (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL`, honoured only unpackaged + loopback; unit-tested) — (h) and the verifier need it for §15.3 1 / 3 / 4 / 5 | **DONE** (live test written + dry-run-proven, NOT run — DEFERRED-HASAN / the verifier) | `5605c48` |
-| (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | **DONE** (builder #9, 17:47) — steps 1–4 (f1 + f2); step 5: worktree build + profile `decisions-D4` + two CDP stills `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\f5-settings-decisions-row.png` / `f5-providers-decisions.png` (DOM: `f5-settings-dom-2.json`, `f5-providers-dom.json`); one wording fix found in the first still ("no key · no key" → `rungLineText`) | (f1) `cc754fa`, (f2) `8f6ff6f`, (f3) `3f50e63` |
+| (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | **DONE** (builder #9, 17:46) — steps 1–4 (f1 + f2); step 5: worktree build + profile `decisions-D4` + two CDP stills `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\f5-settings-decisions-row.png` / `f5-providers-decisions.png` (DOM: `f5-settings-dom-2.json`, `f5-providers-dom.json`); one wording fix found in the first still ("no key · no key" → `rungLineText`) | (f1) `cc754fa`, (f2) `8f6ff6f`, (f3) `3f50e63` |
 | (g) | ONLY if D3 PASSED — `src/local-decider-engine/` + the worker on the `pytorch` runtime path + the download entry | **NOT BUILT — D3 FAILED** (`D3-mapika-report.md` §6–§7: 3 PASS / 4 FAIL). The ladder starts at Jev; the local rung is reported in `skipped` as `'no local model'` (D2 §6); `local-decider-provider.ts` is NOT written in this slice; `provider: 'local'` pinned → `no-provider` | — |
-| (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | TODO | — |
+| (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | **IN PROGRESS** — stub live checks §15.3 2 / 1 / 3 PASS (builder #9, 17:46–17:49); §15.3 4 / 5 TODO; then the gate half (full vitest + fresh-worktree proofs, tsc, house-rules sweep `b2b8a02..HEAD`, Status.md row, TESTING.md §20) for the builder after | — (no code change in (h) so far) |
 
 ## Rulings that bind this part (ORCHESTRATOR.md "Rulings (session 2)")
 
@@ -532,6 +534,24 @@ ProviderKeyRow.tsx`; `src/main/services/agents/tools/{registry-core,generate-tex
 5. The order editor sends the WHOLE new order on every click (`decisions:settings:set { hostedOrder }`); a switched-off rung is listed greyed
    with a + (back on, at the end). Mode and model are separate patches.
 
+**Part (f) step 5 + part (h) stub checks — `3f50e63` (code) + `f86221c` (docs), builder #9:** `src/shared/decisions-view.ts` (104 → 111)
+`rungLineText` :53; `src/renderer/components/SettingsModal/rows/DecisionsRow.tsx` (144 → 145) renders it; 2 tests in
+`src/shared/decisions-view.test.ts`. Kit (not in git) `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\`: `stub-server.mjs`, `launch.sh`,
+`restore.ps1`, `cdp.mjs`, `set-root.js`, `open-settings.js`, `open-providers.js`, `keys-save.js`, `keys-401.js`, `keys-remove.js`,
+`make-concurrency-driver.cjs` → `concurrency.js`, `make-flow-driver.cjs` → `flow-runs.js`, `flow-canvas.js`.
+
+**Decisions builder #9 made (the orchestrator may overrule any):**
+1. **The stub serves D1's RAW recorded answer objects** (the Jev bodies in `system-one-recorded-bodies.json`, incl. Jev's own `confidence` on
+   choices), matched by the row's exact question text (T3) or request text (T2); an unmatched question gets HTTP 422, never a number — D-r25 (1)
+   read as "the recorded body for that row". Both ports serve the Jev numbers (D-r25 (1): "the same numbers"), port B with MSD1's model + cost.
+2. **§15.3 2's "a call with the fake key yields provider-error …" is read on the STUB's 401** (no hosted call), in ECHO mode (the worst case:
+   the provider repeats the key and the state) — both a `decisionsDecide` and the Test button were checked.
+3. **§15.3 3's three runs were taken after an app restart** so each reaches the stub (Open problem 19); the first pass is kept on record.
+4. **§15.3 1's ping = `window.api.studioRootGet()` back to back** (a cheap non-decisions IPC); the gap = time between consecutive completions,
+   measured from the first decide call to the last result; also over the whole run.
+5. The Settings row's "no key · no key" was fixed in step 5 (`rungLineText`) — a wording fix found in the still, per the step's "a layout fix
+   found there is part of step 5".
+
 ## Verified
 
 All from the worktree root, as of `c7ad6da` (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
@@ -721,21 +741,92 @@ Part (f), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidt
   - The dev-preview tester is ABSENT (`document.querySelector('[data-decisions-tester]')` → null): `decisions-tester` is a `false` dev-preview
     flag, hidden in this production build — D-r24 (3), D2 §12's gate working; not a defect.
 
+Part (h) — stub live checks (builder #9, 17:46–17:49, app built from `3f50e63`; outputs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
+- **The stub kit** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\stub-server.mjs` (plain Node `http`, no package): `node stub-server.mjs
+  18471 18472` — port A 18471 = Jev-shaped (`VIDTSX_DECISIONS_JEV_URL`, path `/v1/systemone`), port B 18472 = OpenRouter-shaped
+  (`VIDTSX_DECISIONS_OPENROUTER_URL`, `/api/alpha/decisions`). Answers after 500 ms with **D1's RAW recorded answer objects** (the Jev T2 / T3
+  bodies in `src/decision-engine/providers/fixtures/system-one-recorded-bodies.json`, keyed `t3_01` …) for the T3 row whose `question` EQUALS the
+  noul's instructions (else whose item line + quoted request are both in it) or the T2 row whose request text is in a choice's instructions /
+  state (the choice's options must be exactly the six T2 families); no recorded row → HTTP 422 with a fixed message (never a made-up number).
+  Served model A = `jev-1.14.0`, `usage.input_tokens` only; B = `microsoft/microsoft-decision-1-20261009` + `usage.cost` = tokens × 0.042 / 1e6
+  (MSD1's recorded rate). `usage.input_tokens` = ceil(UTF-8 bytes of state + Σ instructions + criteria JSON / 3) (the engine's own estimator —
+  D1's recorded counts are per 40-question request, not per row). Control (not counted): `GET /__stub/stats`, `/__stub/reset`,
+  `/__stub/fail401?n=N` (the next N calls on that port answer 401 in ECHO mode — the error text carries the received bearer token and the
+  first 80 characters of the state, a worst-case provider). Log `stub-log.jsonl` (28 lines at 17:49): time, port / variable, path, hit no.,
+  requested model, question count / keys / types / criteria KEYS, matched row + how + recorded number, served model, tokens, status — no header,
+  no state, no instructions (a grep for the fake key in it → 0).
+- **§15.3 2 (keys) — PASS.** Drivers `keys-save.js` / `keys-401.js` / `keys-remove.js` (via `node cdp.mjs evalfile <file> <out.json>`).
+  (1) The TypeSafe row is in `[data-decisions-providers]` (`inSection: true`); the FAKE key `ts-FAKE-D4-h-0001` typed (native value setter +
+  `input` event) → Test still disabled, title "Save the typed key first — the test uses the saved TypeSafe key, never a typed one"; the page's
+  "Save changes" clicked → `decisionsStatus().jev` = `hasKey: true`, `available: true`; Test enabled, title "Sends one tiny yes / no question to
+  Jev with the saved TypeSafe key"; the input cleared (`h2-keys-save.json`). (2) `curl …:18471/__stub/fail401?n=2`, then `keys-401.js`:
+  `decisionsDecide({ request: { state: 'D4-STATE-MARKER-401: …', one noul, featureSource: 'decision-test', provider: 'jev' } })` → `ok: false`,
+  `code: 'provider-error'`, `message: "[message withheld: it echoed the request]"` — holds neither the fake key, nor its tail, nor the state
+  marker / words, nor "Bearer"; the Test button clicked → the row reads "jev: HTTP 401 — Invalid API key [redacted] for state [redacted]"
+  (`h2-keys-401.json`); stub: 2 hits, both 401 (17:46:53). `grep -c ts-FAKE-D4` → app.log 0, stub-log 0. (3) `keys-remove.js`: Remove (title
+  "Remove this key on save") → Test disabled "This key is removed on save — nothing to test"; Save → `jev.hasKey: false`, `available: false`,
+  `why: 'no key'`; Test disabled "Save a TypeSafe key first — the test uses the saved key" (`h2-keys-remove.json`); the fake key saved again
+  (`h2-keys-resave.json`: `hasKey: true`, `available: true`, Test enabled). (4) The renderer bundle (as of the `3f50e63` build): `grep -rl
+  ts-FAKE-D4 out` → 0 files (of 191 under `out/renderer`); `grep -rhoE 'sk-(or-v1-)?[A-Za-z0-9]{20,}' out/renderer` → 0; `grep -rhoE 'Bearer
+  [A-Za-z0-9._-]{16,}' out/renderer` → 0, and "Bearer" does not occur in `out/renderer` at all.
+- **§15.3 1 (main stays responsive) — PASS.** `make-concurrency-driver.cjs` writes `concurrency.js`: an IPC ping loop (`window.api.studioRootGet()`
+  back to back, completion times) for 1 s before, during and 1 s after 20 concurrent `window.api.decisionsDecide({ request })`, each T3 row
+  t3-01 … t3-20 framed as `check_matches_request` frames it (D1's T3 rule as state, the row's question, D1's T3 criteria), `featureSource:
+  'decision-test'` (D-r20), `family: 'verify'`, provider `auto`. Run 17:47:27 (`h1-concurrency.json`): window 550 ms (first call → last result),
+  **2,431 pings in the window, max gap 20.4 ms** (≤ 250), p50 0.2 ms, p95 0.3 ms; whole run 17,229 pings, max gap 20.4 ms. All 20 `ok`, provider
+  `jev`, model `jev-1.14.0`, `calibrated: true`, `cached: false`, 535–549 ms each, `p` = D1's recorded Jev pTrue per row (t3-01 0.96 … t3-09 0.02
+  … t3-20 0.97), usage e.g. 263 tokens / $0.000011046 (= 263 × 0.042 / 1e6). Stub: 20 hits, 20 × 200, each an exact row match.
+- **§15.3 3 (the flow node) — PASS.** `make-flow-driver.cjs` writes `flow-runs.js`: ONE flow "D4 h — check matches request" (`flowsProjectCreate`,
+  id `01M69AA9S8FS1CNNWXAZ84XW9S`): `n-item` + `n-request` (`input_text`, text in config `prompt`) wired `text` → `check_matches_request`'s
+  `item` / `request`; before each run `flowsProjectUpdate` sets the row's item line, its request (T3 `request`, or `scriptLine` for a clip) and
+  `itemKind` (template / template / clip) so the node's question EQUALS D1's row question; `flowsRunStart({ flowId, mode: 'unattended', params:
+  {} })`, polled with `flowsRunGet`. **First pass (17:47:39, `h3-flow-runs.json`): t3-01 and t3-09 took 2 / 1 ms and made NO stub hit** — the
+  engine's in-memory cache held §15.3 1's identical requests (key = provider + requested model + state + questions), which itself shows the node's
+  request body equals the hand-framed D1 body; only t3-27 hit the stub. So the instance was restarted (cache is memory-only; the saved fake key
+  and the flow persist) and the three runs repeated (17:48:11, `h3-flow-runs-2.json`), stub reset first → **3 hits, each an exact match**:
+  | row | label | itemKind | runId | status | band | answer | p | stub recorded |
+  |---|---|---|---|---|---|---|---|---|
+  | t3-01 | true | template | `1dec8639-4d99-4c79-adf6-1ef08b82d0ad` | success | act | yes | 0.96 | 0.96 |
+  | t3-09 | false | template | `dcc09a1e-05e9-48dc-8a21-16a209b2adcf` | success | act | no | 0.98 | 0.02 |
+  | t3-27 | true | clip | `caee4cef-308c-4a2e-ad94-3fd0b4097a74` | success | escalate | yes | 0.88 | 0.88 |
+  = D-r25 (2) exactly. **`run.json` on disk** (`<profile>\flows-runs\01M69AA9S8FS1CNNWXAZ84XW9S\<runId>\run.json`, read with node): each
+  `nodes['n-check'].outputs` = `{ band: {kind:'text'}, answer: {kind:'text'}, p: {kind:'number', value: 0.96 | 0.98 | 0.88} }`, status
+  `success`. Usage (`aiUsageGetLog({ featureSource: 'decision-flow' })`, `h3-canvas-dom.json`): one row per stub hit — `typesafe`,
+  `jev-1.14.0`, `decision-flow`, `decision`, 263 / 246 / 295 tokens, $0.000011046 / $0.000010332 / $0.00001239 (= tokens × 0.042 / 1e6) — plus
+  the first pass's t3-27 row (17:47:41); the two cached runs logged nothing (D2 §9). **The canvas** (`flow-canvas.js` + a card click →
+  `[data-flow-view="edit"]`; still `h3-flow-canvas.png`, LOOKED AT): the two Text nodes (the clip line; "I knocked the glass off the table and
+  it cracked into pieces.") wired into "Check Matches Request · TEXT · escalate"; its handles in the DOM = `in:item`, `in:request`, `out:band`,
+  `out:answer` — **no `p` handle** (`.react-flow__handle[data-handleid="p"]` count 0), no number on the node; "Runs (6)" (both passes).
+- §15.3 4 / §15.3 5: NOT run (Next step). Keyless claude-subscription runs used: **0 / 3**. Hosted calls: 0.
+
 ## Next step
 
-Part (f) step 5, in a FRESH builder context: check C: ≥ 3 GB free + commit headroom ≥ 6 GB and electron.exe / ports 5173 / 9222 / 9302 (never
-touch Hasan's app); build the worktree's own `out/` (Bash from the worktree root: `unset ELECTRON_RUN_AS_NODE; export
-NODE_OPTIONS=--max-old-space-size=8192; node D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build > <log> 2>&1`); create
-the profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile` by copying `profiles\source\profile` WITHOUT
-`settings\settings.db*`; launch from the worktree's `out/` per `docs/studio/end-to-end/DRIVING.md` "Launch recipe from the worktree" on CDP
-**9302**, NO key saved; in the FIRST CDP call `window.api.studioRootSet(<a scratch folder under C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\>)`;
-then take and LOOK AT two stills into `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`: (a) Settings › General scrolled to the Decisions
-row (`[data-decisions-row]`: "Now: No provider is ready … · Jev — no key · OpenRouter — no key", both rungs, the local rung "none available") and
-(b) AI → Providers scrolled to `[data-decisions-providers]` with the TypeSafe Test button (`[data-provider-test="typesafe"]`) visibly DISABLED
-(read its `disabled` + `title` via CDP too). Clicks only on `offsetParent !== null` elements (DRIVING). The production build hides the
-dev-preview tester (decision 3) — say so; do not run `electron-vite dev`. Stop only the electron.exe whose command line holds the
-`decisions-D4` profile path (filter by Name='electron.exe'). Kit (drivers, launch script) in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\`.
-Then set part (f) DONE (row + this section) and Next step = part (h).
+**§15.3 4 then §15.3 5 (D-r25 (3) / (4)), in a FRESH builder context, on the SAME instance setup** (the profile `decisions-D4` already holds
+the FAKE TypeSafe key `ts-FAKE-D4-h-0001`, saved through the UI; the Studio root is the scratch root; no OpenRouter key). Start the stub
+(`node D:/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D4/stub-server.mjs 18471 18472`, Bash `run_in_background`) and the app (`bash
+D:/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D4/launch.sh`, `run_in_background` — out/ is already built from `3f50e63`; rebuild only after a
+`src/` change), `node cdp.mjs wait`, `node cdp.mjs evalfile set-root.js`, check `app.log` for the two `dev stub URL` lines. Then **§15.3 4**:
+drop a scratch agent folder `<profile>\agents\d4\decide-probe\` (`agent.json` `{formatVersion:1, id:'d4/decide-probe', name, version:'0.1.0',
+description, author:{name}, minAppVersion:'1.1.0', prompt:'AGENT.md', tools:['decide'], files:[{path:'AGENT.md', size, sha256}]}` + `AGENT.md`
+telling the agent to call `decide` ONCE with `type: 'choice'`, the six T2 family ids as `options` (cut / audio / shots / captions / export /
+none, D1's meanings from `t2-routing.json`), `family: 'routing'`, the T2 row's request text VERBATIM in `instructions`, then to QUOTE the tool's
+result text word for word in its reply — the app does not store tool results; check every field against `src/shared/agents/manifest.ts` and
+`src/main/services/agents/agent-store.ts` first, these are an Explore agent's unverified pointers); `agentsList()` → it appears;
+`agentSessionCreate({ agentId: 'd4/decide-probe', providerId: 'claude-subscription' })` → `agentRunSend({ agentId, sessionId, prompt:
+'<the T2 row, e.g. t2-01 "Cut out all the ums and uhs from my intro clip.">', providerId: 'claude-subscription' })` (resolves after the turn,
+`{ text, … }`); count EACH run (≤ 3 in all; a run where the model never calls `decide` counts and allows one firmer retry); PASS = the stub
+saw a choice hit matched to that T2 row, the quoted tool text passes the D-r22 (1) whole-word no-claim test (no `%`, no digit, none of match /
+matches / sure / confident / definitely / certain / probability as words), and `aiUsageGetLog({ featureSource: 'decision-agent' })` has the
+row `provider: 'typesafe'`, `requestType: 'decision'`, `costUsd` = `inputTokens` × 0.042 / 1e6 (decision rows carry no `agentId` — filter by
+featureSource). Then **§15.3 5**: `curl …:18471/__stub/reset`; `decisionsSettingsSet({ decisionsMode: 'off' })` (check the patch's field
+names in `src/shared/ipc/types/decisions.ts` `DecisionsSettingsSetRequest`) → a `decisionsDecide` (featureSource `decision-test`, a T3 row) =
+`no-provider` and `/__stub/stats` shows ZERO new hits on A and B; mode back to `auto`; save a FAKE OpenRouter key (e.g. `sk-or-v1-FAKE-D4-h-0002`)
+in the API keys table's OpenRouter row + "Save changes" (AFTER §15.3 4); remove `jev` from the order (`decisionsSettingsSet({ hostedOrder:
+['openrouter-decisions'] })` or the row's ✕) → the same `decisionsDecide` hits port B (stub log `variable: VIDTSX_DECISIONS_OPENROUTER_URL`,
+model `microsoft/microsoft-decision-1`, the noul question's `criteria` keys present), result provider `openrouter-decisions`, served model
+`microsoft/microsoft-decision-1-20261009`; then restore (order `['jev', 'openrouter-decisions']`, remove the fake OpenRouter key, mode
+`auto`). Record every number with its driver + output file under "Part (h) — stub live checks"; then the gate half of (h) is for the next
+builder. Stop only your electron.exe (Name='electron.exe' + the profile path) and the stub (its `node` process) before handing back.
 
 ## Open problems
 
@@ -792,6 +883,18 @@ Then set part (f) DONE (row + this section) and Next step = part (h).
 17. The (f2) UI is NOT yet seen in the running app — step 5 (Next step) is the first look; a layout fix found there is part of step 5.
 18. `docs/studio/decisions/ORCHESTRATOR.md`: not modified in the working tree at `30ce081` (the status showed only builder #7's files), so
     nothing to leave unstaged this time.
+19. **For the orchestrator / the D5 brief (builder #9):** the engine's in-memory cache (15 min, D2 §9) makes a REPEATED identical request a
+    cache hit with no HTTP call and no usage row — §15.3 3's first pass got t3-01 / t3-09 from §15.3 1's cache (2 / 1 ms, 0 stub hits). A
+    verifier that runs §15.3 1 with T3 rows and then §15.3 3 on the same rows must restart the app (or use other rows / wait 15 min) for the
+    flow runs to reach the stub. Not a defect (D2 §9's cache); it also proves the node's body equals the D1-framed body.
+20. The stub's `usage.input_tokens` is the engine's own estimate formula per request (D1 recorded only per-40-question counts); the cost check
+    (costUsd = tokens × 0.042 / 1e6) holds on whatever count the stub sends. The stub's 401 is in ECHO mode (bearer token + state start in the
+    error text) — stricter than a plain 401; the wire message was withheld whole by `scrubDecisionText` (24-char state run), the Test row
+    showed "[redacted]" twice.
+21. The isolated window is often minimised: a `Page.captureScreenshot` of a minimised window returned a STALE frame (the Flows list instead of
+    the open canvas) without hanging — `restore.ps1` reported `was iconic: True` on the good retry. Always look at the still.
+22. The Explore agent's pointers used in the Next step for §15.3 4 (agent folder drop under `<profile>\agents\<ns>\<name>\`, `agentSessionCreate`
+    / `agentRunSend`, tool results not stored, decision usage rows without `agentId`) are NOT yet checked against the code by a builder.
 
 ## Do-not-redo
 
@@ -819,6 +922,10 @@ Then set part (f) DONE (row + this section) and Next step = part (h).
 - **Part (f) steps 1–4 are committed** — (f1) `cc754fa` (builder #7's leftovers, judged + kept, the 30 s fix) and (f2) `8f6ff6f` (`decisions-client.ts`,
   `runDecisionKeyTest`, the two renderer hooks, `DecisionsRow.tsx` + `DecisionsTester.tsx`, `DecisionsProvidersSection.tsx`, the four provider-file
   edits, the `decisions-tester` flag, the General section). Do not rebuild them; step 5 only builds, launches, looks and fixes what the stills show.
+- **Part (f) is DONE** (builder #9): step 5's build, profile `decisions-D4`, both stills and the `rungLineText` fix (`3f50e63`). Do not re-take
+  the stills or re-create the profile (it now holds the fake TypeSafe key — reuse it).
+- **Part (h) §15.3 2, 1 and 3 are measured PASS** on the stub (builder #9, 17:46–17:49) — do not re-run them; §15.3 4 and 5 remain. The stub
+  kit and drivers exist — reuse them, do not rewrite.
 
 ## Agents so far
 
@@ -839,3 +946,8 @@ Then set part (f) DONE (row + this section) and Next step = part (h).
   known `builder-libraries` red, tsc 25 / 10) and kept + the tester's 30 s budget (red → green) → (f1) `cc754fa`; the client logic red → green, then
   the Settings row, the Providers Decisions section, the dev-preview tester → (f2) `8f6ff6f` (related 177 files green but the known red, tsc 25 / 10);
   step 5 (build + CDP stills) handed to the next builder; HANDOFF + LOG.
+- 2026-10-31 17:28–17:51 · D4 builder #9 · ~88 tool calls (+ one Explore agent mapping the flows / agents IPC) · part (f) step 5: build, profile,
+  two stills, the "no key · no key" fix red → green (`3f50e63`), rebuild, still retaken → part (f) DONE (`f86221c`); part (h): the stub kit
+  (two ports, D1's recorded bodies), §15.3 2 PASS (fake key via the UI, 401 echo scrubbed, removal, bundle scan), §15.3 1 PASS (max gap
+  20.4 ms over 20 concurrent calls), §15.3 3 PASS (act / act / escalate, `p` in run.json, no `p` handle; one restart for the cache); §15.3 4 / 5
+  handed on; HANDOFF + LOG.
