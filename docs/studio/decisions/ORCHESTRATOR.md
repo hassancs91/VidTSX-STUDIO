@@ -917,6 +917,20 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   "not installed" message and `shot-bundle-in-place`'s two `ok: false` from chroma-js), 0 "Cannot find module" lines; `h-ls-r1c-this-wt.log` →
   28 / 28 files, 286 tests passed; tsc `tsc-web-h.log` 25 / `tsc-node-h.log` 10; Status.md's new top row (2026-10-31 — DECISION MODELS …, "D5 …
   judges the build ONLY by … §15") and TESTING.md `## 20. Decision models` at :590 right after §19 (:543) present.
+- **D-r29 (orchestrator, 19:18) — D6, the product-shape measurement (Hasan: "yes" to measuring before relying on a free-form `decide`, and
+  "yes" to "plan and run it"; scope = the orchestrator's stated default, T3 × Jev only, MSD1 later if he asks).** (1) **Framing = D3's
+  product-shaped note verbatim** (`D3\d-run.cjs:32-39`): `state` = the T3 row's own `question` text (the tree's `t3-verify.json`), ONE `noul`
+  question keyed by the row id with `instructions` "Does the item really do what the request asks, by plain meaning?" and D1's T3 criteria
+  (`CHECK_MATCHES_CRITERIA`); pinned `jev`, `family: 'verify'`, `featureSource: 'decision-test'`, 15 s, one row per request, sequential —
+  through the PRODUCT engine (`registerDecisionProviders`, the `live-run.ts` pattern) with `createRequestCap(fetch, 40)` as a hard cap. (2)
+  **The bar, fixed before measuring:** "holds" iff §15.1's live-bar terms for Jev hold on these 40 requests — ≥ 38 / 40, Brier ≤ 0.05, 0 errors,
+  p95 per request ≤ 2,000 ms; the act-wrong count at threshold 0.9 (the tree's `decisionOutcome`) is reported beside it and flagged if > 0, never
+  changing the verdict. (3) **The confound is stated:** one row per request vs D1's 40 packed — not separable within this budget (a D1-framed
+  one-row-per-request control = 40 more requests, offered to Hasan, not run). (4) Keys only through a kit launcher
+  `D6\product-shape-live.sh` whose sourcing block is byte-identical to `D4\live-test.sh`'s (= `D1\hosted-live.sh` :4-11; diff proof before
+  the run) — D-r8 / D-r23 precedent. (5) Kit-only code, no `src/` change, ONE live run (no rerun on an early stop without Hasan); results in
+  `D6/HANDOFF.md` "Results" (not a separate report file — the harness refuses subagent report files); the orchestrator re-scores the answer
+  file with D1's `score.cjs`. Hosted ledger after D6: ≤ 44 / 60, ≤ $0.50 (E-g's whole-run cap).
 
 ## Stops (session 3)
 
