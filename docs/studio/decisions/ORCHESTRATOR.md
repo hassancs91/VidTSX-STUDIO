@@ -782,8 +782,9 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   (session 2)), all still stamped 11:47–11:49 — unchanged since the pause. Resources 17:11: C: 42.99 GB free; memory commit headroom
   63.29 GB (36.41 of 99.70 GB committed); RAM 31.98 GB free → the guard holds (≥ 3 GB / ≥ 6 GB).
 - The model is Opus 5.5 → commits end `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- **Caps ledger (E-g, whole run):** hosted **44 / 60** requests, **$0.002000040** / $0.50 (4 = D5's one gated live test, 18:28, $0.001298388;
-  40 = D6's product-shape run, 19:25, $0.000701652; D5 ≤ 20 / ≤ $0.05 held); keyless claude-subscription **2 / 10** (D4 builder #10's §15.3 4 agent run 17:58; D5's, result file written 18:39:35).
+- **Caps ledger (E-g, whole run):** hosted **51 / 60** requests, **$0.002124108** / $0.50 (4 = D5's one gated live test, 18:28, $0.001298388;
+  40 = D6's product-shape run, 19:25, $0.000701652; 7 = Hasan's own in-app test, 19:51–19:52, $0.000124068 — his Test press, his flow run,
+  the 5-call responsiveness check; D5 ≤ 20 / ≤ $0.05 held); keyless claude-subscription **2 / 10** (D4 builder #10's §15.3 4 agent run 17:58; D5's, result file written 18:39:35).
 - Folders / ports as session 2: D4 builders CDP **9302**, profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile`
   (not yet created); the verifier CDP **9305**, profile `…\profiles\decisions-D5-verify\profile`; both copied from `profiles\source\profile`
   WITHOUT `settings\settings.db*`. Kits `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\` and `\D5\`; scratch
@@ -965,6 +966,18 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   studio-root`; flow "Decisions check — real key" (`01M69H9X498WS5G0TNJ1SN9HQH`, t3-01 preset, NOT run) created; status: mode auto, order jev →
   openrouter-decisions, `jev.hasKey` false; window on AI → Providers. This profile will hold Hasan's REAL key once he saves it — delete it after
   his test (never copy or read its `settings.db`).
+- 2026-10-31 19:51–19:53 · **Hasan's own test — DONE ("done")** — the two DEFERRED-HASAN items of D2 §15.3, with HIS key typed + saved by him
+  in AI → Providers → Decisions (read back through `window.api` only): `decisionsStatus` → mode auto, `jev.hasKey` true, available; his
+  **Test** press → one real call, usage row typesafe / jev-1.14.0 / decision-test / 305 tokens / $0.000012810 / 428 ms (17:51:04 Z); **§15.3 6
+  — his flow run** "Decisions check — real key" (run `cb20d7c7…`, status success) → `check_matches_request` band **act**, answer **yes** (t3-01,
+  label true), `p` 0.96 in the run record, usage row typesafe / decision-flow / 448 tokens / $0.000018816 / 368 ms; **§15.3 1 — "during 5 real
+  Jev calls"**: the orchestrator's ping loop (`studioRootGet` back to back) during 5 concurrent real `decisionsDecide` (featureSource
+  `decision-test`, T3 rows t3-02 … t3-06 in `check_matches_request`'s framing) → **max gap 12.4 ms** (bar ≤ 250; p50 0.2 / p95 0.3 ms, 1,863
+  pings in the 392 ms window), 5 / 5 ok, right, `jev-1.14.0`, calibrated, not cached, 377–392 ms each, Σ $0.000092442 (kit `hasan-test\make-real5.cjs`
+  → `real5.js`; result `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\hasan-test\real5-result.json`, 0 key-shaped strings). **Cleanup:**
+  the 4 `electron.exe` of the `decisions-hasan` profile stopped (0 left, 9306 free); the profile `…\profiles\decisions-hasan` (it held his key)
+  DELETED 19:53 after a look (created 19:48:37, 2,198 files) — never read or copied. **§15.3 has no DEFERRED item left.** Left to close: question 3
+  (`skipped`), the Status.md / TESTING.md §20 note of this test, and the landing (his go).
 
 ## Log (session 3)
 
