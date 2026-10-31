@@ -792,8 +792,8 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | **DONE** (step 5 at `3f50e63` / docs `f86221c`) | 2 (#8, #9) | re-check 17:25 → D-r24; 17:54 (stills looked at) | code `cc754fa` `8f6ff6f` `3f50e63` | related 482 tests + 58; tsc 25 / 10; stills `B4\f5-{settings-decisions-row,providers-decisions}.png` | 2026-10-31 17:13 / 17:46 |
-| D4 (h) — the exit check | BUILDING — stub checks §15.3 1–5 all PASS (`8b24e81`, `8f55668`, `efb1ee9`); the gate half next | 2 (#9, #10) | re-check 17:54 → D-r26; 18:05 → D-r27 | — | max IPC gap 20.4 ms (20 concurrent); flow act / act / escalate, p in run.json; agent "Decision: cut (act)", usage 416 × 0.042e-6; off → no-provider 0 / 0 hits; OpenRouter port hit with criteria | 2026-10-31 17:46 / — |
-| D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
+| D4 (h) — the exit check | **DONE → D4 DONE** (records `ecb69d8`) | 3 (#9, #10, #11) | re-check 17:54 → D-r26; 18:05 → D-r27; 18:20 → D-r28 | docs `8b24e81` `8f55668` `efb1ee9` `ecb69d8` (no `src/` change after `3f50e63`) | stub §15.3 1–5 PASS (max IPC gap 20.4 ms; flow act / act / escalate, p in run.json; agent "Decision: cut (act)", 416 × 0.042e-6; off → 0 / 0 hits; OpenRouter port with criteria); gate 564 passed / 3 failed = E-d2a (import graph 0 / 0 / 0); tsc 25 / 10; sweep clean | 2026-10-31 17:46 / 18:19 |
+| D5 — the verifier (D2 §15) | TODO → spawning | — | — | — | — | — |
 
 ## Answers in force (session 3 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-3.md, verbatim)
 
@@ -902,6 +902,21 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   `h5-restore.json` (final: mode auto, order jev → openrouter-decisions, OpenRouter `hasKey: false`); `stub-log.jsonl` 32 lines (the two new
   ones = t2-01 on port A, t3-30 on port B with criteria true / false); 0 `FAKE-D4` in the stub log and the h4 / h5 files. **Caps:** keyless
   1 / 10 used (this run), hosted 0 / 60.
+- **D-r28 (orchestrator, 18:20) — how §15.2's vitest gate is read in THIS worktree (for D5).** (1) **The known worktree-only reds here are the
+  three E-d2a package-resolution suites** — `src/shared/tsx-engine/builder-libraries.test.ts` ("@remotion/paths (builder-libraries.ts) is not
+  installed"), `src/main/services/studio/shot-bundle.test.ts` and `shot-bundle-in-place.test.ts` (esbuild "Could not resolve <package>") — each
+  failing ONLY on package resolution. A fresh detached worktree has no `node_modules` either and gives the SAME reds, so their proof is
+  DRIVING's independence proof (`docs/studio/end-to-end/DRIVING.md` :185-194: none of the files `git diff --name-only b2b8a02..HEAD` lists is
+  in their runtime import graph; say the method) — the method session 1's S3 / S4 used for the same three. (2) **The 25 LS-r1c `stream`
+  suites are NOT red in this worktree** (no "Cannot find module '<wt>\stream'" line in the gate); if any of them is red for the verifier with
+  that error alone, it is counted only with the fresh-detached-worktree proof (LS-r1b / LS-r1c). (3) DRIVING's load rule stands (a known
+  load-timeout suite — e.g. `shot-module-resolver.test.ts` — rerun alone and a full run green within 3 tries, or E-d13 under external load;
+  record CPU). Any other red is real. Re-check 18:19–18:20: HEAD `ecb69d8` (docs only: Status.md, TESTING.md, D4 HANDOFF / LOG); `git worktree
+  list` no longer lists `D4\gate-wt`; `h-gate-2.log` → `Test Files 3 failed | 564 passed | 7 skipped (574)`, `Tests 9 failed | 5890 passed | 39
+  skipped (5938)`, FAIL = the three files above, every failure line a resolution error (incl. `builder-libraries`' assertion on its
+  "not installed" message and `shot-bundle-in-place`'s two `ok: false` from chroma-js), 0 "Cannot find module" lines; `h-ls-r1c-this-wt.log` →
+  28 / 28 files, 286 tests passed; tsc `tsc-web-h.log` 25 / `tsc-node-h.log` 10; Status.md's new top row (2026-10-31 — DECISION MODELS …, "D5 …
+  judges the build ONLY by … §15") and TESTING.md `## 20. Decision models` at :590 right after §19 (:543) present.
 
 ## Stops (session 3)
 
@@ -954,3 +969,15 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   `hostedOrder` / `openRouterModel`). Four decisions + Open problems 23–26 (→ D-r27). App + stub stopped.
 - 18:04–18:05 · **Orchestrator re-check** (details in D-r27) → ruling **D-r27**. D4 builder #11 (the gate half of (h): full gate + proofs, tsc,
   house-rules sweep, Status.md row, TESTING.md §20) to spawn.
+- 18:06 · D4 builder #11 spawned (HEAD `1a0c821`).
+- 18:18 · D4 builder #11 DONE (~78 tool calls, ~12.5 min; docs `ecb69d8`, no `src/` change): full worktree gate run 1 = 4 failed (+
+  `shot-module-resolver` 1 s poll — green alone 10 / 10, CPU top `vmmemWSL` 4.1 %), **run 2 (counted) = 3 failed / 564 passed / 7 skipped files,
+  9 failed / 5,890 passed / 39 skipped tests** — the E-d2a three only; their runtime import graphs (3 / 9 / 17 files) share 0 paths with the 115 of
+  `b2b8a02..HEAD`; a fresh detached worktree at `1a0c821` gives the same 9 reds (then removed); the 25 LS-r1c suites green here (28 / 286); tsc
+  25 / 10 = the `b2b8a02` error set; house-rules sweep (43 commits, 115 paths) clean — largest new code file 293 lines, grown big files
+  `electron.d.ts` 656 → 661 / `channels.ts` 654 → 660 / `flows.ts` 351 → 353, 0 `any`, 0 default exports, package files unchanged, preload = the
+  four functions, `decisions.ts` imports only `./ai-usage`, key scan only fakes; Status.md top row + TESTING.md §20 ("D4's numbers — D5 has not
+  run"); HANDOFF DONE.
+- 18:19–18:20 · **Orchestrator re-check** (details in D-r28) → **D4 DONE**; ruling **D-r28** (the gate reading for D5). D5 (the independent
+  verifier, round 1) to spawn — its brief = D2 §15 + rulings D-r16 … D-r23 verbatim + the ruling text of D-r24 … D-r28 (without the
+  orchestrator's re-check numbers) + the commit range `b2b8a02..HEAD`; NOT the HANDOFFs, LOGs or this Log.
