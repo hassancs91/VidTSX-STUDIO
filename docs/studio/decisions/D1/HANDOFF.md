@@ -1,5 +1,7 @@
 # D1 — the spike: decision models (hosted × 2, local, keyless LLM baseline) on three small task sets (no product code)
-status: IN PROGRESS — steps 1–2 DONE (builder #1 15:58, builder #2 16:12, 2026-10-30); step 3 PART DONE (builder #3, 16:27: route
+status: **DONE-WITH-STOPS** (ruling D-r11, 2026-10-31 08:05; `docs/studio/decisions/D1-spike-report.md` updated by builder #10 on 2026-10-31 —
+recorded in the commit that adds this line; next = the orchestrator: commit D2, the stop report). History: steps 1–2 DONE (builder #1 15:58,
+builder #2 16:12, 2026-10-30); step 3 PART DONE (builder #3, 16:27: route
 settled, runner `K\laya-run.cjs` written; weights downloading under the orchestrator, D-r5); **steps 5 + 6 DONE (builder #4, 16:47:
 keyless baseline 16 / 40 calls, scored; hosted runners dry-run, no network)**; **step 4 PART 1 (builder #5, 16:57): adapter
 `K\llama-run.cjs` + OOF-temperature script `K\temp-oof.cjs` written, NOT yet run on a model (no GGUF had landed at 16:56:49)**;
@@ -364,6 +366,25 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   0.3047 · billing 0.2535 · sales 0.2453 · technical 0.1965; each question alone = the same. **P19 answered: the export is faithful; the card's
   printed `# billing` for E2 (and the README's "confidence: 0.86" for E1) are stale for the current weights** — so the §8 NOTE runs are what the
   official runtime produces on these weights, and the gate failure is the card's, not the port's. → `K\reports\c-laya.md` §9.
+- **The report updated for the hosted leg + D-r11 — DONE (builder #10, 2026-10-31; tree as of `4feacfd` before the edits, recorded in the commit
+  that adds this line).** `docs/studio/decisions/D1-spike-report.md` (422 → see Verified for the new count), edited with the Edit tool only, no
+  number re-scored, none invented (every added number names `c-hosted.md` §N, `c-laya.md` §9, a `c-hosted-*` score file, or `ORCHESTRATOR.md` D-r10
+  for the experiment's figures): header (builder #10, `4feacfd`, D-r1 … D-r11); **§0** the verdict first — DONE-WITH-STOPS, STOP 1 + 2 fire on
+  local AND hosted (T1 choice form), STOP 3 = D-r11 (a)–(c) in plain words, one line per hosted provider (Jev 100 / 100 / 85.0 %, R@1 79.1 % at
+  wc 9.6 %; MSD1 100 / 100 / 73.8 %), Laya "measured — the official runtime reproduces the export"; **§2** Jev + MSD1 RAN (19 requests each, HTTP
+  200, ≈ $0.038, T1 noul HELD), OpenAI no key, Laya's gate failure explained (stale card; the §8 runs are measurements), d1-omni parked ("not now"),
+  Clef-flash + Mapika noted as proposed; **§4** the six hosted rows + a HELD / DEFERRED row from `c-hosted.md` §2 (score files named), Laya rows
+  relabelled "(verified = the official runtime on E1–E3, `c-laya.md` §9)", a hosted bullet (strata, 190 / 240 same top), §4.1 Jev's + MSD1's
+  reliability lines, §4.2 the hosted Arabic rows, §4.4 retitled with the §9 facts; **§5** Jev + MSD1 at τ 0.5 / 0.7 / 0.9 from `c-hosted.md` §3, the
+  bar read + strata, the DEFERRED row → "OpenAI — DEFERRED-HASAN (no key); T1 noul on Jev / MSD1 — HELD (D-r9)"; **§7** four hosted latency rows +
+  the measured bullet (`c-hosted.md` §1, §5); **§8** the measured cost line beside the dry-run estimate (`c-hosted.md` §6); **§9** Laya's row loses
+  NOTE + the Python-runtime note; **§10** finding 5 updated, findings 9–12 added (P24, P25, P26, Laya faithful); **§11** the rule term by term with
+  the hosted reference (`c-hosted.md` §4) — every local candidate FAILS every term but Arabic, "no local default" on every term; **§12** each STOP
+  = the 2026-10-30 text as "first judgement" + a "re-judged 2026-10-31" paragraph quoting D-r11; **§13** T1 noul (54 requests / $0.105), OpenAI
+  (no key), Clef-flash + Mapika (proposed); **§14** six questions (direction, the 600 reading, Clef, Mapika, OpenAI key, d1-omni parked), the
+  answered ones dropped (P19, P7, keys); **§15** builders #9 + #10, commits through `4feacfd`, calls keyless 16 / 40 + hosted 38 / 600 (Jev 19,
+  MSD1 19, T1 noul 0), the keys' handling (D-r8), the 912 MB Python venv outside every repo, no download / launch on 2026-10-31; the final
+  `status:` line = DONE-WITH-STOPS with the three STOPs one line each.
 
 ### Step 3 so far (builder #3)
 
@@ -510,7 +531,28 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   --out reports/c-hosted-<p>-<t>-<m>` × 6 → the tables in `c-hosted.md` §2–§3. No key value was printed, logged or written (only the runner's
   set / unset line was quoted).
 
+- Builder #10 (the report update, 2026-10-31, from the worktree; tree as of `4feacfd` before the edits): `git rev-parse --short HEAD` →
+  `4feacfd`; `git status --short` before → ` M docs/studio/DECISION_MODELS_DESIGN.md` only (the orchestrator's D2 edit in progress — never
+  touched); `git log --oneline efa5e0b..HEAD -- src scripts package.json package-lock.json | wc -l` → `0` (28 docs-only commits `c14b180` …
+  `4feacfd`); `date '+%Y-%m-%d %H:%M'` → `2026-10-31 08:23`; `grep -n -E 'NOTE, unverified|\(\*NOTE\*\)|FAILED the worked-example gate \(E2\)
+  — unverified\*' D1-spike-report.md | wc -l` → `1` = line 472, §12's first judgement "(then a NOTE, unverified)" — the 2026-10-30 label kept as
+  history on purpose; `grep -n 'DEFERRED-HASAN' D1-spike-report.md` → 6 lines, each OpenAI (no key), the D-r1 / first-judgement history or the
+  §13 heading; `grep -n -E '^\| \*{0,2}(Jev|MSD1|TypeSafe Jev|Microsoft-Decision-1)[^|]*\|[^|]*DEFERRED' … | wc -l` → `0` (no Jev / MSD1 row on
+  T2 / T3 / T1 choice carries DEFERRED-HASAN); `grep -c 'verified, \`c-laya.md\` §9\|verified = the official runtime'` → `9` Laya rows relabelled;
+  the hosted score files named in the report: `c-hosted-jev-{t1-choice ×3, t2-choice, t3-noul}.md`, `c-hosted-openrouter-msd1-{t1-choice ×3,
+  t2-choice, t3-noul}.md` (+ `c-hosted-dryrun.md` ×7 for the estimates); `grep -n '^status:'` → line 582 `status: DONE-WITH-STOPS (ruling D-r11,
+  2026-10-31) —` followed by the three STOP lines; `wc -l` → report **585** (was 422), HANDOFF 816, LOG 52 (before this entry and the LOG line);
+  `git diff --stat` (report + HANDOFF, before this entry and the LOG line) → `441 +++---` / `32 ++-`, `333 insertions(+), 140 deletions(-)`.
+  No model / provider call, no download, no install, no app launch, no `.env` sourced, no credential store opened, nothing printed from any
+  key; `DECISION_MODELS_DESIGN.md`, the main checkout and `D:\repos\ai-video-lab` untouched; Edit tool only for the three docs.
+
 ## Next step (ONE concrete instruction)
+
+**Builder #10, 2026-10-31 — the report is updated; D1 is DONE-WITH-STOPS. The ONE next instruction is the orchestrator's: commit D2
+(`docs/studio/DECISION_MODELS_DESIGN.md` on D-r11 (a)–(c) as the recommended direction, the brief's first user as the alternative), then the stop
+report to Hasan (the report's §13–§14).** No D1 builder step is left under the rulings in force; T1 noul on both providers (54 requests /
+$0.105 upper) runs only after Hasan's "600" reading is recorded in `ORCHESTRATOR.md` (P25), through `K\hosted-live.sh` only; Clef-flash / Mapika
+only on his yes. Builder #9's instruction below is DONE.
 
 **Builder #9, 2026-10-31 08:00 — the orchestrator's 07:45 instruction is DONE in full (items 1–5); no builder step is left under the rulings
 in force. The ONE next instruction is the orchestrator's: re-judge the STOPs on `K\reports\c-hosted.md` §3–§4 and `c-laya.md` §9** — as the
@@ -784,3 +826,6 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   six score files, `c-hosted.md`: STOP 1 + STOP 2 stand, T1 noul held) + D-r10 (b) (CPU-torch venv, official `laya` 0.4.18 = the export to four
   decimals → P19 answered, `c-laya.md` §9); ~1,000 lines read; finished the step's write-up a few calls over the budget rather than hand a
   measured result off unwritten.
+- 2026-10-31 · builder #10 · ~50 tool calls · the report update per D-r11 (no model / provider call, no download, no launch; three tree files
+  only): `D1-spike-report.md` §0–§15 + status → DONE-WITH-STOPS, this HANDOFF, LOG; ~1,900 lines read (ORCHESTRATOR rulings + log, this file,
+  `c-hosted.md`, `c-laya.md` §9, the report in full); finished the brief in one pass, ~10 calls over the budget, rather than hand off a half-edited report.

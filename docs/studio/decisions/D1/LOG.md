@@ -50,3 +50,11 @@
   per request Jev p50 404 / p95 743 ms, MSD1 978 / 1,145 (first call 2,983); open P24–P26. **D-r10 (b) DONE:** CPU-torch venv + official `laya`
   0.4.18 on the cached checkpoint = the community export to four decimals (E2 `sales` 0.5811) → P19 answered (the card's printed outputs are
   stale; the export is faithful) → `K\reports\c-laya.md` §9. Next: the orchestrator re-judges the STOPs (both stand as the files read) and writes D2.
+- 2026-10-31 08:23 · builder #10 · **the report updated per ruling D-r11** → `docs/studio/decisions/D1-spike-report.md` **status: DONE-WITH-STOPS**
+  (422 → 585 lines; Edit tool only; no call, no download, no launch; three tree files): §0 the verdict first (STOP 1 + 2 fire on local AND hosted
+  T1 choice; STOP 3 = a different first user + a hosted-first ladder, D-r11 (a)–(c)); the six hosted rows, the D-r2 rows at τ 0.5 / 0.7 / 0.9, the
+  latency and the measured cost from `K\reports\c-hosted.md` (Jev T2 100.0 / T3 100.0 / T1 choice 85.0 %, R@1 79.1 % at wc 9.6 %; MSD1 100.0 / 100.0 /
+  73.8 %; 38 requests, ≈ $0.038, T1 noul HELD); Laya's rows "verified = the official runtime" (`c-laya.md` §9); §11 the rule on every term → no local
+  default; §12 each STOP = first judgement + re-judged; §13 T1 noul (54 / $0.105), OpenAI (no key), Clef-flash + Mapika (proposed); §14 six
+  questions; §15 builders #9 + #10, calls 16 / 40 + 38 / 600, the keys' handling (D-r8), the 912 MB venv outside every repo. Next: the orchestrator
+  commits D2 and writes the stop report.
