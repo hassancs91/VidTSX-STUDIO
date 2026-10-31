@@ -1,10 +1,12 @@
 # Decision models — one shared decision service (design note)
 
-> **status: D2 — READY FOR HASAN'S REVIEW (orchestrator, 2026-10-31 08:20).** Written from D1's numbers (`docs/studio/decisions/D1-spike-report.md`;
-> every number names its kit file under `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\reports\`). **The direction in §1 / §6 / §10 is the
-> orchestrator's RECOMMENDATION from ruling D-r11 (ORCHESTRATOR.md), not yet Hasan's decision** — §16 lists what he chooses at the stop; the
-> acceptance bar (§15) is fixed here before any verifier, as the brief asks. Branch `decision-models` (cut from `library-search` @ `efa5e0b`).
-> No product code exists yet (D-h). Pattern mirrored: `docs/studio/LIBRARY_SEARCH_DESIGN.md`.
+> **status: D2 — ACCEPTED by Hasan 2026-10-31 with his six answers (§16), amended the same day.** Written from D1's numbers
+> (`docs/studio/decisions/D1-spike-report.md`; every number names its kit file under `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\reports\`).
+> Hasan's words: "lets build a shared decision engine like in images and videos and so on, so we can use anywhere, and we have a section in
+> providers for them" — so the service is an ENGINE shaped like `src/image-engine/` (§4), with a Decisions section in AI → Providers (§8); OpenAI
+> is dropped (§5.2); Mapika decider-2b is spiked for the local rung in session 2 (§5.3). The acceptance bar (§15) is fixed here before any
+> verifier. Branch `decision-models` (cut from `library-search` @ `efa5e0b`). No product code exists yet; session 2's paste-in is
+> `docs/studio/decisions/NEXT-SESSION-2.md`. Pattern mirrored: `docs/studio/LIBRARY_SEARCH_DESIGN.md`.
 
 ## 1. Why, and the decision
 
@@ -20,9 +22,13 @@
   beats the assistant's own pick or gives a better "nothing fits"; no local candidate comes near the bar. So:
   1. **The first users are the `decide` tool / flow node and verification gates in flows, then request routing** (§10) — **not** library
      search's "nothing fits", which keeps S1's design (the assistant picks over the top-20) unchanged.
-  2. **The first slice is hosted-first:** `auto` = Jev → Microsoft-Decision-1 (OpenRouter) → [OpenAI when a key exists] → the LLM fallback
-     (§6). The local rung is designed (§5.3) and empty until a candidate passes §15; Mapika decider-2b is the one lead (§16).
-  3. The brief's original order (library search + the Assets box first) stays as the alternative in §10.4 — Hasan's call.
+  2. **Two hosted providers, then the LLM fallback:** `auto` = [local, when a model has passed §15] → Jev → Microsoft-Decision-1 (OpenRouter)
+     → the LLM fallback (§6). No OpenAI (Hasan). The local rung is designed (§5.3); **Mapika decider-2b is spiked for it in session 2** and
+     ships only if it passes §15.1's bar.
+  3. **It is an engine, not a service hidden in main:** `src/decision-engine/` with presets, providers and one `decisionEngine` instance — the
+     shape of `src/image-engine/` and `src/local-video-engine/` — so agents, flows, Studio tools and screens all call the same thing (§4), and
+     the AI → Providers screen gets a "Decisions" section (§8).
+  4. The brief's original order (library search + the Assets box first) was not taken (Hasan, 2026-10-31); §10.4 records it as the alternative.
 - **The E3 lesson, binding everywhere below:** a probability is NOT a fact. No caller shows a probability to the user or to the assistant as a
   claim. Callers consume a decision as an **order**, a **gate** (act above a threshold, escalate below) or a **route**. The number itself
   appears only in logs, a flow's run record and the developer tester.
@@ -40,7 +46,7 @@ verification pairs from the app's own template / caption-style / library-clip de
 | keyless LLM (`claude-subscription`, sonnet-5-5) | 100.0 % | 97.5 % | 88.8 % · 80.7 % · 7.1 % (S1: 80.7 / 6.3) | 10–23 s per 20-row call; no probability | subscription quota | `c-baseline.md` |
 | **Jev** `jev-1.14.0` (System One, TypeSafe) | **100.0 %** (Brier 0.021) | **100.0 %** (0.003) | 85.0 % · 79.1 % · 9.6 % (0.9–1.0 bin 92.9 % right) | T2 499 ms, T3 342 ms per 40 q; T1 p50 404 / p95 743 ms per 14-row request | T2 $0.011, T3 $0.006, T1 $0.081 | `c-hosted.md` |
 | **Microsoft-Decision-1** via OpenRouter Decisions | **100.0 %** (0.014) | **100.0 %** (0.002) | 73.8 % · 66.8 % · 10.0 % (over-confident: 0.9–1.0 bin 84.5 %) | T2 2,983 ms (first call), T3 1,084; T1 p50 978 / p95 1,145 | T2 $0.009, T3 $0.006, T1 $0.071 | `c-hosted.md` |
-| OpenAI Decisions (`gpt-6-luna`) | not run — no key | | | | $0.10 / M input (list) | `c-hosted-dryrun.md` |
+| OpenAI Decisions (`gpt-6-luna`) | not run — no key; dropped by Hasan 2026-10-31 (§5.2) | | | | $0.10 / M input (list) | `c-hosted-dryrun.md` |
 | Qwen3.5-0.8B Q8 (option probabilities, node-llama-cpp, Vulkan) | 82.5 % | 85.0 % | 47.5 % · 48.7 % (noul) · 38.3 % | warm p95 353–483 ms per question | $0; 812 MB; ≤ 1,552 MB RSS | `c-llama.md` §8 |
 | Qwen2.5-0.5B Q8 (same) | 75.0 % | 67.5 % | 27.1 % · 36.4 % (noul) · 71.7 % | 275–722 ms | $0; 676 MB | `c-llama.md` §5 |
 | Laya multilingual (community ONNX = the official runtime, `c-laya.md` §9) | 55.0 % | 60.0 % | 50.4 % · 55.6 % · 39.2 % | p95 469–582 ms; RSS 2.3–3.1 GB | $0; 1.32 GB | `c-laya.md` §8 |
@@ -108,31 +114,35 @@ export interface DecisionResult {
   options, levels, context, questions per request), `timeout`, `provider-error` (HTTP / engine failure; the message is scrubbed of any key and
   of the state text), `invalid-answer` (unreadable or incomplete — P11), `cancelled`.
 
-## 4. The service — module layout
+## 4. The engine — module layout (the `src/image-engine/` shape)
 
-Feature isolation holds: the service is main-process code; features reach it through the agent tool / flow node (main) and the IPC surface
-(renderer). One primary export per file, ≤ ~300 lines, no `any`.
+Feature isolation holds: the engine is process-neutral code under `src/decision-engine/` (no electron, no fs; like `src/image-engine/`), main
+wires it (`src/main/services/decisions/`, like `image-init.ts`), and features reach it through the agent tool / flow node (main) and the IPC
+surface (renderer). One primary export per file, ≤ ~300 lines, no `any`, named exports.
 
-**`src/main/services/decisions/`** (business logic, pure where it can be):
+**`src/decision-engine/`** (the engine; `index.ts` re-exports `decisionEngine`, the types and `DECISION_PROVIDER_PRESETS`):
 
 | file | owns |
 |---|---|
-| `decide.ts` | `decide(request, deps)` — validates, resolves the provider (§6), checks the cache, calls the adapter with the caller's timeout, stamps `calibrated` (§15.1's table), logs usage, returns `DecisionResult`; `deps` injected in every test. |
-| `ladder.ts` | the `auto` resolver: which rungs exist now (keys present; a local model on disk; the LLM fallback allowed) and which can answer THIS request (each adapter's `limits`). Pure. |
+| `types.ts` | the contract (§3) + `DecisionProvider` (`id`, `model`, `limits()`, `checkReady()`, `decide(request, signal)`), `DecisionProviderConfig` (`id`, `type: 'system-one' \| 'local-decider' \| 'llm-fallback'`, `baseURL`, `model`, `apiKey?`, `credentialId?`), `DecisionProviderPreset`. |
+| `decision-engine.ts` | `class DecisionEngine` — `register(config)`, `registerInstance(provider)`, `unregister(id)`, `getProviders()`, `checkReady(id)`, `decide(request)` (= the ladder, §6) and `decideWith(providerId, request)` (pinned); validates, caches, stamps `calibrated`, returns `DecisionResult`; `export const decisionEngine = new DecisionEngine()` — the `imageEngine` shape. |
+| `presets.ts` | `DECISION_PROVIDER_PRESETS`: `jev` (type `system-one`, `https://api.typesafe.ai/v1/systemone`, model `jev-1.14.0`, `credentialId: 'typesafe'`), `openrouter-decisions` (type `system-one`, `https://openrouter.ai/api/alpha/decisions`, model `microsoft/microsoft-decision-1`, `credentialId: 'openrouter'`). More providers later are new presets here (Hasan: "we can add more providers later"). |
+| `ladder.ts` | the `auto` order over the registered providers that are ready and whose `limits` fit the request; pure. |
 | `validate.ts` | request shape + per-type rules (choice 2..255 options, score 2–10 levels, non-empty instructions, state size). Pure. |
-| `calibration-table.ts` | the shipped table of (provider, model, task family) → `calibrated`, from §15.1's benchmark; pure. |
+| `calibration-table.ts` | (provider preset, model, task family) → `calibrated`, from §15.1's benchmark. Pure. |
 | `cache.ts` | in-memory LRU keyed by sha256 of the canonical JSON of {provider, model, state, questions}; in-flight sharing. |
-| `usage.ts` | one `aiUsageService.appendEntry` row per adapter HTTP call (§9). |
-| `adapters/system-one.ts` | Jev and OpenRouter Decisions (§5.1) — one adapter, two configurations. |
-| `adapters/openai-decisions.ts` | the OpenAI Decisions API (§5.2). |
-| `adapters/local.ts` | the bridge to the engine process (§5.3) — returns `no-provider` while no runtime ships. |
-| `adapters/llm-fallback.ts` | the app's text provider answering JSON (§5.4), `calibrated: false` always. |
-| `decision-settings.ts` | settings in the KV store (the `search-settings.ts` pattern, §8). |
-| `decision-app.ts` | the one instance: keys from `settings.ts`, `fetch`, `llmEngine`, `aiUsageService` (by dynamic import, the `search-app.ts` pattern). |
+| `providers/system-one-provider.ts` | Jev and OpenRouter Decisions (§5.1) — one class, configured by the preset (URL, model, the OpenRouter `noul criteria` quirk); `fetch` injected. |
+| `providers/llm-fallback-provider.ts` | the app's text provider answering JSON (§5.4); `calibrated: false` always; `llmEngine.generate` injected. |
+| `providers/local-decider-provider.ts` | the bridge to the local worker host (§5.3); registered only when a local model is on disk and ready. |
 
-**`src/decision-engine/`** (the local model's process, mirroring `src/library-search-engine/`): `engine-host.ts` (lazy spawn, request ids,
-cold / warm timeouts, death → reject pending + respawn, idle unload, no electron import) and `types.ts` are built in the first slice as the
-contract; `worker.ts` and the electron-vite entry `decision-worker` come with the first local runtime that passes §15 (not in this slice).
+**`src/main/services/decisions/`** (main's wiring, the `image-init.ts` + `search-app.ts` pattern): `decision-init.ts` (registers each preset
+whose `credentials[preset.credentialId]` exists, re-registers on a key change — exactly how `image-init.ts:100-107` does it), `decision-usage.ts`
+(one `aiUsageService.appendEntry` row per provider HTTP call, §9), `decision-settings.ts` (the KV settings, §8), `decision-runtime.ts` (the one
+entry callers use in main: settings + engine + usage; the tool / node call this, never the engine directly).
+
+**`src/local-decider-engine/`** (the local rung's process, only if session 2's spike passes — §5.3): `decider-host.ts` (spawn the worker once
+per model, JSONL over stdio, request ids, cold / warm timeouts, death → reject pending + respawn, idle unload; no electron import — the fork is
+injected like `library-search-engine/electron-fork.ts`) and the worker itself.
 
 ## 5. The adapters
 
@@ -152,15 +162,14 @@ where `limits` = max options per choice, max levels, max state tokens, max quest
 - Responses: `answers[name].noul` → `p`; `choice` / `score` with `probabilities` + `confidence` unchanged; renormalise; any off-list option →
   `invalid-answer`. Contract tests run against the LIVE response bodies D1 recorded (`B\hosted-responses\`, scrubbed), not against invented ones.
 
-### 5.2 OpenAI Decisions (designed, unmeasured — no key)
+### 5.2 OpenAI Decisions — dropped
 
-`POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`; `input` = the state (an `input_json` part for an object); `questions` = an
-ARRAY of `{ name, instructions, type }` with `predicate` for `noul`, `choices[] {value, description}` for `choice`, `levels[] {label,
-description}` for `score`; answers by `name`; a `refusal` answer → `{ type: 'refused' }`; ≤ 400 questions per request. Enters `auto` only when
-`OPENAI` has a key; `calibrated: false` until §15.1 measures it (a DEFERRED-HASAN live check). D-b's order holds: OpenAI before OpenRouter once it
-is measured; until then OpenRouter is the second rung.
+Hasan, 2026-10-31: "I don't want to use OpenAI models." No adapter, no preset, no key row. (Its contract — `input` + a `questions[]` array,
+`predicate`, 1–400 questions, $0.10 / M — stays recorded in the D1 report §3 should that change.) D-b therefore resolves to its fallback for
+good: the second hosted provider is Microsoft-Decision-1 via OpenRouter's Decisions API. Other hosted deciders (Clef-flash, pplx-decider, …)
+are a preset each, later ("no need now, we can add more providers later").
 
-### 5.3 The local rung — designed, empty
+### 5.3 The local rung — designed; Mapika decider-2b is its spike (session 2, D3)
 
 - Shape: a utilityProcess child (`src/decision-engine/`), never main (the library-search / content-safety lesson: native DLLs and model loads
   stay out of main's loop). The adapter speaks the same `DecisionAdapter` interface; a request the child cannot take (`limits`) is skipped by
@@ -168,12 +177,14 @@ is measured; until then OpenRouter is the second rung.
 - **What D1 rules out for now:** the SemIf-style option-probabilities adapter over the catalog's tiny GGUFs (far below the bar; node-llama-cpp's
   vocabulary map alone costs ~5/6 of each question — P16); Laya multilingual as shipped (near chance on typed decisions, as its card says; the
   export is faithful); d1-omni (does not load in node-llama-cpp; its runtime is `llama-server`; parked).
-- **What could fill it (Hasan's call, §16):** **Mapika decider-2b** — in Hasan's 2026-10-05 experiment 83.5–87.5 % routing with honest
-  confidence (P ≥ 0.9 → 96.8–98.8 % right) at 152–162 ms on this laptop's GPU; Apache-2.0; 3.76 GB bf16; System One API; a Python / torch runtime
-  (`decider-ai`, torch cu130, `TORCHDYNAMO_DISABLE=1`). The app's `python-models` service spawns Python PER REQUEST (`src/local-python-engine/
-  python-runner.ts:102`) for image / 3-D models — a decider needs a **persistent** Python worker (a new piece: spawn once, JSONL over stdio, idle
-  unload), which `src/decision-engine/engine-host.ts` is shaped to host. It is spiked first on T1 / T2 / T3 like every candidate; it ships only
-  if it passes §15.1.
+- **What fills it — Mapika decider-2b (Hasan: "yes, we can"):** in his 2026-10-05 experiment 83.5–87.5 % routing with honest confidence
+  (P ≥ 0.9 → 96.8–98.8 % right) at 152–162 ms on this laptop's GPU; Apache-2.0; 3.76 GB bf16; System One API; a Python / torch runtime
+  (`decider-ai`, torch cu130, `TORCHDYNAMO_DISABLE=1`; weights already on disk at `D:\repos\ai-video-lab\tools\deciders\models\Mapika\decider-2b`).
+  The app's `python-models` service spawns Python PER REQUEST (`src/local-python-engine/python-runner.ts:102`) for image / 3-D models — a decider
+  needs a **persistent** Python worker (spawn once, JSONL over stdio, idle unload), which `src/local-decider-engine/decider-host.ts` hosts. Session
+  2's **D3 spikes it** on T2 / T3 (+ T1 as a note) through such a worker, measures cold / warm / RSS / VRAM, and judges it against §15.1's bar for
+  a local rung (routing + verify ≥ 38 / 40 each, Brier ≤ 0.05, warm p95 ≤ 300 ms per request, RSS ≤ 2 GB with VRAM reported). It ships in D4
+  only if it passes; otherwise the rung stays empty — a note, not a stop.
 - Any local candidate: first-use download on a click (never bundled), sha256-checked, under `userData/models/decisions/<id>/`; CPU by default,
   GPU as a setting; `calibrated` per §15.1.
 
@@ -183,12 +194,12 @@ The app's default text provider through `llmEngine.generate` (or a pinned provid
 answers, JSON back; strict parse; any missing / extra key or a cut text → `invalid-answer` (P11). Probabilities: the chosen answer 1.0.
 Always `calibrated: false`; reached by `auto` only with `allowUncalibrated`. It exists so a flow or agent keeps working with no decider key.
 
-## 6. Which provider answers — `auto` vs pinned (hosted-first)
+## 6. Which provider answers — `auto` vs pinned
 
-- `provider: 'auto'` (default) walks **Jev → OpenRouter (Microsoft-Decision-1) → OpenAI (once measured + keyed) → the LLM fallback (only with
-  `allowUncalibrated`)**; the local rung sits first in the order but is skipped while empty (`skipped: [{ provider: 'local', why: 'no local
-  model' }]`). A rung is used only when its key is present and the request fits its `limits`; a `provider-error` moves to the next rung ONCE; a
-  `timeout` does not (the caller's budget is spent); a `refused` answer is returned as is.
+- `provider: 'auto'` (default) walks **local (only when a local model is registered AND `calibrated` for the request's family) → Jev →
+  OpenRouter (Microsoft-Decision-1) → the LLM fallback (only with `allowUncalibrated`)**; a missing rung is reported in `skipped` with a plain
+  reason (`'no local model'`, `'no key'`). A rung is used only when its key is present and the request fits its `limits`; a `provider-error`
+  moves to the next rung ONCE; a `timeout` does not (the caller's budget is spent); a `refused` answer is returned as is.
 - A pinned provider never falls back: unavailable → `no-provider`, over its limits → `unsupported`.
 - `auto` never sends a request to a hosted provider the user has not given a key for; the user can switch any hosted rung off (§8).
 
@@ -201,16 +212,17 @@ ladder moves on) and respawns on the next.
 ## 8. Keys, settings, UI
 
 - **Keys stay in main** (safeStorage, `settings.ts`): Jev = a new `typesafe` entry in `PROVIDER_REGISTRY` (`src/shared/providers/registry.ts`;
-  capability `'decision'`, a new `ProviderCapability`; key placeholder "TypeSafe API key"); OpenRouter = the existing `openrouter` key (it already
-  unlocks the OpenRouter LLM preset and image preset); OpenAI = the existing OpenAI text provider's key. The renderer sees has-key booleans only
-  (the `provider-keys` IPC, unchanged pattern). AI → Providers shows the TypeSafe row. **The spike's `.env` files are not the app's path** — a
-  user pastes the key into the Providers screen like every other key.
-- **Settings (KV):** `decisionsMode` — `auto` (default) | `off`; `decisionsHostedOrder` — default `['jev', 'openrouter', 'openai']`, any rung
-  removable; `decisionsOpenRouterModel` — default `microsoft/microsoft-decision-1`; `decisionsLocalModelId` — unset (no runtime).
-- **UI:** a "Decisions" row in Settings › General beside "Library" (the `LibrarySearchRow.tsx` pattern): mode, the hosted order with has-key
-  dots ("Jev — key set · OpenRouter — key set · OpenAI — no key"), the local rung as "none available", and a developer tester behind the
-  dev-preview flag (`decisions:decide` with a typed form; shows probabilities — the one place they are shown, as numbers in a tester). UI per
-  `UI_SPEC.md`. No hosted call happens without the user's key.
+  capabilities `['decision']`; key placeholder "TypeSafe API key"; `test: 'decision'` — a test button that sends one tiny `noul`); OpenRouter = the
+  existing `openrouter` entry, which gains `'decision'` in its capabilities (it already unlocks the LLM and image presets). `ProviderCapability`
+  gains `'decision'` and `PROVIDER_CAPABILITY_LABELS` gains `decision: 'Decisions'` — **that is the "Decisions" section in AI → Providers**
+  (`ProviderKeyRow.tsx` groups by capability today; no new screen). The renderer sees has-key booleans only (the `provider-keys` IPC, unchanged).
+  **The spike's `.env` files are not the app's path** — a user pastes the key into the Providers screen like every other key.
+- **Settings (KV):** `decisionsMode` — `auto` (default) | `off`; `decisionsHostedOrder` — default `['jev', 'openrouter-decisions']`, any rung
+  removable; `decisionsOpenRouterModel` — default `microsoft/microsoft-decision-1`; `decisionsLocalModelId` — unset until a local model ships.
+- **UI:** a "Decisions" row in Settings › General beside "Library" (the `LibrarySearchRow.tsx` pattern): mode, the order with has-key dots
+  ("Jev — key set · OpenRouter — key set"), the local rung ("none available", or the model + Download button once D3 passes), and a developer
+  tester behind the dev-preview flag (`decisions:decide` with a typed form; shows probabilities — the one place they are shown, as numbers in a
+  tester). UI per `UI_SPEC.md`. No hosted call happens without the user's key.
 
 ## 9. Timeouts, retries, cache, usage
 
@@ -218,10 +230,10 @@ ladder moves on) and respawns on the next.
   a routing hint 2 s (on timeout the hint is simply absent); the developer tester 30 s. Hosted HTTP: one retry on 429 / 5xx / network with
   jitter inside the budget, never on 4xx; the LLM fallback keeps the caller's budget.
 - **Packing:** a request is sent as the caller framed it (state once, questions keyed); the adapter splits only when a provider's per-request
-  limit requires it (OpenAI 400 questions; Jev 64k tokens), one usage row per HTTP call.
+  limit requires it (Jev: 64k tokens per request, 32k per question; the same packing for OpenRouter), one usage row per HTTP call.
 - **Cache:** in memory only (a state may be private text — never written to disk), 1,000 entries, 15 min; failures never cached; identical
   concurrent requests share one call (the LS-r7 rule).
-- **Usage:** one `AiUsageEntry` per adapter HTTP call — `provider` (`typesafe` / `openrouter` / `openai`), `model` as served, `featureSource`
+- **Usage:** one `AiUsageEntry` per provider HTTP call — `provider` (`typesafe` / `openrouter` / `local-decider`), `model` as served, `featureSource`
   (new values `decision-agent`, `decision-flow`, `decision-routing`, `decision-test`), `requestType` new `'decision'`, input tokens, `costUsd` =
   the provider-reported cost when present (OpenRouter `usage.cost`) else input tokens × the adapter's price table (Jev $0.042 / M; output free on
   all three), `durationMs`. A cache hit logs nothing. (D1's own ledger: 38 requests, $0.038.)
@@ -234,8 +246,8 @@ ladder moves on) and respawns on the next.
 One registration in the agents tool registry (`src/main/services/agents/tools/decide.ts`, registered in `registry.ts`; the `generate_text.ts`
 pattern): zod args `{ state, type: 'noul' | 'choice', instructions, options? (choice: id → description), threshold? (default 0.9), provider? }`.
 **With `ports` it is also a flow node** ("a tool with `ports` is also a node", `registry-core.ts:91-98`): inputs `state` (text); config `type`,
-`instructions`, `options` (one `id: description` per line), `threshold` (number, 0.9), `provider` (select: auto / jev / openrouter / openai /
-llm); outputs `answer` (text), `band` (text: `act` | `escalate`), `p` (number — in the run record only). `band = act` iff the top probability ≥
+`instructions`, `options` (one `id: description` per line), `threshold` (number, 0.9), `provider` (select: auto / jev / openrouter-decisions /
+local / llm); outputs `answer` (text), `band` (text: `act` | `escalate`), `p` (number — in the run record only). `band = act` iff the top probability ≥
 `threshold` AND the answer is `calibrated`; an uncalibrated answer is always `escalate` unless the node's `allowUncalibrated` toggle is on
 (then `band = act` with `note = 'uncalibrated'`).
 - **What the agent reads** (the tool's text result): "Decision: billing (act)" or "Decision: uncertain — top answer billing (escalate)". Never a
@@ -282,19 +294,23 @@ caller in the renderer).
 
 ## 13. Not in the first slice
 
-The local rung's runtime (no candidate passes); the OpenAI adapter's live measurement (no key); `score` in any UI; images / audio states; hosted
-batch endpoints; long-context headers; a disk cache; user-run calibration fitting; a per-day spend cap; the Studio assistant's own `decide` tool
-and the hard route; library search's pick / "nothing fits" and the Assets box order (§10.4 — Hasan's call); T1-style 20-option picks as a product
-feature; Arabic-specific calibration (Arabic is measured inside T2 / T3's bar).
+OpenAI (dropped — Hasan); Clef-flash and other hosted deciders (presets later); T1 noul on the hosted providers (not run — Hasan); `score` in
+any UI; images / audio states; hosted batch endpoints; long-context headers; a disk cache; user-run calibration fitting; a per-day spend cap;
+the Studio assistant's own `decide` tool and the hard route; library search's pick / "nothing fits" and the Assets box order (§10.4 — not
+taken); T1-style 20-option picks as a product feature; Arabic-specific calibration (Arabic is measured inside T2 / T3's bar); the local rung
+unless D3 passes.
 
-## 14. Build order (hand-off sized parts, red first)
+## 14. Build order (session 2's D4; hand-off sized parts, red first)
 
-(a) shared types + `validate` / `ladder` / `calibration-table` / `cache` (pure, tests first) · (b) `adapters/system-one.ts` with an injected
-`fetch`, contract-tested on D1's recorded live responses (`B\hosted-responses\`, copied scrubbed into the test fixtures) and dry-run bodies; the
-OpenAI adapter on the primary docs' examples (no live call) · (c) `decide.ts` + usage + settings + the `typesafe` key row + IPC + preload + status
-+ the engine host contract (no worker) · (d) the `decide` tool / node + the two built-ins (§10.1–10.2) with the T2 / T3 fixtures as unit tests
-through an injected adapter · (e) the committed benchmark + the gated live test (§15.1) · (f) the Settings row + the developer tester · (g) the
-exit check against §15 (the orchestrator's verifier, ≤ 20 live requests).
+(a) `src/decision-engine/` types + `validate` / `ladder` / `calibration-table` / `cache` (pure, tests first) · (b) `providers/system-one-provider.ts`
+with an injected `fetch`, contract-tested on D1's recorded live responses (`B\hosted-responses\`, copied scrubbed into the test fixtures) and
+dry-run bodies; the engine class + presets (`credentialId` typesafe / openrouter) · (c) main's wiring `src/main/services/decisions/` (init from
+credentials — the `image-init.ts` pattern; usage rows; settings; the `typesafe` registry entry + `'decision'` capability + its label; IPC +
+preload + status) · (d) the `decide` tool / node + the two built-ins (§10.1–10.2) with the T2 / T3 fixtures as unit tests through an injected
+provider · (e) the committed benchmark + the gated live test (§15.1) · (f) the Settings › General row + the Providers section + the developer
+tester · (g) ONLY if D3 passed: `src/local-decider-engine/` (the persistent worker host + the Python worker shipped on the app's `pytorch`
+runtime path, a first-use download entry with sizes + sha256, the `local-decider` preset registered when the model is on disk) · (h) the exit
+check against §15; then D5, the independent verifier (≤ 20 live requests, ≤ $0.05).
 
 ## 15. THE ACCEPTANCE BAR (fixed before any verifier; the verifier FAILS only by this)
 
@@ -330,8 +346,9 @@ functions and no key crosses IPC (a test over the preload surface); no `electron
 
 1. **Main stays responsive:** the ping loop (≤ 250 ms max gap) during 20 concurrent `decisions:decide` calls to a stubbed local HTTP server
    that answers System One bodies with 500 ms delay (no real key needed) — and, when Hasan's key is set, during 5 real Jev calls.
-2. **Keys:** the TypeSafe row in AI → Providers accepts a (fake) key; `decisions:status` flips `jev.hasKey` to true; a call with the fake key
-   yields `provider-error` whose message holds neither the key nor the state; removing the key flips it back; the renderer bundle contains no key.
+2. **Keys:** AI → Providers shows a "Decisions" section with the TypeSafe row (and OpenRouter listed under it too); the TypeSafe row accepts a
+   (fake) key; `decisions:status` flips `jev.hasKey` to true; a call with the fake key yields `provider-error` whose message holds neither the key
+   nor the state; removing the key flips it back; the renderer bundle contains no key.
 3. **The flow node:** a two-node flow (`input_text` → `check_matches_request`) runs on one T3 true row and one false row through the stub server
    → `band` act / escalate as the fixture says; the run record holds `p`; the canvas shows the band only.
 4. **The agent tool:** one agent run with `decide` on a T2 row through the stub → the tool's text passes the no-claim test; the usage row carries
@@ -345,13 +362,13 @@ functions and no key crosses IPC (a test over the preload surface); no `electron
 Latencies beyond the bounds under measured external load (repeat once, record); MSD1's cold first call; Jev's hundredth rounding; the hint's
 effect on assistant turns (§10.3, slice 2); anything about the local rung.
 
-## 16. Open questions for Hasan (the stop)
+## 16. Hasan's answers (2026-10-31) — what this note was amended to
 
-1. **The direction:** §1's recommendation (tool / node + verification gates first, routing as a hint second; library search keeps S1's design;
-   hosted-first with an empty local rung) — or the brief's original first users (§10.4)?
-2. **T1 noul** on Jev + MSD1 (54 requests, $0.105): run it or not — it needs his reading of "600 hosted decision calls" (requests vs questions).
-3. **Clef-flash** (Cloudflare; key present; Jev-compatible; reads images; best on his routing test): add it as a third hosted rung in the spike?
-4. **Mapika decider-2b** as the local lead (Python / torch, persistent worker — §5.3): spike it?
-5. **OpenAI:** a key for the Decisions API, or leave it designed-only?
-6. **The TypeSafe key in the app:** a new Providers row (this note) — fine?
-7. A per-day hosted spend cap (not in slice 1) — wanted?
+1. **The direction:** "lets build a shared decision engine like in images and videos and so on, so we can use anywhere, and we have a section
+   in providers for them" → §1 item 3, §4 (the engine layout), §8 (the Providers section); the first users of §10.1–10.2 stand.
+2. **T1 noul** on the hosted providers: **no** (the 600-cap question is moot).
+3. **Clef-flash / more providers:** "no need now, we can add more providers later" → a preset each, later (§4 `presets.ts`, §13).
+4. **Mapika decider-2b:** "yes, we can" → session 2's D3 spike for the local rung (§5.3); ships only on §15.1.
+5. **OpenAI:** "I don't want to use OpenAI models" → dropped (§5.2).
+6. **The TypeSafe key row + the OpenRouter key reuse:** yes (§8).
+7. A per-day hosted spend cap: not asked back — stays out of the first slice (§13); the usage log is the record.

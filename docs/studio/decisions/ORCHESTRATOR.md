@@ -185,7 +185,14 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   T3 100 %, T1 choice 85.0 / 73.8 %; $0.038; T1 noul held); Laya verified faithful (its numbers stand, far from the bar); STOP 1 + 2 fire on
   local AND hosted T1; STOP 3 = a different first user (routing / verification, not the library pick) on a hosted-first ladder with an empty
   local rung; `docs/studio/DECISION_MODELS_DESIGN.md` written on that direction with §15 THE ACCEPTANCE BAR; the questions for Hasan = design
-  §16 (direction; T1 noul / the 600 reading; Clef-flash; Mapika; an OpenAI key; the TypeSafe key row; a spend cap). Hasan said: (pending)
+  §16 (direction; T1 noul / the 600 reading; Clef-flash; Mapika; an OpenAI key; the TypeSafe key row; a spend cap). **Hasan said (2026-10-31
+  ~08:35):** (1) "lets build a shared decision engine like in images and videos and so on, so we can use anywhere, and we have a section in
+  providers for them" (= D2's direction accepted, shaped as an ENGINE like `src/image-engine/` / `src/local-video-engine/`, with a Decisions
+  section in AI → Providers); (2) T1 noul: "no"; (3) Clef-flash: "no need now, we can add more providers later"; (4) Mapika: "yes, we can";
+  (5) "I don't want to use OpenAI models" (the OpenAI adapter is DROPPED, not deferred); (6) the TypeSafe key row + the OpenRouter key reuse:
+  "yes". Then: "lets continue in a new session, give me a prompt" → D2 amended per (1)–(6), the paste-in for session 2 written
+  (`docs/studio/decisions/NEXT-SESSION-2.md`: D3 = the Mapika spike for the local rung, D4 = the build per D2 §14, D5 = the verifier against §15,
+  then STOP). This session ends at that commit.
 
 ## Log
 
@@ -403,4 +410,10 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 - 08:25 · **Orchestrator re-check:** HEAD `f48ec2e`; `git status` = only the orchestrator's D2 file; `efa5e0b..HEAD -- src scripts package*.json`
   empty; the report's §0 and its status line read (D-r11's numbers verbatim); "NOTE, unverified" survives once (the §12 first-judgement history);
   no Jev / MSD1 row still reads DEFERRED; a key-pattern scan over every doc under `docs/studio/decisions/` and the design note → nothing;
-  0 `electron.exe`. → D2 committed with this file; **the run STOPS (D-h).**
+  0 `electron.exe`. → D2 committed with this file (`3cd3404`, 08:27:04); **the run STOPS (D-h).**
+- 08:35–08:50 · **Hasan's six answers** (Stops) → D2 amended in place (header; §1 items 2–4 — the engine shape, no OpenAI, Mapika spiked; §4 the
+  engine layout mirroring `src/image-engine/` + `image-init.ts`; §5.2 OpenAI dropped; §5.3 Mapika = D3; §6 the ladder local → Jev → OpenRouter →
+  LLM; §8 the Providers "Decisions" section via `ProviderCapability 'decision'`; §13 / §14 (D4 (a)–(h), (g) only on D3's PASS); §16 = his
+  answers); `NEXT-SESSION.md` marked SPENT; **`docs/studio/decisions/NEXT-SESSION-2.md` written** — the session-2 paste-in (Decisions E-a … E-h
+  verbatim from his answers; D3 the Mapika spike → D4 the build → D5 the verifier → STOP; caps hosted ≤ 60 requests / $0.50, keyless ≤ 10, no
+  npm package, Python only in scratch venvs; keys only via `hosted-live.sh`). Memory updated. **Session 1 ends at this commit.**
