@@ -36,7 +36,7 @@ export interface DecideCommonArgs {
 export const DECIDE_OUTPUTS: PortDef[] = [
   { id: 'band', label: 'Band (act / escalate)', dataType: 'text', from: 'field:band' },
   { id: 'answer', label: 'Answer', dataType: 'text', from: 'field:answer' },
-  { id: 'p', label: 'p (run record)', dataType: 'number', from: 'field:p' },
+  { id: 'p', label: 'p (run record)', dataType: 'number', from: 'field:p', recordOnly: true },
 ];
 
 export const DECIDE_COMMON_FIELDS: ConfigField[] = [

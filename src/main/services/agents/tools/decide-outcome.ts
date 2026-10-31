@@ -7,39 +7,11 @@
 // THE E3 LESSON (§1, §15.1): the agent reads the answer and the band only — never the number, never a claim word. `p` leaves only as a
 // field the flow runner files in the run record.
 
-import type { DecisionAnswer, DecisionErrorCode } from '../../../../shared/types/decisions';
+import type { DecisionErrorCode } from '../../../../shared/types/decisions';
+import type { DecisionOutcome } from '../../../../shared/decisions-outcome';
 
-export type DecisionBand = 'act' | 'escalate';
-
-export interface DecisionOutcome {
-  band: DecisionBand;
-  /** The option id, `yes` / `no`, or '' when the decider gave no answer. */
-  answer: string;
-  /** The top answer's probability (the gate's quantity) — absent when there is no answer. */
-  p?: number;
-  note?: 'uncalibrated';
-}
-
-export interface DecisionGate {
-  calibrated: boolean;
-  threshold: number;
-  allowUncalibrated: boolean;
-}
-
-function topOf(answer: DecisionAnswer | undefined): { answer: string; top: number } | null {
-  if (answer?.type === 'noul') return { answer: answer.p >= 0.5 ? 'yes' : 'no', top: Math.max(answer.p, 1 - answer.p) };
-  if (answer?.type === 'choice') return { answer: answer.choice, top: answer.probabilities[answer.choice] ?? 0 };
-  return null; // refused, missing, or a score (the tools never ask one)
-}
-
-export function decisionOutcome(answer: DecisionAnswer | undefined, gate: DecisionGate): DecisionOutcome {
-  const top = topOf(answer);
-  if (!top) return { band: 'escalate', answer: '' };
-  const overBar = top.top >= gate.threshold;
-  if (gate.calibrated) return { band: overBar ? 'act' : 'escalate', answer: top.answer, p: top.top };
-  if (gate.allowUncalibrated && overBar) return { band: 'act', answer: top.answer, p: top.top, note: 'uncalibrated' };
-  return { band: 'escalate', answer: top.answer, p: top.top };
-}
+// The band itself is shared (part (f)): the developer tester in the renderer bands with the same function.
+export { decisionOutcome, type DecisionBand, type DecisionGate, type DecisionOutcome } from '../../../../shared/decisions-outcome';
 
 /** §10.1's two shapes: "Decision: billing (act)" / "Decision: uncertain — top answer billing (escalate)". */
 export function decisionText(outcome: DecisionOutcome): string {

@@ -5,6 +5,7 @@ import type { FlowNodeRunStatus, FlowPortValue, NodeSpec, PortDef } from '@share
 import { useNodeSpec } from '../hooks/useNodeSpecs';
 import { useNodeRunState, useRunArtifacts } from '../hooks/useFlowRun';
 import { DATA_TYPE_COLOR, DATA_TYPE_LABEL, needLabel } from '../services/node-style';
+import { drawnPorts } from '../services/port-visibility';
 import type { FlowCanvasNodeData } from '../types';
 
 const HANDLE_SIZE = 10;
@@ -155,7 +156,9 @@ export function CustomNode({ id, data, selected }: NodeProps<FlowCanvasNodeData>
     );
   }
 
-  const minHeight = Math.max(spec.inputs.length, spec.outputs.length, 1) * 22 + 32;
+  // D-r22 (2): a record-only output (the decide nodes' `p`) goes to the run record, never on the canvas.
+  const drawnOutputs = drawnPorts(spec.outputs);
+  const minHeight = Math.max(spec.inputs.length, drawnOutputs.length, 1) * 22 + 32;
   // W8 Stage 4: a Flow Builder proposal paints the node by its change.
   const proposal = data.proposal;
   const borderColor =
@@ -232,8 +235,8 @@ export function CustomNode({ id, data, selected }: NodeProps<FlowCanvasNodeData>
       {spec.inputs.map((port, i) => (
         <PortHandle key={'in-' + port.id} port={port} position={Position.Left} index={i} total={spec.inputs.length} />
       ))}
-      {spec.outputs.map((port, i) => (
-        <PortHandle key={'out-' + port.id} port={port} position={Position.Right} index={i} total={spec.outputs.length} />
+      {drawnOutputs.map((port, i) => (
+        <PortHandle key={'out-' + port.id} port={port} position={Position.Right} index={i} total={drawnOutputs.length} />
       ))}
     </div>
   );
