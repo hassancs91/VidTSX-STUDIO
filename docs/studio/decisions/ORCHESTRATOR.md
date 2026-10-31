@@ -417,3 +417,91 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   answers); `NEXT-SESSION.md` marked SPENT; **`docs/studio/decisions/NEXT-SESSION-2.md` written** — the session-2 paste-in (Decisions E-a … E-h
   verbatim from his answers; D3 the Mapika spike → D4 the build → D5 the verifier → STOP; caps hosted ≤ 60 requests / $0.50, keyless ≤ 10, no
   npm package, Python only in scratch venvs; keys only via `hosted-live.sh`). Memory updated. **Session 1 ends at this commit.**
+
+---
+
+# Session 2 — D3 the Mapika spike · D4 the build · D5 the verifier (2026-10-31)
+
+> Run brief: Hasan's paste-in in `docs/studio/decisions/NEXT-SESSION-2.md` ("Paste-in", :35-149), with that file's "Decisions" block
+> (E-a … E-h, :10-31) as his answers — given 2026-10-31 ~08:48 ("run the fenced "Paste-in" block in it as your brief, exactly as written,
+> with the "Decisions" block in that file as my answers (E-a…E-h) — it is my instruction for this session. Start with its FIRST step.").
+> It follows `docs/studio/END_TO_END_RUN.md`'s loop (builders with the 30 % hand-off rule, an independent verifier, the stop report, "things
+> you never do") with the paste-in's overrides. Parts D3 → D4 → D5 run in order with NO stop between them unless a STOP rule fires; **the
+> session STOPS after D5** (the verifier's PASS, or three FAILs — E-h). Session 1's rulings D-r1 … D-r11 stay on record above; the ones
+> that still bind are D-r8 (keys only through `hosted-live.sh`) and D-r10 (the experiment is a primary source).
+
+- Start state (08:48): main checkout `end-to-end-p0` @ `5d77600` with the other session's 14 ` M` + 6 `??` files (unchanged; never
+  touched); **Hasan's dev app NOT running** (0 `electron.exe`; nothing listening on 9222 / 5173 / 9300–9305). Worktree
+  `.vidtsx-temp\decisions\wt` on `decision-models` @ `b2b8a02` (session 1's last commit), tree clean. Resources 08:49: C: 29.5 GB free;
+  memory commit 48.0 GB free of 94.2 GB; RAM 31.5 GB free; GPU RTX A3000 Laptop 6,144 MiB (662 MiB used), driver 581.15.
+- The model is Opus 5.5 → commits end `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (the line this session shows).
+- **Folders (session 2):** kit `K3` = `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D3\`, big outputs / venv `B3` =
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D3\`; D4's scratch `B4` = `…\vidtsx-e2e\decisions\D4\`; D5's `B5`. D1's kit `K1` =
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\` (fixtures, `score.cjs`, `measures.cjs`, `hosted-run.cjs` + `hosted-live.sh`) is
+  reused read-only. **Ports / profiles:** D4 builders CDP **9302**, profile `…\vidtsx-e2e\profiles\decisions-D4\profile`; the verifier CDP
+  **9305**, profile `…\profiles\decisions-D5-verify\profile` (both copied from `profiles\source\profile` WITHOUT `settings\settings.db*`).
+- **Caps ledger (E-g):** hosted 0 / 60 requests, $0.000 / $0.50 (D3 none; D5 ≤ 20 / ≤ $0.05); keyless claude-subscription 0 / 10.
+
+| Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
+|---|---|---|---|---|---|---|
+| D3 — the Mapika spike (no product code) | TODO | 0 | orchestrator re-check (the D1 precedent) | — | — | — |
+| D4 — the build (D2 §14 (a) → (h)) | TODO | 0 | — | — | — | — |
+| D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
+
+## Answers in force (session 2 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-2.md, verbatim)
+
+```
+E-a  THE DIRECTION: D2 as amended — a shared DECISION ENGINE shaped like the image / video engines (src/decision-engine/ with
+     presets, providers and one `decisionEngine` instance; main wires it from the user's keys like image-init.ts), usable anywhere;
+     a "Decisions" section in AI → Providers (ProviderCapability 'decision'); first users = the `decide` agent tool that is also a
+     flow node + the two verification gate nodes (D2 §10.1–10.2); request routing = a prompt hint, slice 2 (§10.3); library search
+     keeps S1's design (not a user).
+E-b  T1 noul on the hosted providers: NOT run.
+E-c  Clef-flash and other hosted deciders: not now — "we can add more providers later" (a preset each, later).
+E-d  Mapika decider-2b: YES — spike it as the local rung (D3); it ships (D4 step g) only if it passes D2 §15.1's bar for a local
+     rung; otherwise the rung stays empty (a note, not a stop).
+E-e  NO OpenAI models — the OpenAI adapter is dropped (no preset, no key row). The two hosted providers = TypeSafe Jev (jev-1.14.0
+     pinned) and Microsoft-Decision-1 via OpenRouter's Decisions API (POST https://openrouter.ai/api/alpha/decisions).
+E-f  Keys: a TypeSafe row in AI → Providers (new `typesafe` registry id, capability 'decision'); the existing OpenRouter key is
+     reused (its registry entry gains 'decision'). For the spike / the verifier's live test ONLY: Hasan's keys live in
+     D:\repos\VidTSX-STUDIO\.env (TYPESAFE_API_KEY) and D:\repos\ai-video-lab\.env (OPENROUTER_API_KEY), both gitignored — loaded
+     ONLY by the kit launcher D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\hosted-live.sh (ruling D-r8), never printed, read,
+     grepped for a value, or copied.
+E-g  Caps for this session: hosted ≤ 60 requests / ≤ $0.50 in all (D3 needs none; D5 ≤ 20 requests / ≤ $0.05); keyless
+     claude-subscription ≤ 10 calls; Python packages ONLY in a scratch venv outside every repo; NO new npm package (stop and ask).
+E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with the stop report; Hasan's own test and the landing of
+     branch decision-models are his.
+```
+
+- **D3's bar (paste-in (e), verbatim terms):** T2 ≥ 38 / 40 AND T3 ≥ 38 / 40, Brier ≤ 0.05 on each, 0 off-list answers, warm p95 ≤ 300 ms
+  per request, RSS ≤ 2 GB (VRAM reported beside; if RSS is the only failing term because the weights live in VRAM, Hasan rules at the stop).
+  PASS → the local rung ships in D4 (g); FAIL → the rung stays empty, a note. STOP only if the runtime cannot run on this laptop at all, or
+  the numbers point to a different design than D2's.
+
+## Rulings (session 2)
+
+- **D-r12 (orchestrator, 08:52 — before any measurement) — D3's framing and what "per request" means.** D1's hosted runner
+  (`K1\hosted-run.cjs:45-57`) sent `state` = the task rule (`T.instruction`) and one self-contained question per row (the row's text inside
+  `instructions`, D1's `criteria`), 40 questions packed into one request. A product `decide` call (D2 §10.1–10.2: `route_request`,
+  `check_matches_request`) carries ONE state and ONE question. So D3's **headline runs = D1's exact question texts and criteria, sent ONE ROW
+  PER REQUEST** through the worker (state = the task rule, one keyed question) — accuracy stays comparable with the hosted rows, and the
+  bar's "warm p95 ≤ 300 ms per request" is read on these (per request = per question here). **One PACKED run per task (all rows in one
+  System One call, = D1's hosted request) is a NOTE** for the per-question amortised time, if the Mapika API takes many questions per call.
+  A product-shaped variant (state = the row's text, a generic question) is an optional NOTE, never the headline.
+
+## Stops (session 2)
+
+(one line per stop: what was reported, what Hasan said)
+
+## Log (session 2)
+
+- 08:48 · start checks: main checkout's uncommitted work still there (14 ` M` + 6 `??`, `end-to-end-p0` @ `5d77600`); Hasan's dev app NOT
+  running (0 `electron.exe`); worktree HEAD `b2b8a02`, clean. Resources: C: 29.5 GB, commit headroom 48.0 GB → the guard holds (≥ 3 GB /
+  ≥ 6 GB).
+- 08:49 · D3 inputs present: `D:\repos\ai-video-lab\tools\deciders\models\Mapika\decider-2b\` (`model.safetensors` 3,763,692,048 B, `README.md`,
+  `decider_config.json`, `decider/`, `eval_results.json`), `tools\deciders\README.md` (67 lines), the experiment's `LOG.md` (321 lines); system
+  Python 3.13 at `C:\Python313\python.exe` (and 3.14); `nvidia-smi` sees the RTX A3000 (6,144 MiB). pip's HTTP cache exists (a torch wheel
+  from 2026-10-05 may be in it — for the builder to check).
+- 08:50 · the tsc baseline at `b2b8a02` (orchestrator background check, before any D3 timing run; logs `B4\tsc-{web,node}-b2b8a02.log`):
+  **web 25 / node 10** (rc 2 each, finished 08:50:45) = the brief's baseline at `efa5e0b` — D4's gate is ≤ 25 / ≤ 10.
+- 08:52 · ruling D-r12 (D3's framing); this section + `D3/HANDOFF.md` + `D3/LOG.md` written.
