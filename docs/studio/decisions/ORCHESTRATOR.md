@@ -445,7 +445,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D3 — the Mapika spike (no product code) | **DONE — verdict FAIL: the local rung stays empty** (a note, no STOP; D4 (g) not built) | 3 | orchestrator re-check 09:30 (headline re-scored equal) + 09:44 (report) | docs `b5a3d3e` `17b3348` `15b00d8` `048c8a7` `2082918` | GPU headline T2 38 / 40 Brier 0.053, T3 33 / 40 Brier 0.122, off-list 0, warm p95 92.5 / 227.2 ms, peak RSS 4,483.7 MB → 3 PASS / 4 FAIL; `D3-mapika-report.md` 264 lines | 2026-10-31 08:53 / 09:43 |
-| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) DONE `c7ad6da`; (b) next | 1 | (a) re-checked 10:02 | code `c7ad6da` | (a): 4 files / 66 tests; tsc 25 / 10 | 2026-10-31 09:46 / — |
+| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) DONE `c7ad6da`, (b) DONE `ed79420`; (c) next | 2 | (a) re-checked 10:02, (b) 10:19 | code `c7ad6da` `ed79420` | (a)+(b): 9 files / 115 tests; tsc 25 / 10 | 2026-10-31 09:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 2 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-2.md, verbatim)
@@ -536,6 +536,18 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   measured model; any other snapshot stays false (drift is never calibrated). §15.1's "exactly" is read as "exactly the measured
   (provider, model, family) triples". Also accepted: `src/decision-engine/**/*` added to `tsconfig.node.json`'s `include` (the library-search
   precedent `62685e9`), so tsc checks the engine before main imports it.
+- **D-r18 (orchestrator, 10:19) — D4 builder #2's six decisions, accepted; the one that shapes §15: `band` reads the TOP PROBABILITY, never
+  System One's `confidence`.** D1's recorded bodies carry a `confidence` that differs from the top probability (by up to 0.10 on Jev, 0.094 on
+  MSD1), and D1's scorer acts on the top probability (`K1\measures.cjs:18,25-26`: choice → `p_top` = the renormalised `probabilities[choice]`;
+  noul → `max(p, 1 − p)` with the answer `p ≥ 0.5`). So: (1) `DecisionAnswer.confidence` is the provider's own value passed through (D2 §5.1
+  "unchanged"; the top probability only when a provider sends none) — D2 §3's "confidence = the top answer's probability" does not hold for
+  System One and is NOT what any gate reads; **the `decide` tool / node and the built-ins compute `band = act` iff the top probability (choice:
+  `probabilities[choice]`; noul: `max(p, 1 − p)`) ≥ `threshold` AND `calibrated`** — the quantity D1 calibrated. (2) A cache hit reports usage
+  0 / 0 and logs nothing (D2 §9). (3) Per-HTTP-call usage leaves the engine through `setUsageListener` (one event per call, naming the rung);
+  main's `decision-usage.ts` maps the rung to the key's registry id (`typesafe` / `openrouter`) and must not double-log an `llm` call the text
+  engine already logs. (4) The LLM fallback's strict parse (noul = a JSON boolean, score = a level's text). (5) `scrub.ts` +
+  `providers/system-one-answers.ts` beside D2 §4's table (the ≤ ~300-line rule). (6) A failed rung's `skipped` entry reads `provider error —
+  <scrubbed message>`; `skipped` is omitted when empty.
 
 ## Stops (session 2)
 
@@ -612,4 +624,18 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 - 10:01–10:02 · **Orchestrator re-check:** HEAD `80ca732`; `d190e27..HEAD` = the 11 decision files + `tsconfig.node.json` + D4 HANDOFF / LOG;
   vitest on the four (a) files → **4 passed / 66 passed**; tsc web 25 / node 16 with the two untracked red tests, **node 10 without them** (all 6
   extra errors are in those two files) → HEAD is at the baseline; `calibration-table.ts` read (36 lines; six rows as described). → ruling
-  **D-r17**. D4 builder #2 (part (b)) to spawn.
+  **D-r17**. D4 builder #2 (part (b)) to spawn. (Commit `649c42b`, 10:02:52.)
+- 10:03 · D4 builder #2 spawned (HEAD `649c42b`; part (b) — presets, the engine class, the System One transport tested on D1's recorded
+  bodies (scrubbed fixtures + key scan), the LLM fallback).
+- 10:16 · D4 builder #2 HANDOFF (~60 calls, ~14 min; code `ed79420`, docs `47abe16`): **part (b) DONE** — `decision-engine.ts` (265 lines; validate →
+  ladder → per-rung cache → provider → `calibrated` from the SERVED model + family; `provider-error` falls through once; budget race, default
+  15 s; `setUsageListener`), `presets.ts` (both $0.042 / M input), `index.ts`, `providers/system-one-provider.ts` (D-r16 transport; OpenRouter
+  noul criteria fill; retry once on 429 / 5xx / network; split > 400 questions or 64k tokens; `usage.cost` else tokens × price),
+  `providers/system-one-answers.ts`, `providers/llm-fallback-provider.ts`, `scrub.ts`; fixtures 39 KB (T2 + T3 only: `d1-scored-t2-t3.json`,
+  `system-one-recorded-bodies.json`, `system-one-dry-run-slice.json`); red 5 failed (missing modules) → green 9 / 115; the 4 recorded bodies × 40
+  rows map to D1's scored probabilities / p / tokens to 4 dp; the request body equals D1's dry-run body for both presets. Six decisions (→ D-r18).
+- 10:17–10:19 · **Orchestrator re-check:** HEAD `47abe16`; `649c42b..HEAD` = 16 engine files + D4 HANDOFF / LOG; vitest `src/decision-engine` → **9 /
+  115 passed**; tsc **web 25 / node 10**, 0 errors in a decision file; largest source file 265 lines; no `any` / default export; the engine imports
+  only `vitest`, its own files and `../shared/types/decisions`; **key scan over the three fixtures** (`sk-…`, `sk-or-…`, `Bearer …`, `api_key`,
+  `authorization`, `TYPESAFE`, `OPENROUTER_`, `secret`, any 32+ char token) → nothing; `measures.cjs:18,25-26` read (the scorer acts on the top
+  probability) → ruling **D-r18**. D4 builder #3 (part (c), main's wiring) to spawn.
