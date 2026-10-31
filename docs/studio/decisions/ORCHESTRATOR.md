@@ -790,7 +790,7 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | TODO — builder #7's leftovers to judge first | — | — | — | — | — |
+| D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | BUILDING — steps 1–4 DONE (`cc754fa` `8f6ff6f`); step 5 (build + stills) next | 1 (#8) | re-check 17:25 (482 tests, tsc 25 / 10) → D-r24 | code `cc754fa` `8f6ff6f` | — | 2026-10-31 17:13 / — |
 | D4 (h) — the exit check | TODO | — | — | — | — | — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
@@ -821,7 +821,23 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 
 ## Rulings (session 3)
 
-(none yet)
+- **D-r24 (orchestrator, 17:25) — D4 builder #8's (f) decisions, accepted (1–3 shape how §15.3 2 and the D5 brief read).** (1) **TypeSafe's
+  key row lives in the AI → Providers "Decisions" section** (no longer in "API keys"); OpenRouter keeps its ONE key row in "API keys" and is
+  LISTED in Decisions (status + a pointer, no second input) — §15.3 2's "a Decisions section with the TypeSafe row (and OpenRouter listed under
+  it too)" reads on this (`DecisionsProvidersSection.tsx`, `decision-providers.ts` `decisionSectionRows`). (2) **The TypeSafe Test button sends
+  exactly `{ test: 'jev' }`** (`decision-providers.ts` `runDecisionKeyTest`) and is DISABLED unless a key is SAVED and no typed draft / removal
+  is pending (`decisionKeyTestGate`) — D-r19 (3) tightened, not changed; mode `off` makes the test answer `no-provider` (main's `testKey` goes
+  through the engine). (3) **The free-form tester sits in Settings › General › Decisions behind a NEW dev-preview flag `decisions-tester`**
+  (`feature-flags.ts` `FEATURE_FLAGS` `false` → on under `electron-vite dev`, hidden in a production build, the file's own rule for `false`
+  entries) — so the worktree's `electron-vite build` out/ (builders' and the verifier's) does NOT show it; that is D2 §12's gate working, not a
+  missing screen. §15.3 1's stub run uses `window.api.decisionsDecide` with `featureSource: 'decision-test'` (D-r20), which needs no tester
+  UI. The tester shows probabilities as numbers (3 decimals) — the one place they show (D2 §8). (4) **The `p` handle is hidden on the canvas**
+  (`PortDef.recordOnly`, `port-visibility.ts` `drawnPorts`, `CustomNode.tsx`; 16 source lines, within D-r22 (2)'s ≤ ~20); the runner still
+  files `p` in `run.json`; an edge wired from `p` has no handle to draw on (React Flow skips it) — a note (no flow wires `p` today). (5) The
+  order editor sends the whole new order per click; mode and model are separate patches. Re-check 17:24–17:25: the related suites (`src/shared/
+  decisions-*` tests, `src/features/ai-models`, `src/features/flows`, `src/main/services/agents/tools`, the preload-surface + decisions-handlers
+  tests, `src/main/services/decisions`, `src/decision-engine`) → **59 passed + 1 skipped files, 482 passed + 2 skipped tests** (the skipped =
+  the gated live test) (`B4\orch-f-recheck.log`); tsc **web 25 / node 10** (`B4\tsc-{web,node}-orch-f.log`).
 
 ## Stops (session 3)
 
@@ -832,4 +848,18 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 - 17:11 · start checks: main checkout's uncommitted work still there (14 ` M` + 6 `??`, `end-to-end-p0` @ `5d77600`); Hasan's dev app NOT
   running (0 `electron.exe`; nothing on 5173 / 9222); worktree HEAD `bfa181f`, builder #7's 4 ` M` + 10 `??` unchanged (11:47–11:49 stamps).
   Resources: C: 42.99 GB, commit headroom 63.29 GB → the guard holds.
-- 17:13 · this section written; committed with its path only (builder #7's code stays uncommitted for D4 builder #8 to judge).
+- 17:13 · this section written; committed with its path only (`30ce081`; builder #7's code stays uncommitted for D4 builder #8 to judge).
+- 17:13 · D4 builder #8 spawned (HEAD `30ce081`; judge builder #7's leftovers → a green sub-checkpoint, then part (f) steps 1–5).
+- 17:22 · D4 builder #8 HANDOFF (~87 tool calls, ~10 min; code `cc754fa` `8f6ff6f`, docs `4646b64`): **(f1)** builder #7's leftovers kept (36 / 36
+  green as found; related 156 + 1 skipped / 1 red = `builder-libraries`), one fix (the tester's 30 s budget, D2 §9), nothing dropped; **(f2)**
+  `src/shared/decisions-client.ts`, `runDecisionKeyTest`, `useDecisionsSettings.ts` + `rows/DecisionsRow.tsx` (under Library in
+  `GeneralSettingsContent.tsx`), `DecisionsProvidersSection.tsx` (after "API keys"), the dev-preview flag `decisions-tester` + `useDecisionsTester.ts`
+  + `DecisionsTester.tsx`; red 2 files / 2 tests → green 19 / 19; related 177 + 1 skipped / 1 red (`builder-libraries`); tsc 25 / 10; largest grown
+  file `ProviderKeyRow.tsx` 151 → 157. Step 5 (build + two CDP stills) NOT done. Five decisions (→ D-r24). **Rule breach (self-reported):** the last
+  HANDOFF "Agents so far" entry + the LOG line were appended with a bash heredoc, not the Edit tool — the text is correct (committed `4646b64`);
+  the next brief repeats the rule.
+- 17:24–17:25 · **Orchestrator re-check:** HEAD `4646b64`, tree clean; `30ce081..HEAD` = 27 code paths + D4 HANDOFF / LOG; vitest over the related
+  suites → **59 passed + 1 skipped files, 482 passed + 2 skipped tests**; tsc **web 25 / node 10**; read `decision-providers.ts`,
+  `DecisionsProvidersSection.tsx`, the `feature-flags.ts` / `CustomNode.tsx` / `flows.ts` / `decide-run.ts` / `ProviderKeysTable.tsx` /
+  `useProviderKeyDrafts.ts` / `ProvidersContent.tsx` diffs and `port-visibility.ts`; imports of the new `src/shared/decisions-*.ts` = `./ipc/types/
+  decisions`, `./types/decisions`, intra only → ruling **D-r24**. D4 builder #9 (step 5 of (f), then (h)'s stub live checks) to spawn.
