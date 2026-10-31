@@ -928,7 +928,13 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   caps used hosted 4 / 60, keyless 2 / 10. DEFERRED-HASAN: §15.3 1's "5 real Jev calls" and §15.3 6's one real `check_matches_request` run with
   his key inside the app; the landing of branch `decision-models` (not pushed, not merged). Open questions for Hasan: D-r16 (e) (do the hosted
   40 / 40 rows hold in a product-shaped request, state = the evidence?), D3 §10 item 2 (D2 §5.3's "CPU by default" for a later local rung), D-r27
-  (a) (should `skipped` name a rung switched off in Settings?). Hasan said: — (awaiting).
+  (a) (should `skipped` name a rung switched off in Settings?). **Hasan said (2026-10-31, after 18:53):** "1. yes 2. no 3. what do you
+  mean?" → (1) D-r16 (e): YES — the product-shaped request (state = the evidence) must be MEASURED before a free-form `decide` is relied on
+  (not started: new hosted work needs his go and a cap); (2) D3 §10 item 2: NO — a later local rung does NOT run on CPU by default (D2 §5.3's
+  "CPU by default" to be amended when a local rung is next designed; D2 itself not edited by the orchestrator); (3) D-r27 (a): explained back
+  (`ladder.ts` `planDecisionLadder` orders `['local', ...enabled, ...disabled, 'llm']` and `skippedBefore` lists only rungs AHEAD of the one
+  that answered, so a switched-off rung never appears; the only place `skipped` is shown is the dev-preview tester's "Skipped:" line,
+  `DecisionsTester.tsx:74`) — awaiting his call.
 
 ## Log (session 3)
 
