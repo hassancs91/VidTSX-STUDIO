@@ -1,8 +1,8 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF (D4 builder #1, 2026-10-31 09:59) — **part (a) DONE at `c7ad6da`** (4 test files / 66 tests green, tsc web 25 / node 10);
-**part (b) started RED FIRST: two UNTRACKED test files** (`src/decision-engine/{decision-engine,presets}.test.ts`, red on the missing modules
-only — left uncommitted so HEAD stays green and tsc stays at baseline). Earlier: orchestrator 09:44 — D3 judged **FAIL, the local rung stays
-empty → part (g) is NOT built**; ruling **D-r16** binds (b), (d), (e).
+status: HANDOFF (D4 builder #2, 2026-10-31 10:16) — **part (b) DONE at `ed79420`** (9 test files / 115 tests green after a red run, tsc
+web 25 / node 10, fixture key scan empty); **part (c) is next** (fresh builder). Part (a) DONE at `c7ad6da`. Earlier: orchestrator 09:44 —
+D3 judged **FAIL, the local rung stays empty → part (g) is NOT built**; rulings **D-r16** (binds (b), (d), (e)) and **D-r17** (builder #1's
+four contract decisions, accepted 10:02).
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it unless absolute).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — section "Session 2" (Hasan's E-a … E-h verbatim, the rulings from
@@ -41,7 +41,7 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 | part | what | status | commit(s) |
 |---|---|---|---|
 | (a) | `src/decision-engine/` types + validate / ladder / calibration-table / cache, tests first; `src/shared/types/decisions.ts` (§3) | **DONE** | `c7ad6da` |
-| (b) | `providers/system-one-provider.ts` (injected `fetch`) + contract tests on D1's recorded responses (scrubbed fixtures) + dry-run bodies; `decision-engine.ts` + `presets.ts` + `index.ts`; the LLM-fallback provider (§5.4) | **RED FIRST, in progress** — `decision-engine.test.ts` + `presets.test.ts` written and run red (UNTRACKED in the worktree as of `c7ad6da`); no (b) source yet | — |
+| (b) | `providers/system-one-provider.ts` (injected `fetch`) + contract tests on D1's recorded responses (scrubbed fixtures) + dry-run bodies; `decision-engine.ts` + `presets.ts` + `index.ts`; the LLM-fallback provider (§5.4) | **DONE** | `ed79420` |
 | (c) | `src/main/services/decisions/` (decision-init from credentials like `image-init.ts`, decision-usage, decision-settings, decision-runtime); registry `typesafe` + `'decision'` capability + label; `openrouter` gains `'decision'`; IPC (§12) + preload + status; the preload-surface test | TODO | — |
 | (d) | `src/main/services/agents/tools/decide.ts` (tool + flow node via `ports`) + `check_matches_request` + `route_request`; T2 / T3 unit tests through an injected provider; the no-claim test | TODO | — |
 | (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`) | TODO | — |
@@ -150,7 +150,60 @@ ProviderKeyRow.tsx`; `src/main/services/agents/tools/{registry-core,generate-tex
 7. **Cache:** a caller that shares an in-flight call gets `cached: true` (it made no request of its own → no usage row); failures reject every
    sharer and store nothing.
 
-**Part (b), red first — UNTRACKED (as of `c7ad6da`), not committed so HEAD stays green / tsc at baseline:**
+**Part (b) — `ed79420` (2026-10-31 10:15), 16 paths, all as of `ed79420`:**
+- `src/decision-engine/decision-engine.ts` (265 lines) — `class DecisionEngine` :113, `decisionEngine` :265; `setSettingsResolver` :127,
+  `setUsageListener` :132 (NEW: one `DecisionUsageEvent` :36 per provider HTTP call = `{ provider, featureSource, model as served,
+  inputTokens, costUsd, durationMs }`, emitted only by a real call, never by a cache hit or a sharer — part (c)'s `decision-usage.ts` hooks
+  here), `register` :137 (system-one + key → `SystemOneProvider`; else throws "…registerInstance()"), `registerInstance` :154, `decide` :177,
+  `decideWith` :182, `run` :186 (validate → readiness of every registered provider → `planDecisionLadder` → per usable rung
+  `cache.run({provider, model requested, state, questions})` → stamp), `call` :241 (the provider call raced against the budget signal, so
+  a provider that ignores its signal cannot hold the call or the cache's in-flight slot past the budget), `classify` :256 (caller cancel →
+  `cancelled`; the budget's timer → `timeout`; a `DecisionError` keeps its code; anything else → `provider-error`; every message scrubbed).
+  `DEFAULT_DECISION_TIMEOUT_MS` :31 = 15,000 (§9). `constructor({ fetch?, now? })` — `fetch` goes to every System One provider `register`
+  builds.
+- `src/decision-engine/presets.ts` — `DECISION_PROVIDER_PRESETS` :7 (`jev`, `openrouter-decisions`, both `usdPerMInputTokens: 0.042`).
+- `src/decision-engine/index.ts` — re-exports the engine, the types, the presets, `DecisionLadderSettings`, both provider classes and their
+  public types.
+- `src/decision-engine/providers/system-one-provider.ts` (225) — `SystemOneFetch` :34 (the structural slice of `fetch`), `SYSTEM_ONE_LIMITS`
+  :40, `SystemOneProvider` :106: body `{ model, state, questions }` with the caller's questions unchanged except OpenRouter's noul criteria
+  (`noulCriteriaRequired`, default = host `openrouter.ai`); `Authorization: Bearer` + `Content-Type: application/json`; one retry (jitter
+  250–750 ms, injectable `retryDelayMs`) on 429 / ≥ 500 / a thrown fetch, never on another status; packs ≤ 400 questions and ≤ 64,000 est.
+  tokens (state + Σ instructions + criteria, `estimateTokens`) per HTTP call, a question over 32,000 → `unsupported`; usage per call =
+  `usage.input_tokens` (else the body's estimate) and `usage.cost` when present (else tokens × the preset price); served model = `json.model`.
+- `src/decision-engine/providers/system-one-answers.ts` — `readSystemOneAnswers` :73 (noul → `p`; choice / score → probabilities over the
+  caller's options, renormalised; `confidence` passed through unchanged, else the top probability; score probabilities keyed by level text or
+  index; a `refused` / `refusal` answer → `{ type: 'refused' }`; extra answers ignored; anything else → `invalid-answer` naming the key only).
+- `src/decision-engine/providers/llm-fallback-provider.ts` (167) — `LlmFallbackGenerate` :36 (structurally `llmEngine.generate`:
+  `{ prompt, systemPrompt, maxTokens, temperature: 0, signal }` → `{ text, model, usage? }`), `LlmFallbackProvider` :121 (id `llm`;
+  `isReady?` → `'no text provider'`; limits = ceiling with `maxQuestions: 100`; one prompt with the state once and every question + its
+  allowed answers; strict parse = one JSON object, optionally in ONE ```json fence; noul = a boolean, choice = an option id, score = a level
+  text; missing / extra key, off-list, cut → `invalid-answer`; chosen answer 1.0).
+- `src/decision-engine/scrub.ts` — `decisionSecrets` :15 (key + state text/JSON + every question's instructions — D-r16 puts the evidence in
+  instructions), `scrubDecisionText` :34 (replace each secret, mask `Bearer …` / `sk-…`, withhold the whole message if a 24-char run still
+  matches a secret, cut at 300 chars).
+- `src/decision-engine/types.ts` — NEW `DecisionCallUsage` :45 and `DecisionProviderOutput.calls?` :61 (per HTTP call); NEW
+  `DecisionProviderConfig.usdPerMInputTokens?` :87 (the §9 price table lives on the preset).
+- Tests: the two red files of builder #1 **passed unchanged**; NEW `providers/system-one-provider.contract.test.ts` (recorded bodies),
+  `providers/system-one-provider.test.ts` (failure paths), `providers/llm-fallback-provider.test.ts`.
+- **Fixtures** `src/decision-engine/providers/fixtures/` (39 KB in all, built by
+  `C:\Users\hasan\AppData\Local\Temp\claude\d--repos-VidTSX-STUDIO\d49810c3-af6a-4487-806f-0a54cc0c7f22\scratchpad\make-fixtures.cjs`
+  from D1's read-only kit): `system-one-recorded-bodies.json` (the 4 T2 / T3 raw bodies — `model` + `answers` + `usage`; the generation `id`
+  and upstream `provider` dropped), `d1-scored-t2-t3.json` (the 4 answer files' served model, logged usage and per-row `probs` / `pTrue`),
+  `system-one-dry-run-slice.json` (D1's T2 / T3 dry-run state + 3 questions each incl. one Arabic row — text that is all in D1's
+  `t2-routing.json` / `t3-verify.json`). No T1. No key, no `Authorization`.
+
+**Decisions builder #2 made (the orchestrator may overrule any):**
+1. **`confidence` is passed through unchanged** (D2 §5.1 "probabilities + confidence unchanged"), the top probability only when absent. Why:
+   D1's recorded bodies show System One's confidence is NOT the top probability (Jev differs by up to 0.10, MSD1 by 0.094 on T2), so §3's
+   "confidence = the top answer's probability" cannot hold for both; (d)'s band should read `probabilities[choice]` (§10.1 "top probability").
+2. **A cached result reports `usage: { inputTokens: 0, costUsd: 0 }`** — it made no request of its own (§9 "a cache hit logs nothing").
+3. **Usage per HTTP call goes out through `setUsageListener`**, not through `DecisionResult` (§3's result stays as accepted); a split request
+   yields one event per call.
+4. **The LLM fallback's noul answer must be a JSON boolean** (not "yes" / "true" strings) and score a level's text — "strict parse".
+5. **Two helper files beyond §4's table** (`scrub.ts`, `providers/system-one-answers.ts`) — the ~300-line rule; no other layout change.
+6. A provider-error's `skipped` why reads `provider error — <scrubbed provider message>`; `skipped` is omitted when empty (a pin).
+
+**Part (b)'s two tests were written red by builder #1 (kept for the record):**
 - `src/decision-engine/presets.test.ts` — exactly two presets: `jev` (`system-one`, `https://api.typesafe.ai/v1/systemone`, `jev-1.14.0`,
   `credentialId: 'typesafe'`) and `openrouter-decisions` (`system-one`, `https://openrouter.ai/api/alpha/decisions`,
   `microsoft/microsoft-decision-1`, `credentialId: 'openrouter'`); no key, no OpenAI; `index.ts` re-exports `decisionEngine`,
@@ -181,12 +234,34 @@ All from the worktree root, as of `c7ad6da` (logs in `C:\Users\hasan\AppData\Loc
   "Cannot find module './decision-engine'" / "'./presets'" (`b-red.log`). NOTE: while those two files are in the tree without their modules,
   `tsc -p tsconfig.node.check.json` will count their TS2307s above 10 — that is why they are untracked.
 
+Part (b), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
+- RED (10:10, the three provider test files written, no (b) source): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/decision-engine` → `Test Files 5 failed | 4 passed (9)`, `Tests 66 passed (66)`; the 5 fail only on "Cannot find module
+  './decision-engine' | './presets' | './llm-fallback-provider' | './system-one-provider'" (`b-red-2.log`).
+- GREEN (10:13, as of `ed79420`'s tree): the same command → `Test Files 9 passed (9)`, `Tests 115 passed (115)` (`b-green-1.log`).
+- tsc (10:14): `… tsc -p tsconfig.web.check.json --noEmit` → **25** errors (`tsc-web-b.log`); `-p tsconfig.node.check.json --noEmit` →
+  **10** (`tsc-node-b.log`); none in a decision file; `--listFilesOnly` lists 24 `decision-engine` files (every .ts incl. the JSON fixtures).
+- Contract on D1's recorded bodies: all 4 bodies × 40 rows map to D1's scored `probs` (choice = D1's argmax, every probability to 4 dp) /
+  `pTrue` (4 dp), the served model, `usage.input_tokens` (10,858 / 6,087 / 8,241 / 5,728); MSD1 `usage.cost` 0.000346122 / 0.000240576 read
+  exactly; Jev cost = 10,858 × $0.042 / M. The transport test sends D1's dry-run state + questions and asserts the parsed body EQUALS
+  `{ model, state, questions }` of D1's dry-run body, for both presets (D-r16 (a)).
+- Key-pattern scan (10:15) over every fixture: `grep -noE 'sk-[A-Za-z0-9]|sk-or-|[Bb]earer|[A-Za-z0-9+/_=-]{32,}|TYPESAFE|OPENROUTER'
+  src/decision-engine/providers/fixtures/*.json | grep -v ':microsoft/microsoft-decision-1-20261009$'` → **empty** (exit 1; the only raw hit
+  of the 32-char pattern is the served model id, filtered by name) and `grep -noiE 'api_key|apikey|authorization|x-api-key|password|secret'
+  src/decision-engine/providers/fixtures/*.json` → **empty** (exit 1).
+- House rules (10:15): imports in the 16 (b) paths = `../shared/types/decisions`, intra-engine, the 3 fixtures, `vitest` only (no electron,
+  Node built-in, fs, features, renderer, studio, asset-library, `src/engine`); no `any`, no `export default`; longest source
+  `decision-engine.ts` 265 lines, longest test `decision-engine.test.ts` 293. No hosted call, no app launch; the tests' keys are fakes
+  (`sk-test-FAKE-…`, `sk-or-v1-FAKE-…`).
+
 ## Next step
 
-Part (b): make the two untracked red files green by writing `src/decision-engine/{presets,decision-engine,index}.ts` and
-`providers/system-one-provider.ts` (injected `fetch`, D-r16 transport), then — red first — add `providers/system-one-provider.test.ts` on D1's
-recorded responses (scrubbed copies in `src/decision-engine/providers/fixtures/`, key-pattern scan before committing) and
-`providers/llm-fallback-provider.ts` + its test (§5.4); commit (b) with explicit paths INCLUDING the two test files; tsc ≤ 25 / 10.
+Part (c) — red first: `src/main/services/decisions/` (`decision-init.ts` registering each `DECISION_PROVIDER_PRESETS` entry whose
+`credentials[preset.credentialId]` exists and re-registering on a key change exactly like `src/main/services/image-init.ts:100-107`, plus the
+`LlmFallbackProvider` instance with `generate: (r) => llmEngine.generate(r)`; `decision-usage.ts` = `decisionEngine.setUsageListener` → one
+`aiUsageService.appendEntry` row per event with `provider` = the KEY id (`typesafe` / `openrouter`, D-r17), `requestType: 'decision'`, the new
+`featureSource` values; `decision-settings.ts` → `setSettingsResolver`; `decision-runtime.ts`), the `typesafe` `PROVIDER_REGISTRY` entry +
+`'decision'` capability + label (and `'decision'` on `openrouter`), IPC §12 + preload + status, and the preload-surface test.
 
 ## Open problems
 
@@ -196,14 +271,24 @@ recorded responses (scrubbed copies in `src/decision-engine/providers/fixtures/`
 2. `docs/studio/decisions/ORCHESTRATOR.md` was already modified in the working tree when builder #1 started (not this builder's edit) — left
    unstaged in every commit.
 3. (b) will need `typesafe` in `PROVIDER_REGISTRY` only in (c): the presets use the local `DecisionCredentialId`, so (b) does not depend on it.
+4. Decision 1 above was RESOLVED by D-r17 (10:02); decision 4 likewise. Builder #2's decisions 1–6 (part (b)) await the orchestrator — the
+   one that shapes §15 is #1 (`confidence` unchanged; (d)'s band reads `probabilities[choice]`).
+5. The usage event's `provider` is the RUNG id (`jev` / `openrouter-decisions` / `llm`); (c) maps it to the key's registry id for the usage
+   row (`typesafe` / `openrouter`, D-r17 (1)). Whether the `llm` rung writes its own row is (c)'s call — the text engine may already log its
+   call (check `ai-usage.ts` before double-logging).
 
 ## Do-not-redo
 
 - The tsc baseline at `b2b8a02` is measured (web 25 / node 10).
 - Part (a) is DONE at `c7ad6da` — validate / ladder / calibration-table / cache and the contract; change them only with a test that says why.
 - The served-model question for the calibration table is decided and tested (decision 4) — do not re-litigate without the orchestrator.
+- Part (b) is DONE at `ed79420` — the engine class, presets, index, both providers, scrub, the fixtures + their key scan. Do not re-copy D1's
+  bodies; (e) reuses `providers/fixtures/` for the shape tests and copies only `t2-routing.json` / `t3-verify.json` + the answer files it
+  needs for the replay.
 
 ## Agents so far
 
 - 2026-10-31 09:46–10:00 · D4 builder #1 · ~34 tool calls · part (a) red → green → `c7ad6da`; part (b) red-first tests (engine + presets),
   untracked; HANDOFF + LOG.
+- 2026-10-31 10:03–10:17 · D4 builder #2 · ~45 tool calls · part (b): provider tests red → engine + presets + providers green → `ed79420`;
+  HANDOFF + LOG.
