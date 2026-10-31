@@ -85,6 +85,11 @@ export interface DecisionProviderConfig {
   credentialId?: DecisionCredentialId;
   /** List price for input (§9: the cost when the provider reports none; output is free on System One). */
   usdPerMInputTokens?: number;
+  /**
+   * System One only: the provider requires `criteria` on `noul` (OpenRouter). Default: detected from the host — so main sets it for the
+   * OpenRouter rung when a dev stub URL (ruling D-r21) replaces the host.
+   */
+  noulCriteriaRequired?: boolean;
 }
 
 /** A built-in hosted provider: the shared credential that unlocks it (the `ImageProviderPreset` shape). */

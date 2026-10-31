@@ -1,0 +1,178 @@
+{
+ "format": "vidtsx-d1-answers/1",
+ "candidate": "hosted-jev",
+ "task": "t3",
+ "mode": "noul",
+ "probability": "model",
+ "requests": [
+  {
+   "requestId": "jev-t3-noul-001",
+   "latencyMs": 342,
+   "questions": 40,
+   "phase": "cold",
+   "model": "jev-1.14.0"
+  }
+ ],
+ "answers": [
+  {
+   "qid": "t3-01",
+   "pTrue": 0.96
+  },
+  {
+   "qid": "t3-02",
+   "pTrue": 0.94
+  },
+  {
+   "qid": "t3-03",
+   "pTrue": 0.95
+  },
+  {
+   "qid": "t3-04",
+   "pTrue": 0.93
+  },
+  {
+   "qid": "t3-05",
+   "pTrue": 0.92
+  },
+  {
+   "qid": "t3-06",
+   "pTrue": 0.95
+  },
+  {
+   "qid": "t3-07",
+   "pTrue": 0.9
+  },
+  {
+   "qid": "t3-08",
+   "pTrue": 0.95
+  },
+  {
+   "qid": "t3-09",
+   "pTrue": 0.02
+  },
+  {
+   "qid": "t3-10",
+   "pTrue": 0.01
+  },
+  {
+   "qid": "t3-11",
+   "pTrue": 0.02
+  },
+  {
+   "qid": "t3-12",
+   "pTrue": 0.07
+  },
+  {
+   "qid": "t3-13",
+   "pTrue": 0.01
+  },
+  {
+   "qid": "t3-14",
+   "pTrue": 0.04
+  },
+  {
+   "qid": "t3-15",
+   "pTrue": 0.01
+  },
+  {
+   "qid": "t3-16",
+   "pTrue": 0.02
+  },
+  {
+   "qid": "t3-17",
+   "pTrue": 0.97
+  },
+  {
+   "qid": "t3-18",
+   "pTrue": 0.98
+  },
+  {
+   "qid": "t3-19",
+   "pTrue": 0.93
+  },
+  {
+   "qid": "t3-20",
+   "pTrue": 0.97
+  },
+  {
+   "qid": "t3-21",
+   "pTrue": 0.97
+  },
+  {
+   "qid": "t3-22",
+   "pTrue": 0.03
+  },
+  {
+   "qid": "t3-23",
+   "pTrue": 0.02
+  },
+  {
+   "qid": "t3-24",
+   "pTrue": 0.08
+  },
+  {
+   "qid": "t3-25",
+   "pTrue": 0.01
+  },
+  {
+   "qid": "t3-26",
+   "pTrue": 0.04
+  },
+  {
+   "qid": "t3-27",
+   "pTrue": 0.88
+  },
+  {
+   "qid": "t3-28",
+   "pTrue": 0.92
+  },
+  {
+   "qid": "t3-29",
+   "pTrue": 0.96
+  },
+  {
+   "qid": "t3-30",
+   "pTrue": 0.95
+  },
+  {
+   "qid": "t3-31",
+   "pTrue": 0.93
+  },
+  {
+   "qid": "t3-32",
+   "pTrue": 0.95
+  },
+  {
+   "qid": "t3-33",
+   "pTrue": 0.9
+  },
+  {
+   "qid": "t3-34",
+   "pTrue": 0.01
+  },
+  {
+   "qid": "t3-35",
+   "pTrue": 0.01
+  },
+  {
+   "qid": "t3-36",
+   "pTrue": 0.01
+  },
+  {
+   "qid": "t3-37",
+   "pTrue": 0.1
+  },
+  {
+   "qid": "t3-38",
+   "pTrue": 0.02
+  },
+  {
+   "qid": "t3-39",
+   "pTrue": 0.02
+  },
+  {
+   "qid": "t3-40",
+   "pTrue": 0.02
+  }
+ ]
+}

@@ -147,6 +147,7 @@ export class DecisionEngine {
         apiKey: config.apiKey,
         fetch: this.fetchImpl,
         usdPerMInputTokens: config.usdPerMInputTokens,
+        noulCriteriaRequired: config.noulCriteriaRequired,
       }),
     );
   }

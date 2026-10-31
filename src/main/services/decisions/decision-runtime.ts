@@ -16,7 +16,13 @@ import type {
 } from '../../../shared/ipc/types/decisions';
 import { DECISION_PROVIDER_PRESETS, DecisionError, decisionEngine, type DecideOptions, type DecisionEngine } from '../../../decision-engine';
 import { WHY_NO_KEY, WHY_NO_LOCAL, WHY_SWITCHED_OFF } from '../../../decision-engine/ladder';
-import { registerDecisionProviders, type DecisionCredentials, type DecisionLlmDeps } from './decision-init';
+import {
+  registerDecisionProviders,
+  resolveDecisionStubURLs,
+  type DecisionBaseURLs,
+  type DecisionCredentials,
+  type DecisionLlmDeps,
+} from './decision-init';
 import { getDecisionSettings, setDecisionSettings, type DecisionSettings } from './decision-settings';
 import { createDecisionUsageListener } from './decision-usage';
 
@@ -32,6 +38,8 @@ export interface DecisionRuntimeDeps {
   llm: DecisionLlmDeps;
   appendUsage: (entry: Omit<AiUsageEntry, 'id'>) => Promise<unknown>;
   emit: (event: DecisionsEvent) => void;
+  /** Ruling D-r21's dev stub URLs — resolved ONCE, at the first start (absent → the presets' URLs). */
+  resolveBaseURLs?: () => Promise<DecisionBaseURLs>;
 }
 
 /** A thrown decision failure as a wire error: a DecisionError keeps its code and its (already scrubbed) message. */
@@ -51,6 +59,7 @@ export class DecisionRuntime {
   private started: Promise<void> | null = null;
   private lastStatus = '';
   private keyTests = 0;
+  private baseURLs: DecisionBaseURLs | null = null;
 
   constructor(private readonly deps: DecisionRuntimeDeps) {}
 
@@ -77,10 +86,18 @@ export class DecisionRuntime {
   }
 
   private async register(): Promise<void> {
+    if (!this.baseURLs) {
+      try {
+        this.baseURLs = (await this.deps.resolveBaseURLs?.()) ?? {};
+      } catch {
+        this.baseURLs = {}; // a dev hook that cannot resolve never blocks decisions — the presets' URLs stand
+      }
+    }
     registerDecisionProviders(this.deps.engine, {
       credentials: await this.deps.readCredentials(),
       openRouterModel: this.deps.readSettings().openRouterModel,
       llm: this.deps.llm,
+      baseURLs: this.baseURLs,
     });
   }
 
@@ -211,6 +228,16 @@ export function getDecisionRuntime(): DecisionRuntime {
     },
     appendUsage: async (entry) => (await import('../ai-usage')).aiUsageService.appendEntry(entry),
     emit,
+    resolveBaseURLs: async () => {
+      const { app } = await import('electron');
+      return resolveDecisionStubURLs({
+        // no app (not inside Electron) → treated as packaged: a stub URL is never honoured by mistake
+        isPackaged: typeof app?.isPackaged === 'boolean' ? app.isPackaged : true,
+        env: process.env,
+        log: (line) => console.log(line),
+        warn: (line) => console.warn(line),
+      });
+    },
   });
   return runtime;
 }
