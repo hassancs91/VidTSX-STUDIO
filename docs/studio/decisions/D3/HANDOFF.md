@@ -1,5 +1,5 @@
 # D3 — the Mapika spike: decider-2b as the local rung (no product code)
-status: HANDOFF (2026-10-31 09:08 — builder #1: steps (a) facts + (b) venv & GPU smoke DONE; step (c) the worker + host next)
+status: BUILDING (2026-10-31 09:21 — builder #2: (c) worker + host DONE, round trip proven; (d) GPU runs in progress)
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it unless absolute).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — section "Session 2": its "Answers in force" (Hasan's E-a … E-h,
@@ -98,6 +98,31 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
   (run 1 at 93 % external CPU load — Defender — so repeated), answers identical (`decider-2b-v11`: billing, x_p_max 0.7817). The numbers are in
   `K3\reports\b-smoke-gpu-run1.json` / `-run2.json` and b-venv.md §4. Helpers: `K3\scripts\load-snapshot.ps1` (the guard + CPU load + top
   processes + nvidia-smi), snapshots in `K3\logs\`.
+- **(c) the persistent worker + the Node host — round trip proven** (builder #2, 09:12–09:15). Files in K3 (outside the tree):
+  - `K3\mapika_worker.py` — loads once through `decider.infer.Decider(path, device=…)` (unmodified, D-r13); protocol = one JSON object per line,
+    UTF-8 both ways: worker → host `hello` (before torch is imported) · `ready` (load_s, start_to_ready_s, mem, vram, versions, engine, dtype,
+    the per-type temperatures) · `result` {id, ok, result = the System One answer, workerMs, mem} or {id, ok:false, error} · `exit` {reason
+    eof | idle | shutdown} · `fatal` (load failed, exit 1); host → worker {id, op: `system_one` (state, questions, independent?) | `ping` |
+    `stats` | `shutdown`}. fd 1 is re-pointed at stderr at start so a library print can never corrupt the protocol; stdin is read as bytes
+    and decoded UTF-8 (python `-I` ignores PYTHONIOENCODING); exits on stdin EOF, `shutdown`, or `--idle-s` (default 300) with no request; one
+    bad request returns ok:false and never kills the worker. Memory = `K32GetProcessMemoryInfo` (working set, its lifetime peak, commit and
+    its peak); VRAM = torch's allocated / reserved / max.
+  - `K3\mapika-host.cjs` — `MapikaHost` (spawn once with `-I`, env `TORCHDYNAMO_DISABLE=1` + `HF_HUB_OFFLINE=1`; request ids `q<n>`; per-request
+    timeout (default 120 s) and load timeout (300 s); `systemOne` / `ping` / `stats` / `close` (shutdown → stdin end → kill after 30 s);
+    pending requests rejected with the stderr tail if the child exits; `hostMs` = Node → Python → Node per request). CLI `--smoke`.
+  - `K3\d1-questions.cjs` — D1's question texts + criteria + `pack()` + the System One answer reader copied VERBATIM from
+    `K1\hosted-run.cjs:35-82` (D-r12); reads `K1\fixtures\` only.
+  - Smoke `node mapika-host.cjs --smoke --rows 3 --device cuda` → `K3\reports\c-host-smoke-cuda.json` (guard snapshots
+    `K3\logs\c-host-smoke-cuda.snapshots.txt`: before 09:14:29 CPU 9 %, after 09:14:54 CPU 12 %, GPU 528 → 528 MiB, `python_processes=none`
+    after): T2 rows t2-01..03 one per request, **3 / 3 right** (cut 0.9803 / 0.8385 / 0.9742); ready 14.80 s after spawn (load 10.711 s),
+    spawn → first answer 15.88 s, first request 1,074.8 ms, warm 87.1 / 88.9 ms host (86.68 / 88.41 worker → transport 0.45 ms), 5 pings
+    0.08–0.22 ms; peak RSS 4,483.4 MB, steady 1,672.6 MB, private 6,702.6 MB; VRAM max allocated 3,647.5 MB; exit code 0 (`shutdown`).
+- **(d) the runner — `K3\d-run.cjs`** (builder #2): `--runs <task>:<mode>:<device>:<per-request|packed>[,…]`, one worker per run, one at a time
+  (refuses when the guard fails or a `mapika-venv` python is alive); CPU load before / mid-run (between two requests, the worker idle) /
+  after, nvidia-smi before / loaded / end / after; answer file `K3\answers\<name>.json` (vidtsx-d1-answers/1; `latencyMs` = the host round
+  trip, `workerMs` beside), run file `K3\reports\d-run-<name>.json`, D1's `score.cjs` run with `--out K3\reports\score-<name>` (never into
+  K1); a run with any CPU sample > 30 % is repeated once (`-rep2`, both kept); `K3\reports\d-summary.md` regenerated after every call
+  (`--summary-only` to rebuild it).
 
 ## Verified
 
