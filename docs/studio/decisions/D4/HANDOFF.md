@@ -1,6 +1,10 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF — **orchestrator 2026-10-31 17:03: D4 builder #7 (part (f)) was INTERRUPTED by the session's end (~11:50) and never handed back.
-Its work is UNCOMMITTED and UNVERIFIED in the tree** (modified: `src/features/flows/components/CustomNode.tsx`,
+status: HANDOFF — **D4 builder #8, 2026-10-31 17:22: part (f) steps 1–4 BUILT and committed (code + tests green, tsc at baseline); step 5 (the
+worktree's own build + the two CDP stills on profile `decisions-D4`) is NOT done — it is the Next step.** Builder #7's leftovers were judged
+and kept (one fix: the tester's 30 s budget) → sub-checkpoint (f1) `cc754fa`; the UI (Settings › General "Decisions" row, AI → Providers
+"Decisions" section with the TypeSafe Test button, the dev-preview tester, the `p` handle hidden) → (f2), see "Done". Previous status (orchestrator
+17:03): D4 builder #7 (part (f)) was INTERRUPTED by the session's end (~11:50) and never handed back.
+Its work was UNCOMMITTED and UNVERIFIED in the tree (modified: `src/features/flows/components/CustomNode.tsx`,
 `src/main/services/agents/tools/decide-outcome.ts`, `decide-run.ts`, `src/shared/types/flows.ts`; new: `src/features/ai-models/services/
 decision-providers{,.test}.ts`, `src/features/flows/services/port-visibility{,.test}.ts`, `src/main/services/agents/tools/decide-shared-pins.test.ts`,
 `src/shared/decisions-{outcome,tester-form,view}.ts` + `decisions-{tester-form,view}.test.ts`; written 11:47–11:49 — tests + helpers only, no UI
@@ -59,7 +63,7 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 | (c) | `src/main/services/decisions/` (decision-init from credentials like `image-init.ts`, decision-usage, decision-settings, decision-runtime); registry `typesafe` + `'decision'` capability + label; `openrouter` gains `'decision'`; IPC (§12) + preload + status; the preload-surface test | **DONE** — (c1) services + registry + wire types; (c2) IPC + preload + key-save hook + the preload-surface test | (c1) `b7b1648`, (c2) `d9ec730` |
 | (d) | `src/main/services/agents/tools/decide.ts` (tool + flow node via `ports`) + `check_matches_request` + `route_request`; T2 / T3 unit tests through an injected provider; the no-claim test | **DONE** | `feb5e69` |
 | (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`); **+ the dev-only stub hook of ruling D-r21** (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL`, honoured only unpackaged + loopback; unit-tested) — (h) and the verifier need it for §15.3 1 / 3 / 4 / 5 | **DONE** (live test written + dry-run-proven, NOT run — DEFERRED-HASAN / the verifier) | `5605c48` |
-| (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | TODO | — |
+| (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | **IN PROGRESS** — steps 1–4 built + tested (f1 + f2); step 5 (build + CDP stills) TODO | (f1) `cc754fa`, (f2) `8f6ff6f` |
 | (g) | ONLY if D3 PASSED — `src/local-decider-engine/` + the worker on the `pytorch` runtime path + the download entry | **NOT BUILT — D3 FAILED** (`D3-mapika-report.md` §6–§7: 3 PASS / 4 FAIL). The ladder starts at Jev; the local rung is reported in `skipped` as `'no local model'` (D2 §6); `local-decider-provider.ts` is NOT written in this slice; `provider: 'local'` pinned → `no-provider` | — |
 | (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | TODO | — |
 
@@ -461,6 +465,71 @@ ProviderKeyRow.tsx`; `src/main/services/agents/tools/{registry-core,generate-tex
    Main sets it `true` for a stubbed `openrouter-decisions` only; real URLs are unchanged (host detection as before; every `src/decision-engine`
    suite passes in the related run below).
 
+**Part (f), sub-checkpoint (f1) — `cc754fa` (2026-10-31 17:17), 14 paths = builder #7's leftovers, JUDGED (all kept; one fix):**
+- KEPT — `src/shared/decisions-outcome.ts` (40): `decisionOutcome` / `DecisionBand` / `DecisionGate` / `DecisionOutcome` moved here VERBATIM from
+  `decide-outcome.ts` so the renderer's tester bands with the same function; `src/main/services/agents/tools/decide-outcome.ts` (69 → 41) now
+  re-exports them (`decisionText`, `DECISION_ERROR_SENTENCES`, `decisionErrorText` unchanged). **Part (d)'s behaviour is unchanged: `decide.test.ts`,
+  `decide-no-claim.test.ts`, `decide-builtins.test.ts` pass UNCHANGED** (not edited by #7 or me). New pin file `decide-shared-pins.test.ts` (26): the
+  tool's band function IS the shared one, the tester's threshold = `DEFAULT_DECIDE_THRESHOLD`, `p` is the only record-only output.
+- KEPT — D-r22 (2), the `p` handle hidden: `src/shared/types/flows.ts` `PortDef.recordOnly?` (+2 lines), `decide-run.ts` `DECIDE_OUTPUTS` `p` gets
+  `recordOnly: true` (1 line), `src/features/flows/services/port-visibility.ts` (8, `drawnPorts`) + test, `CustomNode.tsx` (+5 / −2: draws
+  `drawnPorts(spec.outputs)`, min height from the drawn count) — 16 source lines in all, under D-r22's ~20. The flow runner is untouched
+  (`flow-args.ts` `mapOutputs` still files every output, so `p` still reaches `run.json` — `decide.test.ts`'s `mapOutputs` case is green).
+- KEPT — `src/shared/decisions-view.ts` (104, the Settings-row view model: `hostedRungViews`, `keyDotsText` "Jev — key set · OpenRouter — no
+  key", `moveHostedRung` / `removeHostedRung` / `addHostedRung` (never mutate; an empty order allowed), `localRungText` "none available",
+  `decisionsNowText` (no digit), `normalizeOpenRouterModel`) + test; `src/features/ai-models/services/decision-providers.ts` (53 → 64:
+  `isDecisionOnlyProvider`, `decisionSectionRows` (TypeSafe = key row; OpenRouter = listed), `decisionKeyTestGate` (disabled + a tooltip for no
+  saved key / an unsaved typed key / a key marked for removal), `decisionTestResult` ("Connected (N ms)" or a plain sentence; the answer's `p`
+  never read)) + test; `src/shared/decisions-tester-form.ts` (146 → 150) + test.
+- FIXED — the tester carried no budget, so the engine's 15 s default applied; D2 §9 says the developer tester gets 30 s →
+  `DECISIONS_TESTER_TIMEOUT_MS = 30_000` and `timeoutMs` on the built request (red first: 2 failing assertions, then green).
+- Dropped: nothing.
+
+**Part (f), sub-checkpoint (f2) — `8f6ff6f` (2026-10-31 17:23), 15 paths — steps 1–4, all as of `8f6ff6f`:**
+- Logic, red first: `src/shared/decisions-client.ts` (62) — `DecisionsClientApi` (structural slice of `window.api`), `loadDecisionsStatus`,
+  `applyDecisionsPatch` (sends exactly the patch; a refused patch keeps main's unchanged status + its `error`), `runDecisionsTester` (form →
+  `{ request }` only → `testerResultView`; an incomplete form makes no call); a rejected invoke → a fixed sentence, never the thrown text.
+  `decision-providers.ts` `runDecisionKeyTest` :56 — sends exactly `{ test: 'jev' }`. Tests: `src/shared/decisions-client.test.ts` (127) +
+  2 cases in `decision-providers.test.ts`.
+- Step 1 — `src/renderer/hooks/useDecisionsSettings.ts` (48: status + `onDecisionsEvent` + `apply(patch)`); `src/renderer/components/
+  SettingsModal/rows/DecisionsRow.tsx` (144: the LibrarySearchRow card — description, "Now: … · Jev — key set · OpenRouter — no key", the
+  mode select auto / off, one line per hosted rung with position, a has-key dot (accent-green / text-dim), "key set / no key · ready / why", ↑ / ↓
+  / ✕ (switch off) or + (back on, last), the local rung "none available", the OpenRouter model input + Save (blank / inner whitespace refused);
+  `data-decisions-*` hooks for CDP); `GeneralSettingsContent.tsx` (151 → 155): under "Library", `LibrarySearchRow` + `DecisionsRow` in one
+  column.
+- Step 2 — `src/features/ai-models/components/providers/DecisionsProvidersSection.tsx` (69): the TypeSafe key row (`ProviderKeyRow`, saved with
+  the page's one "Save changes" like every key) with the Test button gated by `decisionKeyTestGate` and its tooltip, + OpenRouter LISTED (Key
+  saved / No key, "Uses the OpenRouter key in API keys above — Microsoft-Decision-1. Order and model: Settings › General › Decisions"; no
+  second key input); `ProvidersContent.tsx` (97 → 106) adds the `<section data-decisions-providers>` "Decisions" right after "API keys";
+  `ProviderKeysTable.tsx` (92 → 96) drops decision-only rows (TypeSafe) from API keys; `ProviderKeyRow.tsx` (151 → 157) `test.title?` + a
+  `data-provider-test` attribute; `useProviderKeyDrafts.ts` gains `testDecision(id)` (`runDecisionKeyTest(window.api)`; the draft is never read).
+- Step 3 — `src/shared/feature-flags.ts` `'decisions-tester': false` (a dev-preview: on in dev builds, hidden in production);
+  `src/renderer/hooks/useDecisionsTester.ts` (30) + `rows/DecisionsTester.tsx` (85) under the Decisions row when the flag is on: state, type
+  (choice / noul), provider (auto / Jev / MSD1 / your AI provider), family, instructions, options; "Ask" → answer, band, provider · served model ·
+  calibrated · ms · cached, the probabilities as 3-decimal numbers, skipped rungs, or `code — message`.
+- Step 4 — D-r22 (2) is the (f1) `recordOnly` change above.
+- The preload still exposes exactly its four decisions functions (no preload / IPC / provider-keys file touched in (f)); no package.json / lock
+  change.
+
+**Decisions builder #8 made (the orchestrator may overrule any):**
+1. **TypeSafe's key row MOVES to the Decisions section** (it is no longer in "API keys"); OpenRouter keeps its ONE key row in "API keys" and is
+   LISTED in Decisions (status + a pointer, no second input) — one key, one input. §15.3 2's "AI → Providers shows a Decisions section with the
+   TypeSafe row (and OpenRouter listed under it too)" reads on this.
+2. **The Test button sends `{ test: 'jev' }` only and is disabled unless a TypeSafe key is saved AND no typed draft / removal is pending** (a
+   typed key would make the user think the typed key is tested); tooltips: "Save a TypeSafe key first — the test uses the saved key" / "Save the
+   typed key first — …never a typed one" / "This key is removed on save — nothing to test" / "Sends one tiny yes / no question to Jev with the
+   saved TypeSafe key". Its result reads like the other rows ("Connected (N ms)" / a sentence); `no-provider` → "No saved TypeSafe key, or
+   Decisions are off in Settings" (mode `off` also refuses the test — main's `testKey` goes through the engine).
+3. **The tester lives in the Settings › General Decisions row** (D2 §8 puts it in that row), behind a NEW dev-preview flag `decisions-tester`
+   (FEATURE_FLAGS `false` → on in `electron-vite dev`, hidden in a production build — so the worktree's `electron-vite build` out/ will NOT show it).
+   It shows probabilities as numbers (3 decimals) and the band at the tool's default threshold 0.9 with `allowUncalibrated: false`; it sends no
+   `allowUncalibrated` (a pinned `llm` needs none — builder #1 decision 6), so `auto` without a hosted key → `no-provider`.
+4. **The `p` handle is hidden** (16 lines; `PortDef.recordOnly`). Side effect: an edge a Flow Builder proposal or a hand-written flow wires from
+   `p` has no handle to draw on (React Flow warns and skips the edge); the runner still files `p`. The label "p (run record)" stays in the spec
+   (visible nowhere on the canvas).
+5. The order editor sends the WHOLE new order on every click (`decisions:settings:set { hostedOrder }`); a switched-off rung is listed greyed
+   with a + (back on, at the end). Mode and model are separate patches.
+
 ## Verified
 
 All from the worktree root, as of `c7ad6da` (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
@@ -593,17 +662,49 @@ Part (e), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidt
   asset-library / renderer / features; no `any`, no `export default`; longest new source `live-run.ts` 171, longest new test
   `live-dry-run.test.ts` 139; `decision-runtime.ts` 253, `decision-engine.ts` 266. No hosted call, no app launch, no package.json / lock change.
 
+Part (f), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
+- Builder #7's leftovers as found (17:14, as of `30ce081` + the uncommitted files): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/features/ai-models/services/decision-providers.test.ts src/features/flows/services/port-visibility.test.ts
+  src/main/services/agents/tools/decide-shared-pins.test.ts src/shared/decisions-tester-form.test.ts src/shared/decisions-view.test.ts` →
+  `Test Files 5 passed (5)`, `Tests 36 passed (36)` (`f0-leftovers.log`); related `… run src/main/services/agents/tools src/main/services/flows
+  src/features/flows src/features/ai-models src/shared src/main/services/decisions src/decision-engine` → `Test Files 1 failed | 156 passed | 1
+  skipped (158)`, `Tests 1 failed | 1355 passed | 2 skipped (1358)`; the 1 red = `src/shared/tsx-engine/builder-libraries.test.ts` ("@remotion/paths
+  (builder-libraries.ts) is not installed" — the known worktree-only suite) (`f0-related.log`); tsc web **25** / node **10** (`tsc-web-f0.log`,
+  `tsc-node-f0.log`).
+- (f1) RED (17:16): `… run src/shared/decisions-tester-form.test.ts` → `Tests 2 failed | 8 passed (10)` (the two `timeoutMs` assertions)
+  (`f1-red.log`); GREEN: the 5 leftover files + `decide.test.ts` + `decide-no-claim.test.ts` + `decide-builtins.test.ts` → `Test Files 8 passed (8)`,
+  `Tests 62 passed (62)` (`f1-green.log`).
+- (f2) RED (17:18): `… run src/shared/decisions-client.test.ts src/features/ai-models/services/decision-providers.test.ts` → `Test Files 2 failed
+  (2)`, `Tests 2 failed | 9 passed (11)` — "Cannot find module './decisions-client'" + "runDecisionKeyTest is not a function" ×2 (`f2-red.log`);
+  GREEN: the same → `Test Files 2 passed (2)`, `Tests 19 passed (19)` (`f2-green.log`).
+- (f2) related (17:21): `… run src/main/services/agents/tools src/main/services/flows src/features/flows src/features/ai-models src/shared
+  src/main/services/decisions src/decision-engine src/preload src/main/ipc` → `Test Files 1 failed | 177 passed | 1 skipped (179)`, `Tests 1 failed
+  | 1525 passed | 2 skipped (1528)`; the 1 red = `builder-libraries.test.ts` ("is not installed", as above); the skipped file = part (e)'s gated
+  live test (`f2-related.log`). The preload-surface test (`src/preload/api/decisions.test.ts`, four functions) is in that green run.
+- tsc (17:22, the (f2) tree): web **25** / node **10** (`tsc-web-f2.log`, `tsc-node-f2.log`; every error is in a baseline file — none in a
+  decisions / Settings / providers / flows file).
+- House rules (17:21): the 15 (f2) paths contain no `any`, no `export default`, no `electron` / `require(`; `src/features/ai-models` imports
+  nothing from `features/flows` or `features/studio` (grep empty); the new shared modules import only `./ipc/types/decisions`, `./types/decisions`,
+  `./decisions-*`; longest touched file `ProviderKeyRow.tsx` 157 (151 → 157); `GeneralSettingsContent.tsx` 151 → 155, `useProviderKeyDrafts.ts`
+  135 → 144, `ProvidersContent.tsx` 97 → 106, `ProviderKeysTable.tsx` 92 → 96. Keys in the new tests: only `sk-test-FAKE-client-0081`,
+  `sk-test-FAKE-keytest-0091`. No hosted call, no app launch, no package.json / lock change, no preload / IPC file touched.
+- NOT yet verified: the UI in the running app (step 5 below).
+
 ## Next step
 
-Part (f), in a FRESH builder context — red first: build the Settings › General "Decisions" row (mode auto / off, the hosted order, the OpenRouter
-model), the AI → Providers "Decisions" section (the TypeSafe row + OpenRouter listed under it; the TypeSafe Test button calls
-`window.api.decisionsDecide({ test: 'jev' })`, DISABLED until a TypeSafe key is SAVED — D-r19 (3) / D-r20) and the dev-preview-gated free-form
-tester (`featureSource: 'decision-test'`, D2 §12), all from `window.api.decisionsStatus` / `decisionsSettingsSet` / `onDecisionsEvent` only (no
-key ever in the renderer), and decide D-r22 (2)'s hidden `p` handle (≤ ~20 lines in the node renderer, else leave the label and note it). Read
-first: `UI_SPEC.md` (colors, spacing, layout), D2 §8 + §12 + §15.3 2 / 5, ORCHESTRATOR D-r19 / D-r20 / D-r22, `src/shared/ipc/types/decisions.ts`
-(`DecisionsStatus`), `src/preload/api/decisions.ts`, `src/features/ai-models/components/providers/{ProviderKeyRow,ProviderKeysTable}.tsx` +
-`useProviderKeyDrafts.ts`, the library-search Settings row of `docs/studio/search/ORCHESTRATOR.md`'s S3 Log (the pattern that shipped), and
-`src/shared/providers/registry.ts` (the `typesafe` entry, `decision` capability / label).
+Part (f) step 5, in a FRESH builder context: check C: ≥ 3 GB free + commit headroom ≥ 6 GB and electron.exe / ports 5173 / 9222 / 9302 (never
+touch Hasan's app); build the worktree's own `out/` (Bash from the worktree root: `unset ELECTRON_RUN_AS_NODE; export
+NODE_OPTIONS=--max-old-space-size=8192; node D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build > <log> 2>&1`); create
+the profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile` by copying `profiles\source\profile` WITHOUT
+`settings\settings.db*`; launch from the worktree's `out/` per `docs/studio/end-to-end/DRIVING.md` "Launch recipe from the worktree" on CDP
+**9302**, NO key saved; in the FIRST CDP call `window.api.studioRootSet(<a scratch folder under C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\>)`;
+then take and LOOK AT two stills into `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`: (a) Settings › General scrolled to the Decisions
+row (`[data-decisions-row]`: "Now: No provider is ready … · Jev — no key · OpenRouter — no key", both rungs, the local rung "none available") and
+(b) AI → Providers scrolled to `[data-decisions-providers]` with the TypeSafe Test button (`[data-provider-test="typesafe"]`) visibly DISABLED
+(read its `disabled` + `title` via CDP too). Clicks only on `offsetParent !== null` elements (DRIVING). The production build hides the
+dev-preview tester (decision 3) — say so; do not run `electron-vite dev`. Stop only the electron.exe whose command line holds the
+`decisions-D4` profile path (filter by Name='electron.exe'). Kit (drivers, launch script) in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\`.
+Then set part (f) DONE (row + this section) and Next step = part (h).
 
 ## Open problems
 
@@ -651,6 +752,15 @@ first: `UI_SPEC.md` (colors, spacing, layout), D2 §8 + §12 + §15.3 2 / 5, ORC
     http://127.0.0.1:<port>/…` (and `VIDTSX_DECISIONS_OPENROUTER_URL=http://127.0.0.1:<port2>/…` for §15.3 5) in its environment — the runtime
     reads them at the FIRST decisions use, so they must be set at launch; main logs `decisions: dev stub URL in use for jev (127.0.0.1:<port>)`.
     A FAKE TypeSafe key must be saved through the Providers row (the key still comes from the credential store).
+16. **For the orchestrator (builder #8's decisions 1–5, part (f)):** the ones that shape §15 are **#1** (TypeSafe's key row moves to the
+    Decisions section; OpenRouter is LISTED there, its key row stays in API keys — §15.3 2's "TypeSafe row (and OpenRouter listed under it
+    too)"), **#2** (the Test button sends `{ test: 'jev' }` only, disabled while no key is saved OR a typed draft / removal is pending) and **#3**
+    (the tester sits in the Settings Decisions row behind a NEW dev-preview flag `decisions-tester`, so a production `electron-vite build` —
+    the worktree's out/ and the verifier's — does NOT show it; the verifier's §15.3 1 stub run goes over `window.api.decisionsDecide` with
+    `featureSource: 'decision-test'` anyway, D-r20). Also #4: an edge wired from the hidden `p` has no handle to draw on.
+17. The (f2) UI is NOT yet seen in the running app — step 5 (Next step) is the first look; a layout fix found there is part of step 5.
+18. `docs/studio/decisions/ORCHESTRATOR.md`: not modified in the working tree at `30ce081` (the status showed only builder #7's files), so
+    nothing to leave unstaged this time.
 
 ## Do-not-redo
 
@@ -675,6 +785,9 @@ first: `UI_SPEC.md` (colors, spacing, layout), D2 §8 + §12 + §15.3 2 / 5, ORC
   the 4 benchmark test files (the replay = §2 cell for cell; the live test SKIPPED without the env var; its dry run), the D-r21 hook
   (`resolveDecisionStubURLs` + `baseURLs` + the runtime's once-at-start resolve + `noulCriteriaRequired`) and `decision-init-stub.test.ts`, and the
   kit launcher `D4\live-test.sh`. Do not re-copy, re-port or re-run any of it; NEVER run the live test or the launcher as a builder.
+- **Part (f) steps 1–4 are committed** — (f1) `cc754fa` (builder #7's leftovers, judged + kept, the 30 s fix) and (f2) `8f6ff6f` (`decisions-client.ts`,
+  `runDecisionKeyTest`, the two renderer hooks, `DecisionsRow.tsx` + `DecisionsTester.tsx`, `DecisionsProvidersSection.tsx`, the four provider-file
+  edits, the `decisions-tester` flag, the General section). Do not rebuild them; step 5 only builds, launches, looks and fixes what the stills show.
 
 ## Agents so far
 
@@ -691,3 +804,7 @@ first: `UI_SPEC.md` (colors, spacing, layout), D2 §8 + §12 + §15.3 2 / 5, ORC
 - 2026-10-31 11:25–11:40 · D4 builder #6 · ~50 tool calls · part (e): 5 test files red → the scrubbed answer fixtures + scorer + replay + the gated
   live test (skipped, dry-run-proven) + the D-r21 stub hook green → `5605c48`; kit launcher `D4\live-test.sh` (`bash -n` only); part (e) DONE;
   HANDOFF + LOG → part (f).
+- 2026-10-31 17:14–17:24 · D4 builder #8 · ~75 tool calls · part (f): builder #7's leftovers judged (36 tests green, related suites green but the
+  known `builder-libraries` red, tsc 25 / 10) and kept + the tester's 30 s budget (red → green) → (f1) `cc754fa`; the client logic red → green, then
+  the Settings row, the Providers Decisions section, the dev-preview tester → (f2) `8f6ff6f` (related 177 files green but the known red, tsc 25 / 10);
+  step 5 (build + CDP stills) handed to the next builder; HANDOFF + LOG.
