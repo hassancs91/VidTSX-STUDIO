@@ -429,6 +429,8 @@ export const IPC = {
   STUDIO_PROJECT_DELETE: 'studio:project:delete',
   // W6: the editor closed a project — write its poster now.
   STUDIO_PROJECT_CLOSE: 'studio:project:close',
+  // B5 fix round 1: a closing editor hands its unsaved document to main.
+  STUDIO_PROJECT_HANDOFF: 'studio:project:handoff',
   // Studio — rotating project snapshots + quit-flush handshake (Q10)
   STUDIO_PROJECT_SNAPSHOT_LIST: 'studio:project:snapshot:list',
   STUDIO_PROJECT_SNAPSHOT_RESTORE: 'studio:project:snapshot:restore',
@@ -447,11 +449,16 @@ export const IPC = {
   STUDIO_PROXY_ENCODER_STATUS: 'studio:proxy-encoder:status',
   STUDIO_PROXY_ENCODER_INSTALL: 'studio:proxy-encoder:install',
   STUDIO_PROXY_ENCODER_SET_ENABLED: 'studio:proxy-encoder:set-enabled',
+  STUDIO_PROXY_ENCODER_REBUILD: 'studio:proxy-encoder:rebuild',
   // Studio — timeline preview, background media jobs, export
   STUDIO_MEDIA_PREPARE: 'studio:media:prepare',
   STUDIO_MEDIA_JOB_EVENT: 'studio:media:job-event',
   STUDIO_EXPORT_PREPARE: 'studio:export:prepare',
   STUDIO_EXPORT_ENGINES_LIST: 'studio:export:engines:list',
+  // Studio — T8 "Check this export" (A/V sync check, END_TO_END_PLAN A6)
+  STUDIO_EXPORT_SYNC_CHECK: 'studio:export:sync-check',
+  STUDIO_EXPORT_SYNC_CHECK_CANCEL: 'studio:export:sync-check:cancel',
+  STUDIO_EXPORT_SYNC_CHECK_PROGRESS: 'studio:export:sync-check:progress',
   // Studio — per-asset transcription (button-triggered) + auto-cut planning
   STUDIO_TRANSCRIBE_START: 'studio:transcribe:start',
   STUDIO_TRANSCRIBE_CANCEL: 'studio:transcribe:cancel',
@@ -460,6 +467,9 @@ export const IPC = {
   STUDIO_ANALYSIS_CANCEL: 'studio:analysis:cancel',
   STUDIO_ANALYSIS_READ_MASK: 'studio:analysis:read-mask',
   STUDIO_CUTPLAN_RUN: 'studio:cutplan:run',
+  // The project's resolved cut style (B2) — the renderer's Transcript deletes snap with it.
+  STUDIO_CUTSTYLE_RESOLVE: 'studio:cut-style:resolve',
+  STUDIO_CUTSTYLE_FILE: 'studio:cut-style:file',
   // Studio — editing agent (Assistant tab chat)
   STUDIO_AGENT_SEND: 'studio:agent:send',
   STUDIO_AGENT_CANCEL: 'studio:agent:cancel',

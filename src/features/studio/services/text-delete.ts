@@ -12,6 +12,7 @@
 
 import { RmsEnvelope, masterLane, snapCutSpans } from '@shared/studio';
 import type { CaptionWordSource, SnappedCut } from '@shared/studio';
+import type { CutPlanStyle } from '@shared/types/studio-cut-plan';
 import type { StudioClip, StudioMediaAsset, StudioTimeline } from '../types';
 import { MIN_CLIP_DURATION, clipEndTime, clipRate } from './timeline-ops';
 import { removeSpanAllTracks, removeSpanFromTrack } from './ripple-ops';
@@ -30,12 +31,19 @@ export interface PlanTextDeleteInput {
   /** RMS envelopes by asset id. A missing one falls back to fixed pads. */
   envelopes: ReadonlyMap<string, RmsEnvelope>;
   assets: readonly StudioMediaAsset[];
+  /**
+   * The project's resolved cut style (B2: override > preset > default, from
+   * main) — the same knobs Auto Cut and the editorial pass snap with.
+   */
+  style: CutPlanStyle;
 }
 
 export interface TextDeletePlan {
   /** Sorted, non-overlapping, in the timeline's CURRENT seconds. */
   spans: TimelineSpan[];
   removedSeconds: number;
+  /** How many of the given tokens the spans remove (the words of every run that was cut). */
+  removedTokens: number;
   /** Runs of the selection that left nothing to cut (edges met inside the pads). */
   skippedRuns: number;
   /** Assets cut without an audio envelope — edges are padded, not snapped. */
@@ -48,6 +56,8 @@ interface Run {
   clip: StudioClip;
   sourceStart: number;
   sourceEnd: number;
+  /** Selected tokens in the run. */
+  count: number;
 }
 
 const EPS = 1e-6;
@@ -64,8 +74,9 @@ function selectionRuns(tokens: readonly TranscriptToken[], clips: ReadonlyMap<st
     const run = runs[runs.length - 1];
     if (run && run.clip.id === token.clipId && token.index === lastIndex + 1) {
       run.sourceEnd = Math.max(run.sourceEnd, token.sourceEnd);
+      run.count++;
     } else {
-      runs.push({ clip, sourceStart: token.sourceStart, sourceEnd: token.sourceEnd });
+      runs.push({ clip, sourceStart: token.sourceStart, sourceEnd: token.sourceEnd, count: 1 });
     }
     lastIndex = token.index;
   }
@@ -104,6 +115,7 @@ export function planTextDelete(input: PlanTextDeleteInput): TextDeletePlan {
   const empty = (blocked: 'locked' | 'empty'): TextDeletePlan => ({
     spans: [],
     removedSeconds: 0,
+    removedTokens: 0,
     skippedRuns: 0,
     unsnappedAssetIds: [],
     blocked,
@@ -130,6 +142,7 @@ export function planTextDelete(input: PlanTextDeleteInput): TextDeletePlan {
   const spans: TimelineSpan[] = [];
   const unsnappedAssetIds: string[] = [];
   let skippedRuns = 0;
+  let removedTokens = 0;
   for (const [assetId, assetRuns] of runsByAsset) {
     const words = [...(input.words.get(assetId) ?? [])];
     const asset = input.assets.find((a) => a.id === assetId);
@@ -150,6 +163,7 @@ export function planTextDelete(input: PlanTextDeleteInput): TextDeletePlan {
       words,
       duration,
       envelope,
+      style: input.style,
       ...(asset?.transcript?.features ? { features: asset.transcript.features } : {}),
     });
 
@@ -157,8 +171,10 @@ export function planTextDelete(input: PlanTextDeleteInput): TextDeletePlan {
       const middle = (run.sourceStart + run.sourceEnd) / 2;
       const cut = snapped.items.find((item) => item.sourceStart <= middle && middle <= item.sourceEnd);
       const span = cut ? cutOnClip(cut, run.clip) : null;
-      if (span) spans.push(span);
-      else skippedRuns++;
+      if (span) {
+        spans.push(span);
+        removedTokens += run.count;
+      } else skippedRuns++;
     }
   }
 
@@ -166,6 +182,7 @@ export function planTextDelete(input: PlanTextDeleteInput): TextDeletePlan {
   return {
     spans: merged,
     removedSeconds: merged.reduce((sum, s) => sum + (s.to - s.from), 0),
+    removedTokens,
     skippedRuns,
     unsnappedAssetIds,
     ...(merged.length === 0 ? { blocked: 'empty' as const } : {}),

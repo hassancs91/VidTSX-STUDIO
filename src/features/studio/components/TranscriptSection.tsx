@@ -1,11 +1,12 @@
-import { useState } from 'react';
 import { Button } from '@shared/components/Button';
 import { Select } from '@shared/components/Select';
 import { coerceSttEntry, sttEntriesWithTimestamps } from '@shared/presets/stt-models';
-import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
 import type { StudioMediaAsset } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import type { AutoCutPhase } from '../hooks/useAutoCut';
+import type { ResolvedCutStyleState } from '../hooks/useResolvedCutStyle';
+import type { CutStyleOverrideChoice } from '../services/cut-style-override';
+import { AutoCutRunner } from './AutoCutRunner';
 
 interface Props {
   projectId: string;
@@ -21,8 +22,14 @@ interface Props {
   onEditorialPass: (asset: StudioMediaAsset) => void;
   agentBusy: boolean;
   progress: TranscribeProgress | null;
-  onAutoCut: (asset: StudioMediaAsset, style: CutPlanStyleName) => void;
+  onAutoCut: (asset: StudioMediaAsset) => void;
   autoCutPhase: AutoCutPhase;
+  /** B2: the project's resolved cut style, its override base and the setter. */
+  cutStyle: ResolvedCutStyleState;
+  cutStyleOverride: CutStyleOverrideChoice;
+  onCutStyleOverride: (choice: CutStyleOverrideChoice) => void;
+  /** The project's editing preset, by name (undefined = none / missing). */
+  presetName?: string;
   /** True while a proposal is open — Auto Cut waits for that review to close. */
   reviewOpen: boolean;
 }
@@ -46,6 +53,10 @@ export function TranscriptSection({
   progress,
   onAutoCut,
   autoCutPhase,
+  cutStyle,
+  cutStyleOverride,
+  onCutStyleOverride,
+  presetName,
   reviewOpen,
 }: Props) {
   const transcript = asset.transcript;
@@ -135,6 +146,10 @@ export function TranscriptSection({
         phase={autoCutPhase}
         reviewOpen={reviewOpen}
         needsTranscript={transcript?.status !== 'ready'}
+        cutStyle={cutStyle}
+        override={cutStyleOverride}
+        onOverrideChange={onCutStyleOverride}
+        {...(presetName ? { presetName } : {})}
       />
       <EditorialPassEntry
         asset={asset}
@@ -230,72 +245,6 @@ function TranscriptReadout({ asset }: { asset: StudioMediaAsset }) {
           ? ` · ${t.aliasReplacements} spelling${t.aliasReplacements === 1 ? '' : 's'} fixed`
           : ''}
       </div>
-    </div>
-  );
-}
-
-/**
- * The Auto Cut entry point. Runs the mechanical planner and opens the
- * proposal review — via a transcription first when the asset has none.
- */
-function AutoCutRunner({
-  asset,
-  onAutoCut,
-  phase,
-  reviewOpen,
-  needsTranscript,
-}: {
-  asset: StudioMediaAsset;
-  onAutoCut: (asset: StudioMediaAsset, style: CutPlanStyleName) => void;
-  phase: AutoCutPhase;
-  reviewOpen: boolean;
-  needsTranscript: boolean;
-}) {
-  const [style, setStyle] = useState<CutPlanStyleName>('tight');
-  const busy = phase !== 'idle';
-
-  return (
-    <div
-      className="flex flex-col gap-2 pt-1"
-      style={{ borderTop: '0.5px solid var(--color-border)' }}
-    >
-      <span className="text-[10px] uppercase tracking-wider text-text-muted">Auto Cut</span>
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <Select
-            value={style}
-            onChange={(v) => setStyle(v as CutPlanStyleName)}
-            options={[
-              { value: 'tight', label: 'Tight (punchy pauses)' },
-              { value: 'natural', label: 'Natural (more breathing room)' },
-            ]}
-          />
-        </div>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => onAutoCut(asset, style)}
-          disabled={busy || reviewOpen}
-          title={
-            reviewOpen
-              ? 'Apply or reject the open cut proposal first'
-              : 'Find silence cuts and open them for review — nothing is applied until you say so'
-          }
-        >
-          {phase === 'transcribing'
-            ? 'Transcribing…'
-            : phase === 'planning'
-              ? 'Planning…'
-              : 'Auto Cut'}
-        </Button>
-      </div>
-      <p className="text-[10px] text-text-dim leading-snug">
-        {reviewOpen
-          ? 'A cut proposal is open on the timeline — finish that review first.'
-          : needsTranscript
-            ? 'Transcribes with the engine above, then proposes cuts for review.'
-            : 'Proposes cuts on the timeline for review — nothing is cut until you apply.'}
-      </p>
     </div>
   );
 }

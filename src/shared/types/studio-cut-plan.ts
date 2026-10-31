@@ -6,7 +6,10 @@
 
 import type { SttModelFeatures } from '../presets/stt-models';
 
-export type CutPlanStyleName = 'tight' | 'natural';
+export type CutPlanStyleName = 'tight' | 'natural' | 'relaxed';
+
+/** Every named style, in the order a picker lists them. */
+export const CUT_PLAN_STYLE_NAMES: readonly CutPlanStyleName[] = ['tight', 'natural', 'relaxed'];
 
 /**
  * Timing knobs from the reference clean-cut pipeline (general — no per-video
@@ -26,6 +29,70 @@ export interface CutPlanStyle {
   softGap: number;
   softMaxTail: number;
   softMargin: number;
+  /**
+   * Opt-in (absent = the fixed `head` lead-in): snap each lead-in back to the
+   * word's real audio onset — walk back while the level is above floor +
+   * `margin` (or still a fricative), plus 30 ms, at least `head`, at most this.
+   * cutlib `snap_head`.
+   */
+  maxHead?: number;
+  /**
+   * Opt-in: merge two kept segments whose skipped stretch is shorter than this
+   * (or that overlap) unless an explicit cut lies between them. cutlib's
+   * `min_skip` — a fake ASR pause (a 50 ms token over a long vowel) otherwise
+   * leaves a hole that drops speech. Overlapping segments merge whenever
+   * `maxHead` is set, even without this.
+   */
+  minSkip?: number;
+  /**
+   * Opt-in fricative rule, zero crossings per second (cutlib `fric_zcr`):
+   * while the sound is still a fricative (ZCR ≥ this and level above floor +
+   * `fricMargin`), a tail keeps walking and a lead-in keeps reaching back,
+   * even below floor + `margin`. Needs a waveform cache with `zcr` (v3);
+   * without it the rule is off.
+   */
+  fricZcr?: number;
+  /** dB over the floor a fricative must still have to count (default 5). */
+  fricMargin?: number;
+}
+
+export type CutPlanKnob = keyof CutPlanStyle;
+
+/**
+ * A style choice (plan T1): a named base plus single-knob overrides over it.
+ * The shape of a preset's `style.cut` and a project's `settings.cutStyle`.
+ * Absent `base` = the next rung's base (see `resolveCutStyle`).
+ */
+export type CutStyleSpec = Partial<CutPlanStyle> & { base?: CutPlanStyleName };
+
+/**
+ * `resources/skills/studio-clean-cut/cut-style.json` — the generic default
+ * cut style shipped beside the clean-cut skill, parsed (`parseCutStyleFile`).
+ */
+export interface CutStyleFile {
+  /** The style used when no call, project, preset nor pacing names one. */
+  default: CutPlanStyleName;
+  styles: Record<CutPlanStyleName, CutPlanStyle>;
+}
+
+/** Which rung of the precedence chose the style. */
+export type CutStyleSource = 'call' | 'project' | 'preset' | 'pacing' | 'default';
+
+/** What every consumer snaps with, plus how to name it to the user. */
+export interface ResolvedCutStyle {
+  /** The named base the knobs start from. */
+  styleName: CutPlanStyleName;
+  /** The knobs, overrides applied (before STT capability compensation). */
+  style: CutPlanStyle;
+  source: CutStyleSource;
+  /** Knobs that differ from the base style, in `CUT_PLAN_KNOBS` order. */
+  overrides: CutPlanKnob[];
+  /** The preset's name when the preset (cut or pacing) chose the base. */
+  presetName?: string;
+  /** One line for the card headline, the read-out and Project settings. */
+  displayName: string;
+  /** 8 hex chars that change whenever any knob changes (the plan cache key). */
+  key: string;
 }
 
 /** A span kept in the render, in source seconds. */
@@ -63,6 +130,13 @@ export interface StudioCutPlan {
   assetId: string;
   createdAt: string;
   styleName: CutPlanStyleName;
+  /**
+   * The resolver's name for the style ("tight · default", "natural · preset
+   * “Shorts”") — the card headline. Absent on plans written before B2.
+   */
+  styleDisplayName?: string;
+  /** `ResolvedCutStyle.key` — part of the plan's file name. Absent before B2. */
+  styleKey?: string;
   /** The knobs actually used, after capability compensation. */
   style: CutPlanStyle;
   transcript: {
@@ -70,9 +144,52 @@ export interface StudioCutPlan {
     /** Snapshot recorded at transcription time — drives compensation. */
     features?: SttModelFeatures;
   };
+  /**
+   * B7: the source ranges still ON the timeline the plan was made over (the
+   * spans between them were already cut). Absent = the whole source — plans
+   * written before B7, and an asset that is untouched or not on the timeline.
+   */
+  keeps?: Array<{ start: number; end: number }>;
   segments: CutPlanSegment[];
   internalPauses: CutPlanPause[];
   stats: CutPlanStats;
   /** Honest caveats: engine parity, approximate-timing compensation, etc. */
   qaNotes: string[];
+  /** The two plan checks (`runCutQa`, analyze_cut's). Absent on plans written before B3. */
+  qa?: CutQaReport;
+}
+
+/** Which of analyze_cut's checks an item failed (plan T1, B3). */
+export type CutQaKind = 'hard-entry' | 'clipped-tail';
+
+/**
+ * One offending spot found by the cut QA (`runCutQa`). Times are seconds in
+ * the source media of the clip that was cut.
+ */
+export interface CutQaItem {
+  kind: CutQaKind;
+  /**
+   * Where to listen: a hard entry's segment start (the cut-in), or the point
+   * where a clipped tail lands (word end + tail).
+   */
+  sourceTime: number;
+  /** A clipped tail's last word end (analyze_cut lists tails by it). */
+  wordEnd?: number;
+  /** The checked 50 ms window's level over the clip's noise floor, dB (1 decimal). */
+  overDb: number;
+  /** On proposals: the asset/clip the spot belongs to and its timeline time. */
+  assetId?: string;
+  clipId?: string;
+  timelineTime?: number;
+}
+
+/** Counts plus the offending spots — hard entries first, then clipped tails. */
+export interface CutQaReport {
+  hardEntries: number;
+  clippedTails: number;
+  /** Real cut joins checked (the first segment + every skip > 0.75 s). */
+  joinsChecked: number;
+  /** Speech-run atoms whose landing was checked. */
+  atomsChecked: number;
+  items: CutQaItem[];
 }

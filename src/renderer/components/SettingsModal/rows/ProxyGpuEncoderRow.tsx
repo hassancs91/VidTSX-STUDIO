@@ -13,7 +13,9 @@ function mb(bytes: number): string {
  * like NewsRow: reads and writes over its own IPC, nothing threaded through
  * the modal. Three states: not downloaded (Download button), downloaded with
  * a working encoder (name + checkbox), downloaded with none (checkbox off and
- * disabled). Off by default; the full ffmpeg is fetched only on click.
+ * disabled). The full ffmpeg is fetched only on click; once it is here, a
+ * never-touched setting is on when NVENC works (A4) — the checkbox shows the
+ * effective state without writing it, and unticking saves an explicit off.
  * Measured in T4b (docs/PREVIEW_TESTS_PLAN.md): NVENC made the same proxies
  * in half the wall time at 3% of the CPU.
  */
@@ -72,7 +74,7 @@ export function ProxyGpuEncoderRow() {
   };
 
   const toggle = async (enabled: boolean) => {
-    setStatus((prev) => (prev ? { ...prev, enabled, fallback: null } : prev));
+    setStatus((prev) => (prev ? { ...prev, enabled, choice: enabled, fallback: null } : prev));
     try {
       const res = await window.api.studioProxyEncoderSetEnabled({ enabled });
       if (!res.success) setError(res.error || 'Failed to save setting');
@@ -85,6 +87,12 @@ export function ProxyGpuEncoderRow() {
   const downloading = percent !== null || status?.downloading === true;
   const installed = status?.installed === true;
   const detected = status?.detected ?? null;
+  const automatic = status?.choice === null || status?.choice === undefined;
+  const detectedText = detected
+    ? `Detected: ${status?.detectedLabel ?? detected}${
+        automatic ? (status?.enabled ? ' — on automatically' : ' — opt-in (only NVIDIA turns on by itself)') : ''
+      }`
+    : 'Downloaded, but no supported GPU encoder works on this machine (NVIDIA, Intel Quick Sync or AMD needed).';
 
   return (
     <div className="bg-app-surface rounded-lg p-3 border border-border" data-proxy-gpu-row>
@@ -92,15 +100,14 @@ export function ProxyGpuEncoderRow() {
         <div className="min-w-0">
           <div className="text-[11px] text-text-muted mb-1">Faster proxy generation (GPU encoder)</div>
           <div className="text-[10px] text-text-dim">
-            Off by default. Downloads a full ffmpeg build ({status ? mb(status.downloadBytes) : '…'},{' '}
+            Downloads a full ffmpeg build ({status ? mb(status.downloadBytes) : '…'},{' '}
             {status?.licence ?? 'GPL'}, from BtbN) so Studio can encode preview proxies on your
-            graphics card instead of the CPU. Proxies only — exports are unchanged.
+            graphics card instead of the CPU. On by itself once downloaded on an NVIDIA card; untick
+            to keep proxies on the CPU. Proxies only — exports are unchanged.
           </div>
           {installed && (
             <div className="text-[10px] text-text-dim mt-1" data-proxy-gpu-detected>
-              {detected
-                ? `Detected: ${status?.detectedLabel ?? detected}`
-                : 'Downloaded, but no supported GPU encoder works on this machine (NVIDIA, Intel Quick Sync or AMD needed).'}
+              {detectedText}
             </div>
           )}
           {status?.fallback && (

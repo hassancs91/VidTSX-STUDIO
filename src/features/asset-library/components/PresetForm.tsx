@@ -3,6 +3,10 @@ import type { StudioPresetEntry, StudioPresetStyle } from '@shared/types/studio-
 import { PRESET_BODY_MAX, PRESET_PROMPT_BUDGET } from '@shared/types/studio-preset';
 import { validatePresetInput, type StudioPresetInput } from '@shared/studio/preset';
 import { formatWorkflowLines, parseWorkflowLines } from '@shared/studio/preset-workflow-lines';
+import { cutSpecProblems, presetCutBase, withPresetCutBase } from '@shared/studio/preset-cut';
+import { useCutStyleFile } from '../hooks/useCutStyleFile';
+import { PresetCutFields } from './PresetCutFields';
+import { PresetStyleFields } from './PresetStyleFields';
 
 const EMPTY: StudioPresetInput = {
   name: '',
@@ -56,16 +60,22 @@ export function PresetForm({
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const cutStyles = useCutStyleFile();
 
-  const setStyle = (patch: Partial<StudioPresetStyle>) =>
-    setInput({ ...input, style: { ...input.style, ...patch } });
-
-  const numberOrUndefined = (v: string): number | undefined => (v.trim() === '' ? undefined : Number(v));
+  const setStyle = (patch: Partial<StudioPresetStyle>) => {
+    const style = { ...input.style, ...patch };
+    // A pacing change can move the cut's base: re-prune knobs the new base lacks or equals.
+    const file = cutStyles.file;
+    setInput({ ...input, style: file && 'pacing' in patch ? withPresetCutBase(style, style.cut?.base, file) : style });
+  };
 
   const submit = async () => {
     const parsed = parseWorkflowLines(workflowText);
     const next: StudioPresetInput = { ...input, workflow: parsed.steps };
-    const problems = [...parsed.errors, ...validatePresetInput(next)];
+    const cutBase = cutStyles.file ? cutStyles.file.styles[presetCutBase(next.style, cutStyles.file)] : undefined;
+    const problems = [
+      ...new Set([...parsed.errors, ...validatePresetInput(next), ...cutSpecProblems(next.style.cut, cutBase)]),
+    ];
     if (problems.length > 0) {
       setErrors(problems);
       return;
@@ -174,67 +184,14 @@ export function PresetForm({
         />
       </label>
 
-      <div className="grid grid-cols-4 gap-x-3 gap-y-1.5">
-        <label className="flex flex-col gap-1 text-[10px] text-text-muted">
-          Pacing
-          <select
-            value={input.style.pacing ?? ''}
-            onChange={(e) => setStyle({ pacing: (e.target.value || undefined) as StudioPresetStyle['pacing'] })}
-            data-preset-pacing
-            className={selectClass}
-            style={inputStyle}
-          >
-            <option value="">—</option>
-            <option value="tight">Tight</option>
-            <option value="normal">Normal</option>
-            <option value="relaxed">Relaxed</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-[10px] text-text-muted">
-          Shots / min
-          <input type="number" min={0} max={30} step={0.5} value={input.style.shotsPerMinute ?? ''} onChange={(e) => setStyle({ shotsPerMinute: numberOrUndefined(e.target.value) })} className={inputClass} style={inputStyle} />
-        </label>
-        <label className="flex flex-col gap-1 text-[10px] text-text-muted">
-          SFX / min
-          <input type="number" min={0} max={60} step={0.5} value={input.style.sfxPerMinute ?? ''} onChange={(e) => setStyle({ sfxPerMinute: numberOrUndefined(e.target.value) })} className={inputClass} style={inputStyle} />
-        </label>
-        <label className="flex flex-col gap-1 text-[10px] text-text-muted">
-          Music bed
-          <select value={input.style.musicBed ?? ''} onChange={(e) => setStyle({ musicBed: (e.target.value || undefined) as StudioPresetStyle['musicBed'] })} className={selectClass} style={inputStyle}>
-            <option value="">—</option>
-            <option value="none">None</option>
-            <option value="quiet">Quiet</option>
-            <option value="present">Present</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-[10px] text-text-muted">
-          Captions
-          <select value={input.style.captions ?? ''} onChange={(e) => setStyle({ captions: (e.target.value || undefined) as StudioPresetStyle['captions'] })} className={selectClass} style={inputStyle}>
-            <option value="">—</option>
-            <option value="none">None</option>
-            <option value="karaoke">Karaoke</option>
-            <option value="block">Block</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-[10px] text-text-muted">
-          Intro (s)
-          <input type="number" min={0} max={120} value={input.style.introSeconds ?? ''} onChange={(e) => setStyle({ introSeconds: numberOrUndefined(e.target.value) })} className={inputClass} style={inputStyle} />
-        </label>
-        <label className="flex flex-col gap-1 text-[10px] text-text-muted">
-          Outro (s)
-          <input type="number" min={0} max={120} value={input.style.outroSeconds ?? ''} onChange={(e) => setStyle({ outroSeconds: numberOrUndefined(e.target.value) })} className={inputClass} style={inputStyle} />
-        </label>
-        <label className="flex flex-col gap-1 text-[10px] text-text-muted">
-          Transitions
-          <input
-            value={(input.style.transitions ?? []).join(', ')}
-            onChange={(e) => setStyle({ transitions: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-            placeholder="crossfade"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </label>
-      </div>
+      <PresetStyleFields style={input.style} onChange={setStyle} />
+
+      <PresetCutFields
+        style={input.style}
+        file={cutStyles.file}
+        fileError={cutStyles.error}
+        onChange={(style) => setInput({ ...input, style })}
+      />
 
       <label className="flex flex-col gap-1 text-[10px] text-text-muted">
         <span>

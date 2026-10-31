@@ -6,6 +6,9 @@
 // optional skills/), selected per project, and written by "learn from this
 // video" only through a card the user accepts.
 
+import type { CutStyleSpec } from './studio-cut-plan';
+import type { CutLearnKnob, CutLearnReport } from './studio-cut-learn';
+
 export type StudioPresetVideoKind = 'short' | 'long' | 'course' | 'custom';
 export type StudioPresetOrientation = '16:9' | '9:16' | '1:1';
 export type StudioPresetPacing = 'tight' | 'normal' | 'relaxed';
@@ -22,6 +25,13 @@ export interface StudioPresetStyle {
   transitions?: string[];
   introSeconds?: number;
   outroSeconds?: number;
+  /**
+   * The cut style (plan T1): a base from `cut-style.json` plus single-knob
+   * overrides. Absent `base` = `pacing` mapped (tight → tight, normal →
+   * natural, relaxed → relaxed), then the file's default. Absent = today's
+   * behaviour through `resolveCutStyle`.
+   */
+  cut?: CutStyleSpec;
 }
 
 /** One workflow step, in the order the agent runs them (the W3 tools). */
@@ -143,7 +153,13 @@ export interface StudioPresetLearnStats {
   cutItemsAdjusted: number;
 }
 
-export type StudioPresetKnobKey = keyof StudioPresetStyle;
+/** A nested cut knob learn-from-video may change (plan T1, B4): written into
+ *  `style.cut` over its base, never as a whole `cut` object. */
+export type StudioPresetCutKnobKey = `cut.${CutLearnKnob}`;
+
+/** The knobs learn-from-video may change: the flat ones plus the four nested
+ *  cut knobs (`cut.head`, `cut.minTail`, `cut.maxTail`, `cut.margin`). */
+export type StudioPresetKnobKey = Exclude<keyof StudioPresetStyle, 'cut'> | StudioPresetCutKnobKey;
 
 /** One knob the card proposes to change, with the measurement behind it. */
 export interface StudioPresetKnobChange {
@@ -175,6 +191,12 @@ export interface StudioPresetUpdateProposal {
   proposedStyle: StudioPresetStyle;
   /** The markdown section accept appends to PRESET.md. */
   learnedSection: string;
+  /** B4: what was measured at the joins the user trimmed (absent = none
+   *  touched, or a card from before B4). */
+  cutLearn?: CutLearnReport;
+  /** B4: the cut measurement as card lines (counts, medians, fitted values,
+   *  notes) — the card, the summary prompt and PRESET.md read the same. */
+  cutLines?: string[];
   note?: string;
   createdAt: string;
 }

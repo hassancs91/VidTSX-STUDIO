@@ -7,6 +7,7 @@ import { probeMedia } from './media-import';
 import { planConcatEntries, readTiming, videoOffsetSec } from './proxy-concat';
 import { detectDecodeArgs } from './proxy-hwaccel';
 import { markProxyGpuEncoderFailed, resolveProxyGpuEncoder } from './ffmpeg-full';
+import { recordProxyBuildEncoder } from './proxy-build-encoders';
 import { gpuSegmentPlan, type GpuSegmentPlan } from './proxy-encoders';
 import {
   AUDIO_FILE,
@@ -234,6 +235,7 @@ export async function generateProxy(
   // Opt-in GPU encoder: a different binary and a different profile tag, so a
   // folder of x264 windows is discarded rather than joined to GPU ones.
   const gpu = await resolveProxyGpuEncoder();
+  recordProxyBuildEncoder(projectId, assetId, gpu?.encoder ?? 'x264');
   const gpuPlan = gpu ? gpuSegmentPlan(gpu.encoder, PROXY_HEIGHT, hwaccelArgs) : null;
   const totalSec = probe.duration;
   const plan = planSegments(totalSec);

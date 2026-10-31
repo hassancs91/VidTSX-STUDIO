@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { shell } from 'electron';
 import { logEngine } from '../../../logging/log-engine';
+import { nodeProjectFs, writeProjectFileWith } from './project-file';
 import {
   STUDIO_SCHEMA_VERSION,
   STUDIO_SCRIPT_MAX_CHARS,
@@ -65,12 +66,9 @@ export function migrateProject(raw: unknown, folderId: string): StudioProject {
   };
 }
 
-/** Atomic write: temp file in the same folder, then rename over project.json. */
-async function writeProjectFile(projectDir: string, project: StudioProject): Promise<void> {
-  const finalPath = getProjectFilePath(projectDir);
-  const tmpPath = `${finalPath}.tmp`;
-  await fs.writeFile(tmpPath, JSON.stringify(project, null, 2), 'utf-8');
-  await fs.rename(tmpPath, finalPath);
+/** Atomic write (temp file, then a lock-retrying rename) — project-file.ts. */
+function writeProjectFile(projectDir: string, project: StudioProject): Promise<void> {
+  return writeProjectFileWith(nodeProjectFs, projectDir, project);
 }
 
 function toSummary(project: StudioProject, folderPath: string, hasPoster: boolean): StudioProjectSummary {

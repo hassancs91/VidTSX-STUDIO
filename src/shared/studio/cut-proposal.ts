@@ -11,6 +11,9 @@
 
 import type { StudioCutPlan } from '../types/studio-cut-plan';
 import type { StudioCutCategory, StudioProposal, StudioProposalItem } from '../types/studio';
+import { withQaAsset } from './cut-qa';
+import { formatQaUncheckedNote, uncheckQaFlaggedItems } from './cut-qa-flags';
+import { keepsTotal, type CutKeep } from './cut-keeps';
 
 /** Spans shorter than this are not worth a cut (≈ one 25 fps frame). */
 export const MIN_CUT_SPAN = 0.05;
@@ -61,24 +64,51 @@ export interface BuildCutProposalInput {
   createdAt?: string;
 }
 
+export interface PlanCutSpans {
+  /** The cut spans, source order. */
+  spans: CutKeep[];
+  /** Seconds they remove. */
+  removed: number;
+  /** Seconds the plan ran over: the timeline's keeps (B7), else the whole source. */
+  total: number;
+}
+
+/**
+ * The plan's cut spans: the complement of its segments INSIDE its keeps
+ * (B7 — a gap between two keeps was already cut and is not proposed again;
+ * a keep's own head/tail silence is). No keeps = the whole source. Shared by
+ * the card's headline and `run_auto_cut`'s reply, so both count the same.
+ */
+export function planCutSpans(plan: StudioCutPlan): PlanCutSpans {
+  const duration = plan.stats.sourceDuration;
+  const keeps = plan.keeps && plan.keeps.length > 0 ? plan.keeps : [{ start: 0, end: duration }];
+  const segments = [...plan.segments].sort((a, b) => a.start - b.start);
+  const spans: CutKeep[] = [];
+  for (const keep of [...keeps].sort((a, b) => a.start - b.start)) {
+    let cursor = keep.start;
+    for (const seg of segments) {
+      if (seg.end <= keep.start || seg.start >= keep.end) continue;
+      const start = Math.max(seg.start, keep.start);
+      if (start - cursor >= MIN_CUT_SPAN) spans.push({ start: cursor, end: start });
+      cursor = Math.max(cursor, Math.min(seg.end, keep.end));
+    }
+    if (keep.end - cursor >= MIN_CUT_SPAN) spans.push({ start: cursor, end: keep.end });
+  }
+  const removed = spans.reduce((sum, s) => sum + (s.end - s.start), 0);
+  return { spans, removed, total: keepsTotal(keeps) };
+}
+
 /**
  * Invert the plan's keep-segments into cut items. Every item starts
- * `accepted` — the review flow is veto-based, not approval-based.
+ * `accepted` — the review flow is veto-based, not approval-based — except a
+ * cut the plan's QA hears a hard entry after (B7): it starts unchecked, the
+ * reason in `qaFlag` (cut-qa-flags.ts).
  */
 export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
   const { plan, words } = input;
-  const segments = [...plan.segments].sort((a, b) => a.start - b.start);
-  const duration = plan.stats.sourceDuration;
+  const { spans, removed, total } = planCutSpans(plan);
 
-  const spans: Array<{ start: number; end: number }> = [];
-  let cursor = 0;
-  for (const seg of segments) {
-    if (seg.start - cursor >= MIN_CUT_SPAN) spans.push({ start: cursor, end: seg.start });
-    cursor = Math.max(cursor, seg.end);
-  }
-  if (duration - cursor >= MIN_CUT_SPAN) spans.push({ start: cursor, end: duration });
-
-  const items: StudioProposalItem[] = spans.map((span, i) => {
+  const built: StudioProposalItem[] = spans.map((span, i) => {
     const gap = span.end - span.start;
     const { before, after, inside } = contextAround(words, span.start, span.end);
     const parts: string[] = [];
@@ -91,17 +121,24 @@ export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
       assetId: plan.assetId,
       sourceStart: span.start,
       sourceEnd: span.end,
+      // B4: the planner's span, kept beside the final one an edge drag writes.
+      snapped: { sourceStart: span.start, sourceEnd: span.end },
       category: categoryForGap(gap),
       ...(inside.length > 0 ? { text: inside.join(' ') } : {}),
       note: parts.join(' '),
     };
   });
+  const qa = plan.qa ? withQaAsset(plan.qa, plan.assetId) : undefined;
+  const items = uncheckQaFlaggedItems(built, qa);
+  const qaUnchecked = formatQaUncheckedNote(items);
 
-  const removed = spans.reduce((sum, s) => sum + (s.end - s.start), 0);
   const headline =
-    `Auto Cut (${plan.styleName})` +
+    // The resolver's name ("tight · default", "natural · preset “Shorts”");
+    // plans written before B2 only carry the style name.
+    `Auto Cut (${plan.styleDisplayName ?? plan.styleName})` +
     (input.engine ? ` · ${input.engine}` : '') +
-    ` · −${removed.toFixed(1)} s of ${duration.toFixed(1)} s` +
+    // B7: "of" the seconds still on the timeline (the whole source without keeps).
+    ` · −${removed.toFixed(1)} s of ${total.toFixed(1)} s` +
     ` · noise floor ${plan.stats.noiseFloorDb.toFixed(0)} dB`;
 
   return {
@@ -109,7 +146,9 @@ export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
     kind: 'cut-plan',
     status: 'proposed',
     createdAt: input.createdAt ?? new Date().toISOString(),
-    agentNote: [headline, ...plan.qaNotes].join('\n'),
+    agentNote: [headline, ...(qaUnchecked ? [qaUnchecked] : []), ...plan.qaNotes].join('\n'),
     items,
+    // B3: the plan's QA readout, items stamped with the asset (absent on pre-B3 plans).
+    ...(qa ? { qa } : {}),
   };
 }

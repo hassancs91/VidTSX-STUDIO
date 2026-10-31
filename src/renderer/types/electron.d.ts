@@ -475,6 +475,7 @@ export interface ElectronAPI {
   studioProjectSave: (data: import('../../shared/ipc/types').StudioProjectSaveRequest) => Promise<import('../../shared/ipc/types').StudioProjectSaveResponse>;
   studioProjectDelete: (data: import('../../shared/ipc/types').StudioProjectDeleteRequest) => Promise<import('../../shared/ipc/types').StudioProjectDeleteResponse>;
   studioProjectClose: (data: import('../../shared/ipc/types').StudioProjectCloseRequest) => Promise<import('../../shared/ipc/types').StudioProjectCloseResponse>;
+  studioProjectHandoff: (data: import('../../shared/ipc/types').StudioProjectHandoffRequest) => Promise<import('../../shared/ipc/types').StudioProjectHandoffResponse>;
   studioProjectSnapshotList: (data: import('../../shared/ipc/types').StudioSnapshotListRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotListResponse>;
   studioProjectSnapshotRestore: (data: import('../../shared/ipc/types').StudioSnapshotRestoreRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotRestoreResponse>;
   studioProjectBrandGet: (data: import('../../shared/ipc/types').StudioProjectBrandGetRequest) => Promise<import('../../shared/ipc/types').StudioProjectBrandGetResponse>;
@@ -489,16 +490,23 @@ export interface ElectronAPI {
   studioProxyEncoderStatus: () => Promise<import('../../shared/ipc/types').StudioProxyEncoderStatusResponse>;
   studioProxyEncoderInstall: () => Promise<import('../../shared/ipc/types').StudioProxyEncoderInstallResponse>;
   studioProxyEncoderSetEnabled: (data: import('../../shared/ipc/types').StudioProxyEncoderSetEnabledRequest) => Promise<import('../../shared/ipc/types').StudioProxyEncoderSetEnabledResponse>;
+  studioProxyEncoderRebuild: (data: import('../../shared/ipc/types').StudioProxyEncoderRebuildRequest) => Promise<import('../../shared/ipc/types').StudioProxyEncoderRebuildResponse>;
   studioMediaPrepare: (data: import('../../shared/ipc/types').StudioMediaPrepareRequest) => Promise<import('../../shared/ipc/types').StudioMediaPrepareResponse>;
   studioMediaRelink: (data: import('../../shared/ipc/types').StudioMediaRelinkRequest) => Promise<import('../../shared/ipc/types').StudioMediaRelinkResponse>;
   studioExportPrepare: (data: import('../../shared/ipc/types').StudioExportPrepareRequest) => Promise<import('../../shared/ipc/types').StudioExportPrepareResponse>;
   studioExportEnginesList: () => Promise<import('../../shared/ipc/types').StudioExportEnginesListResponse>;
+  // Studio — T8 "Check this export" (A/V sync check, END_TO_END_PLAN A6)
+  studioExportSyncCheck: (data: import('../../shared/ipc/types').StudioSyncCheckRequest) => Promise<import('../../shared/ipc/types').StudioSyncCheckResponse>;
+  studioExportSyncCheckCancel: (data?: import('../../shared/ipc/types').StudioSyncCheckCancelRequest) => Promise<import('../../shared/ipc/types').StudioSyncCheckCancelResponse>;
+  onStudioExportSyncCheckProgress: (callback: (event: import('../../shared/ipc/types').StudioSyncCheckProgressEvent) => void) => () => void;
   studioTranscribeStart: (data: import('../../shared/ipc/types').StudioTranscribeStartRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeStartResponse>;
   studioTranscribeCancel: (data: import('../../shared/ipc/types').StudioTranscribeCancelRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeCancelResponse>;
   studioAnalysisRequest: (data: import('../../shared/ipc/types').StudioAnalysisRequest) => Promise<import('../../shared/ipc/types').StudioAnalysisResponse>;
   studioAnalysisCancel: (data: import('../../shared/ipc/types').StudioAnalysisCancelRequest) => Promise<import('../../shared/ipc/types').StudioAnalysisCancelResponse>;
   studioAnalysisReadMask: (data: import('../../shared/ipc/types').StudioAnalysisReadMaskRequest) => Promise<import('../../shared/ipc/types').StudioAnalysisReadMaskResponse>;
   studioCutPlanRun: (data: import('../../shared/ipc/types').StudioCutPlanRunRequest) => Promise<import('../../shared/ipc/types').StudioCutPlanRunResponse>;
+  studioCutStyleResolve: (data: import('../../shared/ipc/types').StudioCutStyleResolveRequest) => Promise<import('../../shared/ipc/types').StudioCutStyleResolveResponse>;
+  studioCutStyleFile: () => Promise<import('../../shared/ipc/types').StudioCutStyleFileResponse>;
   studioAgentSend: (data: import('../../shared/ipc/types').StudioAgentSendRequest) => Promise<import('../../shared/ipc/types').StudioAgentSendResponse>;
   studioShotsReconcile: (data: import('../../shared/ipc/types').StudioShotsReconcileRequest) => Promise<import('../../shared/ipc/types').StudioShotsReconcileResponse>;
   studioAgentChatLoad: (data: import('../../shared/ipc/types').StudioAgentChatLoadRequest) => Promise<import('../../shared/ipc/types').StudioAgentChatLoadResponse>;

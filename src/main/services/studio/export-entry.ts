@@ -24,6 +24,7 @@ import type { StudioProject, StudioShot } from '../../../shared/types/studio';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { rewriteFontUrls } from '../font-proxy';
+import { collectEntryFontUrls } from '../font-proxy-rewrite';
 import { resolveProjectBrand } from './project-brand';
 import { buildBrandFontLoaderSource } from '../../../shared/studio/brand-fonts';
 import { brandFontStylesheets } from '../brand-fonts';
@@ -67,6 +68,12 @@ export interface StudioExportEntry {
    * before the export renders, which may be after a restart. Absent = none.
    */
   assetRoots?: string[];
+  /**
+   * Every Google Fonts URL the shot, caption and transition COPIES carry (END_TO_END_PLAN §2
+   * T7): the export font preflight warms these before the first frame. Absent = none (or an
+   * entry from before A4, which skips the preflight).
+   */
+  fontUrls?: string[];
 }
 
 /**
@@ -358,10 +365,17 @@ export default function StudioTimelineExport(props: { layer?: 'shots' }) {
   await fs.writeFile(entryPath, source, 'utf-8');
   log.debug('Generated export entry', { entryPath, durationInFrames, shots: shotRefs.length, transitions: transitions.length, filters: filters.length, tracks: analysisTracks.faces.length, masks: analysisTracks.masks.length });
 
+  // The font preflight's input: scanned from the copies exactly as written (T7).
+  const fontUrls = [...new Set([
+    ...preparedShots,
+    ...(caption ? [caption.source] : []),
+    ...transitions.map((t) => t.source),
+  ].flatMap(collectEntryFontUrls))];
   const entry: StudioExportEntry = {
     entryPath, compositionId, width, height, fps, durationInFrames,
     ...(videoSource === 'proxy' ? { source: videoSource, sourcePaths } : {}),
     ...(versionFiles.assetRoots.length > 0 ? { assetRoots: versionFiles.assetRoots } : {}),
+    ...(fontUrls.length > 0 ? { fontUrls } : {}),
   };
   // The export engines read the document back when the render starts
   // (docs/export-engines-plan.md) — a sidecar beside the entry, same sweep.

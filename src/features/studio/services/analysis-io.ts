@@ -8,13 +8,13 @@
 import { parseFaceTrack, type FaceTrack } from '@shared/studio/face-track';
 import { parseMaskIndex } from '@shared/studio/mask-track';
 import { createMaskReader, type MaskReader } from '@shared/studio/mask-reader';
+import { decodeBase64Utf8 } from './cache-text';
 
 async function readCacheJson(projectId: string, relPath: string): Promise<unknown> {
   const res = await window.api.studioCacheRead({ projectId, relPath });
   if (!res.success || !res.data) return null;
   // The cache-read channel returns base64; the text is UTF-8 JSON.
-  const bytes = Uint8Array.from(atob(res.data), (c) => c.charCodeAt(0));
-  return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  return JSON.parse(decodeBase64Utf8(res.data)) as unknown;
 }
 
 /** The faces track, or null when it cannot be read (the clip then plays plain). */

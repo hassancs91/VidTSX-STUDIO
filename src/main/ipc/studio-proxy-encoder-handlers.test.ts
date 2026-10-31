@@ -8,7 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 const store = new Map<string, unknown>();
 vi.mock('../services/settings', () => ({
-  getProxyGpuEncoderEnabled: async () => store.get('proxyGpuEncoderEnabled') === true,
+  getProxyGpuEncoderSetting: async () => {
+    const v = store.get('proxyGpuEncoderEnabled');
+    return typeof v === 'boolean' ? v : undefined;
+  },
   setProxyGpuEncoderEnabled: async (enabled: boolean) => {
     store.set('proxyGpuEncoderEnabled', enabled === true);
   },
@@ -23,7 +26,7 @@ const full = {
   installs: 0,
 };
 vi.mock('../services/studio/ffmpeg-full', () => ({
-  FFMPEG_FULL_CATALOGUE: { bytes: 80069496, version: 'n8.1.2-test', licence: 'GPL v3' },
+  FFMPEG_FULL_CATALOGUE: { bytes: 80069496, version: 'n8.1.2-test', licence: 'GPL v3', platform: 'win32' },
   getFfmpegFullBinary: async () => full.binary,
   probeProxyEncoders: async () => ({ listed: full.listed, working: full.working, probedAt: 'now' }),
   isFfmpegFullDownloading: () => full.downloading,
@@ -34,6 +37,26 @@ vi.mock('../services/studio/ffmpeg-full', () => ({
   installFfmpegFull: async () => {
     full.installs++;
     full.binary = 'C:/userData/ffmpeg-full/bin/ffmpeg.exe';
+  },
+}));
+
+const gpu = { nvidia: true as boolean | null };
+vi.mock('../services/studio/gpu-adapters', () => ({
+  detectNvidiaAdapter: async () => gpu.nvidia,
+}));
+
+const rebuildCalls: unknown[][] = [];
+const badProject = { id: 'bad id' };
+vi.mock('../services/studio/studio-paths', () => ({
+  getProjectDir: async (id: string) => {
+    if (id === badProject.id) throw new Error('Invalid project id');
+    return 'C:/root/projects/' + id;
+  },
+}));
+vi.mock('../services/studio/proxy-gpu-rebuild', () => ({
+  rebuildProxiesOnGpu: async (...args: unknown[]) => {
+    rebuildCalls.push(args);
+    return { restarted: ['dji'], rebuilt: [] };
   },
 }));
 
@@ -61,6 +84,7 @@ describe('studio proxy encoder handlers', () => {
     expect(status).toMatchObject({
       success: true,
       enabled: false,
+      choice: null,
       installed: false,
       downloading: false,
       detected: null,
@@ -69,7 +93,15 @@ describe('studio proxy encoder handlers', () => {
       fallback: null,
       downloadBytes: 80069496,
       licence: 'GPL v3',
+      downloadable: process.platform === 'win32',
+      nvidiaAdapter: true,
     });
+  });
+
+  it('reports an unreadable GPU list as unknown (A4 card gate)', async () => {
+    gpu.nvidia = null;
+    expect((await handleStudioProxyEncoderStatus()).nvidiaAdapter).toBeNull();
+    gpu.nvidia = true;
   });
 
   it('the enabled setting round-trips', async () => {
@@ -77,6 +109,32 @@ describe('studio proxy encoder handlers', () => {
     expect((await handleStudioProxyEncoderStatus()).enabled).toBe(true);
     expect(await handleStudioProxyEncoderSetEnabled(event, { enabled: false })).toEqual({ success: true });
     expect((await handleStudioProxyEncoderStatus()).enabled).toBe(false);
+  });
+
+  it('never chosen + installed + NVENC working: on automatically, without writing the setting (A4)', async () => {
+    full.binary = 'C:/x/ffmpeg.exe';
+    full.listed = ['nvenc', 'qsv'];
+    full.working = ['nvenc', 'qsv'];
+    const status = await handleStudioProxyEncoderStatus();
+    expect(status).toMatchObject({ enabled: true, choice: null, detected: 'nvenc' });
+    expect(store.has('proxyGpuEncoderEnabled')).toBe(false);
+  });
+
+  it('never chosen but only an unmeasured encoder works (QSV): stays off until opted in', async () => {
+    full.binary = 'C:/x/ffmpeg.exe';
+    full.listed = ['qsv'];
+    full.working = ['qsv'];
+    expect(await handleStudioProxyEncoderStatus()).toMatchObject({ enabled: false, choice: null, detected: 'qsv' });
+    await handleStudioProxyEncoderSetEnabled(event, { enabled: true });
+    expect(await handleStudioProxyEncoderStatus()).toMatchObject({ enabled: true, choice: true });
+  });
+
+  it('a user who turned it off stays off even with NVENC working', async () => {
+    full.binary = 'C:/x/ffmpeg.exe';
+    full.listed = ['nvenc'];
+    full.working = ['nvenc'];
+    await handleStudioProxyEncoderSetEnabled(event, { enabled: false });
+    expect(await handleStudioProxyEncoderStatus()).toMatchObject({ enabled: false, choice: false, detected: 'nvenc' });
   });
 
   it('after install, the status names the working encoder in preference order', async () => {
@@ -119,5 +177,32 @@ describe('studio proxy encoder handlers', () => {
   it('reports an in-flight download', async () => {
     full.downloading = true;
     expect((await handleStudioProxyEncoderStatus()).downloading).toBe(true);
+  });
+});
+
+describe('studio proxy encoder rebuild (A4: the card clip ends on the GPU)', () => {
+  beforeEach(() => {
+    rebuildCalls.length = 0;
+  });
+
+  it('passes the well-formed assets to the rebuild service and returns its result', async () => {
+    const { handleStudioProxyEncoderRebuild } = await import('./studio-proxy-encoder-handlers');
+    const res = await handleStudioProxyEncoderRebuild(event, {
+      projectId: 'scratch',
+      assets: [
+        { assetId: 'dji', path: 'D:/raw/dji.mp4' },
+        { assetId: 'nopath', path: '' },
+        { assetId: 7, path: 'D:/x.mp4' } as never,
+      ],
+    });
+    expect(res).toEqual({ success: true, restarted: ['dji'], rebuilt: [] });
+    expect(rebuildCalls).toEqual([['scratch', [{ assetId: 'dji', path: 'D:/raw/dji.mp4' }]]]);
+  });
+
+  it('refuses an invalid project id without queuing anything', async () => {
+    const { handleStudioProxyEncoderRebuild } = await import('./studio-proxy-encoder-handlers');
+    const res = await handleStudioProxyEncoderRebuild(event, { projectId: badProject.id, assets: [{ assetId: 'dji', path: 'D:/raw/dji.mp4' }] });
+    expect(res).toEqual({ success: false, error: 'Invalid project id', restarted: [], rebuilt: [] });
+    expect(rebuildCalls).toEqual([]);
   });
 });

@@ -17,10 +17,7 @@
 // the file), and a source that imports local files (Convert edits one file
 // and would never see them).
 
-import { collectImportSpecifiers, lintShotSource } from './shot-lint';
-
-/** What the shot preview resolves natively. */
-const SHOT_MODULES: ReadonlySet<string> = new Set(['react', 'remotion', '@vidtsx/kit']);
+import { collectImportSpecifiers, isShotModuleSpecifier, lintShotSource } from './shot-lint';
 
 function isLocalSpecifier(spec: string): boolean {
   return spec.startsWith('.') || spec.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(spec);
@@ -49,7 +46,7 @@ export function classifyShotImport(code: string, gate: { syntaxError?: boolean }
   const packages = new Set<string>();
   const localFiles = new Set<string>();
   for (const spec of collectImportSpecifiers(code)) {
-    if (SHOT_MODULES.has(spec)) continue;
+    if (isShotModuleSpecifier(spec)) continue; // what the shot preview resolves natively
     if (isLocalSpecifier(spec)) localFiles.add(spec);
     else packages.add(spec);
   }

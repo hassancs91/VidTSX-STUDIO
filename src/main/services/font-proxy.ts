@@ -23,9 +23,13 @@ import { logEngine } from '../../logging/log-engine';
 import { getFontCacheDir, ensureFontCacheDir } from '../utils/paths';
 import {
   FONT_PROXY_HOSTS,
+  collectCssFontFileUrls,
   fontCacheExtensionFor,
+  isFontStylesheetUrl,
   rewriteCssFontUrls,
 } from './font-proxy-rewrite';
+import { isFontUpstreamBlocked } from './font-upstream-dev-overrides';
+import { fetchFontBytes } from './font-upstream-fetch';
 
 export { rewriteFontUrls, rewriteCssFontUrls } from './font-proxy-rewrite';
 
@@ -58,18 +62,14 @@ async function fetchAndCache(url: string, cachePath: string): Promise<void> {
   if (existing) return existing;
 
   const promise = (async () => {
-    log.debug('Fetching font from upstream', { url });
-    const resp = await fetch(url, {
-      // gstatic.com sniffs user-agent for woff2 vs woff — Chrome UA gets woff2.
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    });
-    if (!resp.ok) {
-      throw new Error(`Upstream ${resp.status} for ${url}`);
+    if (isFontUpstreamBlocked()) {
+      // Dev-only stand-in for offline (font-upstream-dev-overrides.ts): count these in the log.
+      log.warn('Font upstream blocked (dev override)', { url });
+      throw new Error(`Upstream blocked (dev override) for ${url}`);
     }
-    const buf = Buffer.from(await resp.arrayBuffer());
+    log.debug('Fetching font from upstream', { url });
+    // One retry on a network error or 5xx, never on a 404 (font-upstream-fetch.ts).
+    const buf = await fetchFontBytes(url);
     // Write atomically — write to .tmp then rename — so concurrent reads never
     // observe a partial file.
     const tmp = `${cachePath}.tmp`;
@@ -106,12 +106,8 @@ export async function warmFontCache(stylesheetUrl: string): Promise<void> {
     await fetchAndCache(stylesheetUrl, cssPath);
   }
   const css = await fs.readFile(cssPath, 'utf-8');
-  const fileUrls = new Set<string>();
-  for (const match of css.matchAll(/url\(\s*["']?(https:\/\/fonts\.gstatic\.com\/[^)"'\s]+)["']?\s*\)/g)) {
-    fileUrls.add(match[1]);
-  }
   await Promise.all(
-    [...fileUrls].map(async (fileUrl) => {
+    collectCssFontFileUrls(css).map(async (fileUrl) => {
       const filePath = path.join(getFontCacheDir(), cacheFilenameFor(fileUrl));
       if (fsSync.existsSync(filePath)) return;
       await fetchAndCache(fileUrl, filePath).catch((err: unknown) => {
@@ -122,6 +118,46 @@ export async function warmFontCache(stylesheetUrl: string): Promise<void> {
       });
     }),
   );
+}
+
+/** What the strict warm-up found for one URL. */
+export interface FontCacheEnsureResult {
+  /** Files fetched from upstream now (0 = everything was already cached). */
+  fetched: number;
+  /** Files already on disk. */
+  cached: number;
+}
+
+/**
+ * The export preflight's warm-up (END_TO_END_PLAN §2 T7): this URL — and, for a stylesheet,
+ * EVERY font file it lists — is on disk afterwards, or this throws. Unlike `warmFontCache`
+ * nothing is skipped: a file left for the proxy to fetch on demand is the mid-render 502 the
+ * preflight exists to prevent.
+ */
+export async function ensureFontCached(url: string): Promise<FontCacheEnsureResult> {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'https:' || !ALLOWED_HOSTS.has(parsed.host)) {
+    throw new Error('Host not allowed');
+  }
+  await ensureFontCacheDir();
+  const result: FontCacheEnsureResult = { fetched: 0, cached: 0 };
+  const ensure = async (fileUrl: string): Promise<string> => {
+    const filePath = path.join(getFontCacheDir(), cacheFilenameFor(fileUrl));
+    if (fsSync.existsSync(filePath)) {
+      result.cached++;
+    } else {
+      await fetchAndCache(fileUrl, filePath);
+      result.fetched++;
+    }
+    return filePath;
+  };
+  const filePath = await ensure(url);
+  if (isFontStylesheetUrl(url)) {
+    const css = await fs.readFile(filePath, 'utf-8');
+    // Sequential on purpose: the caller already runs several URLs at once.
+    for (const fileUrl of collectCssFontFileUrls(css)) await ensure(fileUrl);
+  }
+  return result;
 }
 
 /**

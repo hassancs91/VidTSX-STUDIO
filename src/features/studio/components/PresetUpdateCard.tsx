@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import type { StudioPresetKnobChange, StudioPresetUpdateProposal } from '@shared/types/studio-preset';
+import { CutLearnBlock } from './CutLearnBlock';
 
 interface Props {
   proposal: StudioPresetUpdateProposal;
@@ -8,6 +9,8 @@ interface Props {
   resolving: boolean;
   onAccept: () => void;
   onReject: () => void;
+  /** Asset id → file name, for the cut block's per-join rows. */
+  assetNames?: ReadonlyMap<string, string>;
 }
 
 const KNOB_LABEL: Record<StudioPresetKnobChange['key'], string> = {
@@ -19,6 +22,10 @@ const KNOB_LABEL: Record<StudioPresetKnobChange['key'], string> = {
   transitions: 'Transitions',
   introSeconds: 'Intro (s)',
   outroSeconds: 'Outro (s)',
+  'cut.head': 'Cut lead-in (s)',
+  'cut.minTail': 'Cut tail min (s)',
+  'cut.maxTail': 'Cut tail max (s)',
+  'cut.margin': 'Cut margin (dB)',
 };
 
 function knobValue(v: string | number | string[] | undefined): string {
@@ -31,7 +38,7 @@ function knobValue(v: string | number | string[] | undefined): string {
  *  the preset — a knob diff with the numbers behind each row, and the
  *  "Learned from" section accept appends to PRESET.md. One click writes the
  *  preset; nothing is inferred silently. */
-export function PresetUpdateCard({ proposal, error, resolving, onAccept, onReject }: Props) {
+export function PresetUpdateCard({ proposal, error, resolving, onAccept, onReject, assetNames }: Props) {
   const [showSection, setShowSection] = useState(false);
   const changes = proposal.knobChanges;
 
@@ -56,7 +63,12 @@ export function PresetUpdateCard({ proposal, error, resolving, onAccept, onRejec
         )}
       </div>
 
-      <div className="text-[10px] text-text-dim leading-snug">{proposal.statsSummary}</div>
+      {/* With no summary model the summary IS the stats sentence — show it once. */}
+      {proposal.statsSummary !== proposal.summary && (
+        <div className="text-[10px] text-text-dim leading-snug" data-preset-update-stats>
+          {proposal.statsSummary}
+        </div>
+      )}
 
       {changes.length > 0 ? (
         <table className="w-full text-[10px] leading-snug" data-preset-update-knobs>
@@ -74,8 +86,14 @@ export function PresetUpdateCard({ proposal, error, resolving, onAccept, onRejec
             ))}
           </tbody>
         </table>
+      ) : proposal.cutLines && proposal.cutLines.length > 0 ? (
+        <div className="text-[10px] text-text-dim">No knob changes proposed — the cut lines below say what was measured.</div>
       ) : (
         <div className="text-[10px] text-text-dim">Knobs unchanged — the edit matched the preset; only the notes grow.</div>
+      )}
+
+      {proposal.cutLines && proposal.cutLines.length > 0 && (
+        <CutLearnBlock lines={proposal.cutLines} report={proposal.cutLearn} assetNames={assetNames} />
       )}
 
       <button

@@ -18,6 +18,7 @@ import { DEFAULT_EXPORT_ENGINE_ID } from '@shared/studio/export-engines';
 import { exportFileSuffix, type ExportSource } from '@shared/studio/export-source';
 import type { StudioAgentAction, StudioShotGenerateOp } from '@shared/ipc/types';
 import { useStudioProject } from '../hooks/useStudioProject';
+import { useResolvedCutStyle } from '../hooks/useResolvedCutStyle';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
@@ -38,15 +39,21 @@ import { useAnalysisTracks } from '../hooks/useAnalysisTracks';
 import { analysisNoun, exportAnalysisBlockers } from '../services/analysis-status';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
-import { useStudioAgent } from '../hooks/useStudioAgent';
+import { useStudioAgent, type AgentActionOutcome } from '../hooks/useStudioAgent';
 import type { ShotImportFailure } from '../hooks/useShotImport';
 import { DEFAULT_STT_MODEL } from '@shared/presets/stt-models';
 import { clipFromAsset, trackForAsset } from '../services/clip-factory';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import { applyShotProposal, shotItemPlacement } from '../services/apply-shot-proposal';
-import { applyInsertProposal, insertItemPlacement } from '../services/apply-insert-proposal';
+import { insertItemPlacement } from '../services/apply-insert-proposal';
+import { applyProposalByKind } from '../services/apply-proposal';
+import { sourceKeepsAfter } from '@shared/studio/cut-keeps';
 import { buildPreviewTimeMap } from '../services/preview-mapping';
-import { mapCutItemToTimeline } from '../services/cut-proposal';
+import {
+  QA_AUDITION_LEAD_S,
+  QA_AUDITION_SPAN_S,
+  mapCutItemToTimeline,
+} from '../services/cut-proposal';
 import { makeClipId } from '../services/timeline-ops';
 import { footageAt } from '../services/shot-footage';
 import { formatDuration } from '../services/format-time';
@@ -89,6 +96,8 @@ import { AgentPanel } from './AgentPanel';
 import { ScriptPanel } from './ScriptPanel';
 import { NotesPanel } from './NotesPanel';
 import { useBrandFonts } from '../hooks/useBrandFonts';
+import { useGpuProxyOffer } from '../hooks/useGpuProxyOffer';
+import { GpuProxyOfferCard } from './GpuProxyOfferCard';
 
 interface Props {
   projectId: string;
@@ -112,11 +121,22 @@ export function EditorShell({ projectId, onBack }: Props) {
     status,
     error,
     saveState,
+    saveError,
+    recovered,
     updateProject,
     importMedia,
     restoreVersion,
   } = useStudioProject(projectId);
   const { showToast } = useToast();
+  // B5 fix round 1: the open brought back a save that never reached
+  // project.json (closed or quit while another program held the file).
+  const recoveredShown = useRef(false);
+  useEffect(() => {
+    if (!recovered || recoveredShown.current) return;
+    recoveredShown.current = true;
+    showToast('Recovered unsaved changes', 'info');
+  }, [recovered, showToast]);
+  const gpuProxyOffer = useGpuProxyOffer(project);
   const { addJob, jobs: queueJobs } = useRenderQueue();
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
   // Gap 10: the brand's fonts, linked into the document while the project is open.
@@ -334,6 +354,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         proposals: doc.proposals,
         shots: doc.shots,
         captions: doc.captions ?? null,
+        frame: { width: doc.settings.width, height: doc.settings.height },
       });
       const undoFile = res.undoFile;
       showToast(
@@ -351,12 +372,24 @@ export function EditorShell({ projectId, onBack }: Props) {
 
   // ----- Auto Cut + proposal review -------------------------------------
 
+  // B2: Auto Cut resolves the project's cut style from the LIVE settings.
+  const hasProject = project != null;
+  const livePresetId = project?.settings.presetId;
+  const liveCutStyle = project?.settings.cutStyle;
+  const cutStyleSettings = useMemo(
+    () =>
+      hasProject
+        ? { ...(livePresetId ? { presetId: livePresetId } : {}), ...(liveCutStyle ? { cutStyle: liveCutStyle } : {}) }
+        : null,
+    [hasProject, livePresetId, liveCutStyle],
+  );
   const autoCut = useAutoCut({
     projectId,
     assets,
     tl,
     transcribe,
     sttModelId: project?.settings.sttModelId ?? DEFAULT_STT_MODEL,
+    cutStyleSettings,
     onError: (message) => showToast(message, 'error'),
   });
 
@@ -452,6 +485,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     sttModelId: project?.settings.sttModelId ?? DEFAULT_STT_MODEL,
     captions: tl.captions ? { templateId: tl.captions.templateId, enabled: tl.captions.enabled } : undefined,
     timelineDurationSeconds: timelineDuration(tl.timeline),
+    timeline: tl.timeline,
     script: project?.script,
     providerId: project?.settings.agent.providerId,
     model: project?.settings.agent.model,
@@ -506,11 +540,7 @@ export function EditorShell({ projectId, onBack }: Props) {
   /** What the Player plays: the result preview while reviewing, else the edit. */
   const playerTimeline = useMemo(() => {
     if (activeProposal && previewResult) {
-      return activeProposal.kind === 'shot-plan'
-        ? applyShotProposal(tl.timeline, activeProposal, tl.shots)
-        : activeProposal.kind === 'insert-plan'
-          ? applyInsertProposal(tl.timeline, activeProposal)
-          : applyCutProposal(tl.timeline, activeProposal, { rippleAllTracks });
+      return applyProposalByKind(tl.timeline, activeProposal, tl.shots, { rippleAllTracks });
     }
     return tl.timeline;
   }, [tl.timeline, tl.shots, activeProposal, previewResult, rippleAllTracks]);
@@ -608,6 +638,17 @@ export function EditorShell({ projectId, onBack }: Props) {
       playSpan(join - 1.5, join + 1.5, needsRestore);
     },
     [activeProposal, tl.timeline, previewResult, playSpan, handlePlayRemoved, showToast, rippleAllTracks],
+  );
+
+  /** Hear a cut-QA spot (B3) the way it will sound: ~2 s around it, cuts applied. */
+  const handlePlayQaSpot = useCallback(
+    (timelineTime: number) => {
+      const needsRestore = !previewResult;
+      if (needsRestore) setPreviewResult(true);
+      const start = timelineTime - QA_AUDITION_LEAD_S;
+      playSpan(start, start + QA_AUDITION_SPAN_S, needsRestore);
+    },
+    [previewResult, playSpan],
   );
 
   /** Row click / region click: select the cut and park the playhead on it. */
@@ -861,6 +902,8 @@ export function EditorShell({ projectId, onBack }: Props) {
     return assets.filter((a) => ids.has(a.id));
   }, [captionLayer, transcriptActive, playerTimeline, assets]);
   const captionWords = useAssetTranscripts(projectId, captionAssets);
+  // The project's resolved cut style (B2): override > preset > default, from main.
+  const cutStyle = useResolvedCutStyle(projectId, project?.settings ?? null);
   // Text-based editing (NEXT_FEATURES_DESIGN.md Q5a): the same words, as a
   // document you can delete from. Reads while a proposal is under review.
   const textEdit = useTextEdit({
@@ -873,6 +916,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     dispatch: tl.dispatch,
     rippleAllTracks,
     reviewOpen: activeProposal !== null,
+    cutStyle,
     seek: playback.seek,
     showToast,
   });
@@ -943,10 +987,11 @@ export function EditorShell({ projectId, onBack }: Props) {
         showToast(`Imported ${result.added} file${result.added === 1 ? '' : 's'}`, 'success');
       }
       for (const err of result.errors) showToast(err, 'error');
+      void gpuProxyOffer.considerImport(result.assets);
     } finally {
       setImporting(false);
     }
-  }, [importMedia, showToast]);
+  }, [importMedia, showToast, gpuProxyOffer.considerImport]);
 
   const handleAddToTimeline = useCallback(
     (asset: StudioMediaAsset) => {
@@ -1061,7 +1106,7 @@ export function EditorShell({ projectId, onBack }: Props) {
   // in chat (apply, export) or a reversible setting (captions); every one is
   // a normal reducer/queue path — one undo step, the usual toasts.
   const handleAgentAction = useCallback(
-    async (action: StudioAgentAction): Promise<{ success: boolean; message?: string; error?: string }> => {
+    async (action: StudioAgentAction): Promise<AgentActionOutcome> => {
       if (action.type === 'apply-proposal') {
         const open = tl.activeProposal;
         if (!open || open.id !== action.proposalId) {
@@ -1069,11 +1114,17 @@ export function EditorShell({ projectId, onBack }: Props) {
         }
         const accepted = open.items.filter((i) => i.status === 'accepted').length;
         if (accepted === 0) return { success: false, error: 'Every item is unticked — nothing to apply.' };
+        // B7 step 4b: the source ranges after this apply (the reducer runs the same
+        // applyProposalByKind) — a later run_auto_cut this turn plans over them.
+        const sourceKeeps = sourceKeepsAfter(
+          tl.timeline,
+          applyProposalByKind(tl.timeline, open, tl.shots, { rippleAllTracks }),
+        );
         tl.dispatch({ type: 'proposal-apply', proposalId: open.id, rippleAllTracks });
         const noun = open.kind === 'cut-plan' ? 'cut' : open.kind === 'shot-plan' ? 'shot' : 'clip';
         const summary = `Applied ${accepted} ${noun}${accepted === 1 ? '' : 's'} of ${open.items.length} from chat`;
         showToast(`${summary} — Ctrl+Z undoes the whole apply`, 'success');
-        return { success: true, message: summary };
+        return { success: true, message: summary, sourceKeeps };
       }
       if (action.type === 'export') {
         let engineId = action.engineId;
@@ -1171,9 +1222,22 @@ export function EditorShell({ projectId, onBack }: Props) {
         >
           {project.settings.width}×{project.settings.height} · {project.settings.fps} fps
         </button>
-        <span className="text-[10px] text-text-ghost">
-          {saveState === 'pending' ? 'Saving…' : saveState === 'error' ? 'Save failed' : 'Saved'}
-        </span>
+        {saveState === 'error' ? (
+          // B5 Problem 5: persistent until a save lands — the edits stay in
+          // memory and the save keeps retrying every few seconds.
+          <span
+            data-save-state="error"
+            role="alert"
+            title={`Could not save project.json: ${saveError ?? 'unknown error'}. Your edits are kept and the save is retried every few seconds — another program (antivirus, sync, backup) may be holding the file.`}
+            className="text-[10px] font-medium text-accent-red"
+          >
+            Save failed — retrying
+          </span>
+        ) : (
+          <span data-save-state={saveState} className="text-[10px] text-text-ghost">
+            {saveState === 'pending' ? 'Saving…' : 'Saved'}
+          </span>
+        )}
         <div className="flex-1" />
         <RenderPrepChip projectId={project.id} />
         <button
@@ -1430,6 +1494,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 getTranscribeProgress={getTranscribeProgress}
                 onAutoCut={autoCut.runAutoCut}
                 autoCutPhase={autoCut.phase}
+                cutStyle={cutStyle}
                 {...(activePresetName ? { presetName: activePresetName } : {})}
                 onLearnPreset={handleLearnPreset}
                 {...(FILTERS_ENABLED ? { filters: { installed: filterList.installed, onLive: handleLiveEffect, analysisOf: analysis.stateOf, onCancelAnalysis: analysis.cancel } } : {})}
@@ -1443,6 +1508,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                         onSelectItem: handleSelectCutItem,
                         onPlayRemoved: handlePlayRemoved,
                         onPlayJoin: handlePlayJoin,
+                        onPlayQaSpot: handlePlayQaSpot,
                         previewResult,
                         onTogglePreviewResult: () => setPreviewResult((v) => !v),
                         onApplied: (summary) =>
@@ -1494,6 +1560,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 agent={agentChat}
                 settings={project.settings.agent}
                 onSettingsChange={updateAgentSettings}
+                assets={project.assets}
               />
             )}
           </div>
@@ -1580,11 +1647,13 @@ export function EditorShell({ projectId, onBack }: Props) {
         onClose={() => setSettingsOpen(false)}
         project={project}
         onUpdate={updateProject}
+        onSetFrameSize={(width, height) => tl.dispatch({ type: 'set-frame-size', width, height })}
         brands={brandList}
         onSetBrand={handleSetBrand}
         presets={presetList}
         onSetPreset={handleSetPreset}
         projectBrand={projectBrand}
+        cutStyle={cutStyle}
       />
       <ExportDialog
         isOpen={exportDialog !== null}
@@ -1599,6 +1668,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         jobs={queueJobs}
         onExport={(choice) => handleExport(choice, exportDialog?.range)}
       />
+      <GpuProxyOfferCard offer={gpuProxyOffer} />
     </div>
   );
 }

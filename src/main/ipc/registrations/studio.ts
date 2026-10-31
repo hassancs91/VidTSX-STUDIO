@@ -46,6 +46,7 @@ import {
   handleStudioShotsReconcile,
   handleStudioShotLibrary,
 } from '../studio-shot-handlers';
+import { handleStudioCutStyleFile, handleStudioCutStyleResolve } from '../cut-style-handlers';
 import { handleStudioShotModule } from '../studio-shot-module-handler';
 import {
   handleStudioCaptionTemplateModule,
@@ -69,10 +70,13 @@ import {
 } from '../studio-package-handlers';
 import {
   handleStudioProxyEncoderInstall,
+  handleStudioProxyEncoderRebuild,
   handleStudioProxyEncoderSetEnabled,
   handleStudioProxyEncoderStatus,
 } from '../studio-proxy-encoder-handlers';
 import { registerFlushAck } from '../flush-guard';
+import { handleStudioProjectHandoff } from '../studio-project-handoff-handlers';
+import { handleStudioExportSyncCheck, handleStudioExportSyncCheckCancel } from '../studio-sync-check-handlers';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
 import {
@@ -92,6 +96,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PROJECT_SAVE, handleStudioProjectSave);
   ipcMain.handle(IPC.STUDIO_PROJECT_DELETE, handleStudioProjectDelete);
   ipcMain.handle(IPC.STUDIO_PROJECT_CLOSE, handleStudioProjectClose);
+  ipcMain.handle(IPC.STUDIO_PROJECT_HANDOFF, handleStudioProjectHandoff);
   ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_LIST, handleStudioProjectSnapshotList);
   ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_RESTORE, handleStudioProjectSnapshotRestore);
   ipcMain.handle(IPC.STUDIO_PROJECT_BRAND_GET, handleStudioProjectBrandGet);
@@ -102,6 +107,9 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_MEDIA_RELINK, handleStudioMediaRelink);
   ipcMain.handle(IPC.STUDIO_EXPORT_PREPARE, handleStudioExportPrepare);
   ipcMain.handle(IPC.STUDIO_EXPORT_ENGINES_LIST, handleStudioExportEnginesList);
+  // T8 "Check this export" (A6): progress is pushed to the asking window.
+  ipcMain.handle(IPC.STUDIO_EXPORT_SYNC_CHECK, handleStudioExportSyncCheck);
+  ipcMain.handle(IPC.STUDIO_EXPORT_SYNC_CHECK_CANCEL, handleStudioExportSyncCheckCancel);
   ipcMain.handle(IPC.STUDIO_CACHE_READ, handleStudioCacheRead);
   // Project notes (notes/*.md, video-10 import gap 7)
   ipcMain.handle(IPC.STUDIO_NOTES_LIST, handleStudioNotesList);
@@ -116,9 +124,12 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_STATUS, handleStudioProxyEncoderStatus);
   ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_INSTALL, handleStudioProxyEncoderInstall);
   ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_SET_ENABLED, handleStudioProxyEncoderSetEnabled);
+  ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_REBUILD, handleStudioProxyEncoderRebuild);
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_START, handleStudioTranscribeStart);
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_CANCEL, handleStudioTranscribeCancel);
   ipcMain.handle(IPC.STUDIO_CUTPLAN_RUN, handleStudioCutPlanRun);
+  ipcMain.handle(IPC.STUDIO_CUTSTYLE_RESOLVE, handleStudioCutStyleResolve);
+  ipcMain.handle(IPC.STUDIO_CUTSTYLE_FILE, handleStudioCutStyleFile);
   ipcMain.handle(IPC.STUDIO_AGENT_SEND, handleStudioAgentSend);
   ipcMain.handle(IPC.STUDIO_AGENT_CANCEL, handleStudioAgentCancel);
   ipcMain.handle(IPC.STUDIO_AGENT_ACTION_RESULT, handleStudioAgentActionResult);

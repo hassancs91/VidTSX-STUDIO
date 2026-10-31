@@ -68,6 +68,7 @@ import {
   loadProject,
   saveProject,
 } from '../services/studio/project-store';
+import { projectWriter } from '../services/studio/project-writer';
 import {
   listSnapshots,
   readSnapshot,
@@ -90,6 +91,7 @@ import { clearCache, getCacheInfo } from '../services/studio/cache-manager';
 import { studioMediaJobs } from '../services/studio/media-jobs';
 import { deleteTranscript } from '../services/studio/asset-transcriber';
 import { runCutPlan } from '../services/studio/cut-plan-runner';
+import { resolveProjectCutStyle } from '../services/studio/cut-style-store';
 import { studioAgent } from '../services/studio/studio-agent';
 import { agentActions } from '../services/studio/agent-actions';
 import { buildAgentSystemPrompt } from '../services/studio/studio-agent-prompt';
@@ -167,13 +169,22 @@ export async function handleStudioProjectLoad(
   data: StudioProjectLoadRequest,
 ): Promise<StudioProjectLoadResponse> {
   try {
-    const [project, folderPath] = await Promise.all([
-      loadProject(data.id),
+    // B5 fix round 1: a pending hand-off or a newer project.json.tmp (a save
+    // that never reached project.json) wins over project.json.
+    const [loaded, folderPath] = await Promise.all([
+      projectWriter.load(data.id),
       getProjectDir(data.id),
     ]);
+    const { project } = loaded;
     // Q10 pre-edit safety copy — never fails the open (logged internally).
     await snapshotOnOpen(project);
-    return { success: true, project, folderPath };
+    return {
+      success: true,
+      project,
+      folderPath,
+      ...(loaded.recovered ? { recovered: true } : {}),
+      ...(loaded.unsaved ? { unsaved: true } : {}),
+    };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to load project') };
   }
@@ -184,7 +195,9 @@ export async function handleStudioProjectSave(
   data: StudioProjectSaveRequest,
 ): Promise<StudioProjectSaveResponse> {
   try {
-    const updatedAt = await saveProject(data.project);
+    // One writer per project in main (B5 fix round 1): serialized with any
+    // background hand-off, which this newer document supersedes.
+    const updatedAt = await projectWriter.save(data.project);
     // Q10: every ~10 minutes of active editing becomes a snapshot. Saves only
     // happen while editing, so hooking the save handler needs no idle timer.
     await snapshotIfDue({ ...data.project, updatedAt });
@@ -451,18 +464,21 @@ export async function handleStudioTranscribeCancel(
   return { success: studioMediaJobs.cancel(data.projectId, data.assetId, 'transcript') };
 }
 
-/** Run the mechanical auto-cut pass; returns the plan JSON, applies nothing. */
+/**
+ * Run the mechanical auto-cut pass; returns the plan JSON, applies nothing.
+ * The style is the project's resolved one (override > preset > default) unless
+ * the request names one.
+ */
 export async function handleStudioCutPlanRun(
   _event: IpcMainInvokeEvent,
   data: StudioCutPlanRunRequest,
 ): Promise<StudioCutPlanRunResponse> {
   try {
-    const { plan, planPath } = await runCutPlan(
-      data.projectId,
-      data.assetId,
-      data.sourcePath,
-      data.style ?? 'tight',
-    );
+    const cut = await resolveProjectCutStyle(data.projectId, {
+      ...(data.style ? { callStyle: data.style } : {}),
+      ...(data.settings ? { settings: data.settings } : {}),
+    });
+    const { plan, planPath } = await runCutPlan(data.projectId, data.assetId, data.sourcePath, cut, data.keeps);
     return { success: true, plan, planPath };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to plan cuts') };

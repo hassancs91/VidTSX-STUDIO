@@ -267,8 +267,3 @@ function diffRateKnobs(style: StudioPresetStyle, stats: StudioPresetLearnStats):
   return changes;
 }
 
-export function applyKnobChanges(style: StudioPresetStyle, changes: readonly StudioPresetKnobChange[]): StudioPresetStyle {
-  const next: Record<string, unknown> = { ...style };
-  for (const change of changes) next[change.key] = change.to;
-  return next as StudioPresetStyle;
-}

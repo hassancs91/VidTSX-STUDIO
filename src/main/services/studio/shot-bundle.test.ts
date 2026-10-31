@@ -190,6 +190,29 @@ describe('bundleShotSource', () => {
     expect(parseCompositionConfig(bundled.code)).toMatchObject({ id: 'Creator2d', durationInFrames: 60, fps: 30, width: 1080, height: 1080 });
   }, 30_000);
 
+  it('keeps remotion/no-react external under @remotion/google-fonts: no inlined delayRender-handle reset (END_TO_END_PLAN T7)', async () => {
+    const file = await write(
+      'project/src/shots/FontShot.tsx',
+      [
+        "import React from 'react';",
+        "import { AbsoluteFill } from 'remotion';",
+        "import { loadFont } from '@remotion/google-fonts/SpaceGrotesk';",
+        "const { fontFamily } = loadFont('normal', { weights: ['700'], subsets: ['latin'] });",
+        "export const compositionConfig = { id: 'FontShot', durationInFrames: 60, fps: 30, width: 1080, height: 1080 };",
+        'export default () => <AbsoluteFill style={{ fontFamily }}>Hi</AbsoluteFill>;',
+      ].join('\n'),
+    );
+    const bundled = await bundleShotSource(file, { nodePaths: [path.resolve(__dirname, '../../../../node_modules')] });
+    expect(bundled.inlinedPackages).toContain('@remotion/google-fonts');
+    expect(bundled.inlinedPackages).not.toContain('remotion');
+    expect(bundled.code).not.toContain('remotion_delayRenderHandles');
+    // The import is hoisted above the lazy body, so the app's copy loads with the module.
+    const noReactImport = bundled.code.search(/^import [^;]*from "remotion\/no-react";/m);
+    expect(noReactImport).toBeGreaterThanOrEqual(0);
+    expect(noReactImport).toBeLessThan(bundled.code.indexOf('function __vidtsxInit()'));
+    expect(lintShotSource(bundled.code).errors).toEqual([]);
+  }, 30_000);
+
   it('refuses tone by name (not in the library set: a shot has no synthesized audio)', async () => {
     const file = await write(
       'project/src/shots/Tone.tsx',

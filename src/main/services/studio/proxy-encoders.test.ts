@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   chooseProxyEncoder,
+  decideProxyGpuEncoder,
+  effectiveProxyGpuEnabled,
   encoderArgs,
   encoderProbeArgs,
   gpuSegmentPlan,
+  isProxyGpuAutoViable,
   parseHardwareEncoders,
 } from './proxy-encoders';
 
@@ -114,6 +117,34 @@ describe("the 8.1 build's -encoders lines", () => {
     expect(on(['qsv'])).toBe('qsv'); // an Intel-only laptop
     expect(on(['amf'])).toBe('amf'); // an AMD machine
     expect(on([])).toBeNull(); // listed, none opened
+  });
+});
+
+describe('GPU proxies default on when viable (A4)', () => {
+  it('an explicit choice wins; unset follows viability', () => {
+    expect(effectiveProxyGpuEnabled(undefined, true)).toBe(true);
+    expect(effectiveProxyGpuEnabled(undefined, false)).toBe(false);
+    expect(effectiveProxyGpuEnabled(false, true)).toBe(false); // turned off stays off
+    expect(effectiveProxyGpuEnabled(true, false)).toBe(true);
+    expect(effectiveProxyGpuEnabled(true, true)).toBe(true);
+    expect(effectiveProxyGpuEnabled(false, false)).toBe(false);
+  });
+
+  it('viable = the encoder the generator would pick is NVENC (the measured one)', () => {
+    expect(isProxyGpuAutoViable(['nvenc'])).toBe(true);
+    expect(isProxyGpuAutoViable(['qsv', 'nvenc'])).toBe(true); // NVENC is preferred anyway
+    expect(isProxyGpuAutoViable(['qsv'])).toBe(false); // unmeasured: opt-in only
+    expect(isProxyGpuAutoViable(['amf'])).toBe(false);
+    expect(isProxyGpuAutoViable([])).toBe(false); // no binary / nothing opened
+  });
+
+  it('decides the encoder: unset → NVENC only; on → any working; off → none', () => {
+    expect(decideProxyGpuEncoder(undefined, ['nvenc', 'qsv'])).toBe('nvenc');
+    expect(decideProxyGpuEncoder(undefined, ['qsv'])).toBeNull();
+    expect(decideProxyGpuEncoder(undefined, [])).toBeNull();
+    expect(decideProxyGpuEncoder(true, ['qsv'])).toBe('qsv'); // the pre-A4 explicit opt-in
+    expect(decideProxyGpuEncoder(true, [])).toBeNull();
+    expect(decideProxyGpuEncoder(false, ['nvenc'])).toBeNull();
   });
 });
 

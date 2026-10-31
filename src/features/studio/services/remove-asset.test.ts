@@ -33,10 +33,10 @@ function fresh() {
     {
       projectId: null,
       past: [],
-      present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null, removedAssets: [] },
+      present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null, removedAssets: [], frame: { width: 1920, height: 1080 } },
       future: [],
     },
-    { type: 'reset', projectId: 'p', timeline: timeline(), proposals: [], shots: [], captions: null },
+    { type: 'reset', projectId: 'p', timeline: timeline(), proposals: [], shots: [], captions: null, frame: { width: 1920, height: 1080 } },
   );
 }
 
@@ -82,6 +82,7 @@ describe('remove-asset', () => {
       proposals: [],
       shots: [],
       captions: null,
+      frame: { width: 1920, height: 1080 },
     });
     expect(s2.present.removedAssets).toEqual([]);
   });

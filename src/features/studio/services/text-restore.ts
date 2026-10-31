@@ -4,7 +4,7 @@
 // never from the pill that was clicked, so a stale pill can do no harm. Pure;
 // one call = one undo step.
 
-import { masterLane } from '@shared/studio';
+import { masterLane, withoutEdgeTag } from '@shared/studio';
 import type { StudioClip, StudioTimeline } from '../types';
 import { clipEndTime, clipRate, makeClipId, withTrackClips } from './timeline-ops';
 import { insertGapAllTracks, insertGapOnTrack } from './ripple-ops';
@@ -68,5 +68,9 @@ export function restoreDeletion(
   delete restored.transitionOut;
   delete restored.label;
   delete restored.note;
-  return withTrackClips(opened, lane.id, [...openedLane.clips, restored]);
+  // B4: the two edges the restore rejoins are no longer cut edges.
+  const rejoined = openedLane.clips.map((c) =>
+    c.id === beforeClipId ? withoutEdgeTag(c, 'end') : c.id === afterClipId ? withoutEdgeTag(c, 'start') : c,
+  );
+  return withTrackClips(opened, lane.id, [...rejoined, restored]);
 }

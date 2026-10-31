@@ -1,11 +1,13 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type {
   StudioProxyEncoderInstallResponse,
+  StudioProxyEncoderRebuildRequest,
+  StudioProxyEncoderRebuildResponse,
   StudioProxyEncoderSetEnabledRequest,
   StudioProxyEncoderSetEnabledResponse,
   StudioProxyEncoderStatusResponse,
 } from '../../shared/ipc/types';
-import { getProxyGpuEncoderEnabled, setProxyGpuEncoderEnabled } from '../services/settings';
+import { getProxyGpuEncoderSetting, setProxyGpuEncoderEnabled } from '../services/settings';
 import {
   FFMPEG_FULL_CATALOGUE,
   clearProxyGpuFallback,
@@ -15,7 +17,15 @@ import {
   isFfmpegFullDownloading,
   probeProxyEncoders,
 } from '../services/studio/ffmpeg-full';
-import { PROXY_GPU_ENCODER_LABELS, chooseProxyEncoder } from '../services/studio/proxy-encoders';
+import { detectNvidiaAdapter } from '../services/studio/gpu-adapters';
+import { rebuildProxiesOnGpu } from '../services/studio/proxy-gpu-rebuild';
+import { getProjectDir } from '../services/studio/studio-paths';
+import {
+  PROXY_GPU_ENCODER_LABELS,
+  chooseProxyEncoder,
+  effectiveProxyGpuEnabled,
+  isProxyGpuAutoViable,
+} from '../services/studio/proxy-encoders';
 
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
@@ -25,6 +35,7 @@ const EMPTY: Omit<StudioProxyEncoderStatusResponse, 'success' | 'error'> = {
   enabled: false,
   installed: false,
   downloading: false,
+  downloadable: process.platform === FFMPEG_FULL_CATALOGUE.platform,
   downloadBytes: FFMPEG_FULL_CATALOGUE.bytes,
   version: FFMPEG_FULL_CATALOGUE.version,
   licence: FFMPEG_FULL_CATALOGUE.licence,
@@ -36,16 +47,18 @@ const EMPTY: Omit<StudioProxyEncoderStatusResponse, 'success' | 'error'> = {
 
 export async function handleStudioProxyEncoderStatus(): Promise<StudioProxyEncoderStatusResponse> {
   try {
-    const enabled = await getProxyGpuEncoderEnabled();
+    const setting = await getProxyGpuEncoderSetting();
     const ffmpeg = await getFfmpegFullBinary();
     const probe = ffmpeg ? await probeProxyEncoders(ffmpeg) : null;
     const detected = probe ? chooseProxyEncoder(probe.working) : null;
     return {
       success: true,
       ...EMPTY,
-      enabled,
+      enabled: effectiveProxyGpuEnabled(setting, isProxyGpuAutoViable(probe?.working ?? [])),
+      choice: setting ?? null,
       installed: ffmpeg !== null,
       downloading: isFfmpegFullDownloading(),
+      nvidiaAdapter: await detectNvidiaAdapter(),
       detected,
       detectedLabel: detected ? PROXY_GPU_ENCODER_LABELS[detected] : null,
       listed: probe?.listed ?? [],
@@ -62,6 +75,21 @@ export async function handleStudioProxyEncoderInstall(): Promise<StudioProxyEnco
     return { success: true };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'ffmpeg download failed') };
+  }
+}
+
+export async function handleStudioProxyEncoderRebuild(
+  _event: IpcMainInvokeEvent,
+  data: StudioProxyEncoderRebuildRequest,
+): Promise<StudioProxyEncoderRebuildResponse> {
+  try {
+    await getProjectDir(data.projectId); // Validates the id before any job is queued.
+    const assets = (Array.isArray(data.assets) ? data.assets : []).filter(
+      (a) => typeof a?.assetId === 'string' && typeof a.path === 'string' && a.path.length > 0,
+    );
+    return { success: true, ...(await rebuildProxiesOnGpu(data.projectId, assets)) };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to rebuild proxies'), restarted: [], rebuilt: [] };
   }
 }
 

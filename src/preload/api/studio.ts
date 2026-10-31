@@ -2,6 +2,8 @@ import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
   StudioProxyEncoderInstallResponse,
+  StudioProxyEncoderRebuildRequest,
+  StudioProxyEncoderRebuildResponse,
   StudioProxyEncoderSetEnabledRequest,
   StudioProxyEncoderSetEnabledResponse,
   StudioProxyEncoderStatusResponse,
@@ -40,6 +42,8 @@ import type {
   StudioProjectCreateRequest,
   StudioProjectCreateResponse,
   StudioProjectCloseRequest,
+  StudioProjectHandoffRequest,
+  StudioProjectHandoffResponse,
   StudioProjectCloseResponse,
   StudioProjectDeleteRequest,
   StudioProjectDeleteResponse,
@@ -109,6 +113,9 @@ import type {
   StudioPackagePlanResponse,
   StudioCutPlanRunRequest,
   StudioCutPlanRunResponse,
+  StudioCutStyleResolveRequest,
+  StudioCutStyleResolveResponse,
+  StudioCutStyleFileResponse,
   StudioTranscribeCancelRequest,
   StudioTranscribeCancelResponse,
   StudioAnalysisRequest,
@@ -139,6 +146,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_DELETE, data),
   studioProjectClose: (data: StudioProjectCloseRequest): Promise<StudioProjectCloseResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_CLOSE, data),
+  studioProjectHandoff: (data: StudioProjectHandoffRequest): Promise<StudioProjectHandoffResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROJECT_HANDOFF, data),
   studioProjectSnapshotList: (data: StudioSnapshotListRequest): Promise<StudioSnapshotListResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_SNAPSHOT_LIST, data),
   studioProjectSnapshotRestore: (
@@ -169,6 +178,9 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_INSTALL),
   studioProxyEncoderSetEnabled: (data: StudioProxyEncoderSetEnabledRequest): Promise<StudioProxyEncoderSetEnabledResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_SET_ENABLED, data),
+  // A4: after the card's download, rebuild this session's x264 4K proxies on the GPU.
+  studioProxyEncoderRebuild: (data: StudioProxyEncoderRebuildRequest): Promise<StudioProxyEncoderRebuildResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_REBUILD, data),
   studioMediaPrepare: (data: StudioMediaPrepareRequest): Promise<StudioMediaPrepareResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_PREPARE, data),
   studioMediaRelink: (data: StudioMediaRelinkRequest): Promise<StudioMediaRelinkResponse> =>
@@ -189,6 +201,10 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_ANALYSIS_READ_MASK, data),
   studioCutPlanRun: (data: StudioCutPlanRunRequest): Promise<StudioCutPlanRunResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CUTPLAN_RUN, data),
+  studioCutStyleResolve: (data: StudioCutStyleResolveRequest): Promise<StudioCutStyleResolveResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CUTSTYLE_RESOLVE, data),
+  studioCutStyleFile: (): Promise<StudioCutStyleFileResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CUTSTYLE_FILE),
   studioAgentSend: (data: StudioAgentSendRequest): Promise<StudioAgentSendResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_AGENT_SEND, data),
   studioAgentCancel: (data: StudioAgentCancelRequest): Promise<StudioAgentCancelResponse> =>

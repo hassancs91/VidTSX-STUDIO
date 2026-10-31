@@ -4,6 +4,7 @@ import { applyTextDelete, planTextDelete } from './text-delete';
 import { timelineReducer } from '../hooks/useTimeline';
 import { restoreDeletion } from './text-restore';
 import { buildTranscriptDoc } from './transcript-doc';
+import { TEST_NATURAL_STYLE } from '@shared/studio/cut-style-test-fixtures';
 import { ASSET, makeEnvelope, makeTimeline, master, shots, wordSource } from './text-edit-fixtures';
 
 function deleteWords(timeline: StudioTimeline, pick: (text: string) => boolean, rippleAllTracks = false) {
@@ -14,6 +15,7 @@ function deleteWords(timeline: StudioTimeline, pick: (text: string) => boolean, 
     words: wordSource(),
     envelopes: new Map([['a1', makeEnvelope()]]),
     assets: [ASSET],
+    style: TEST_NATURAL_STYLE,
   });
   return applyTextDelete(timeline, result.spans, { rippleAllTracks });
 }
@@ -102,7 +104,7 @@ describe('reducer round-trips (text-based editing)', () => {
   const baseState = (timeline: StudioTimeline) => ({
     projectId: 'p1',
     past: [],
-    present: { timeline, proposals: [], shots: [], captions: null, removedAssets: [] },
+    present: { timeline, proposals: [], shots: [], captions: null, removedAssets: [], frame: { width: 1920, height: 1080 } },
     future: [],
   });
 
@@ -115,6 +117,7 @@ describe('reducer round-trips (text-based editing)', () => {
       words: wordSource(),
       envelopes: new Map([['a1', makeEnvelope()]]),
       assets: [ASSET],
+      style: TEST_NATURAL_STYLE,
     });
     expect(spans).toHaveLength(2);
 

@@ -1,11 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StudioSnapshotRestoreResponse } from '@shared/ipc/types';
-import type { StudioProject } from '../types';
+import type { StudioMediaAsset, StudioProject } from '../types';
 import { markOpen, resetOpenMarks } from '../services/open-timing';
+import { createAutosave, type Autosave, type AutosaveState } from '../services/autosave';
 
 type Status = 'loading' | 'ready' | 'error';
 
 const SAVE_DEBOUNCE_MS = 600;
+
+/** Give an unsaved document to main's project writer (B5 fix round 1): main
+ *  owns the write from here — it retries for minutes, independent of this
+ *  editor, and leaves project.json.tmp for recovery on the next open. */
+async function handOffToMain(project: StudioProject): Promise<void> {
+  try {
+    const res = await window.api.studioProjectHandoff({ project });
+    if (!res.success) console.error('[studio] Main refused the unsaved project:', res.error);
+  } catch (err) {
+    console.error('[studio] Could not hand the unsaved project to main:', err);
+  }
+}
 
 /** Loads one project document and owns its in-memory state. Every mutation
  *  goes through `updateProject`, which debounce-persists the whole document
@@ -15,26 +28,42 @@ export function useStudioProject(projectId: string) {
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<'saved' | 'pending' | 'error'>('saved');
+  const [saveState, setSaveState] = useState<AutosaveState>('saved');
+  /** The last refusal's message while `saveState` is 'error' (B5 Problem 5). */
+  const [saveError, setSaveError] = useState<string | null>(null);
+  /** The open recovered changes that never reached project.json — say so once. */
+  const [recovered, setRecovered] = useState(false);
 
-  const latestRef = useRef<StudioProject | null>(null);
-  const dirtyRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // One autosave per opened project. A failed save stays dirty and retries
+  // (services/autosave.ts) — memory and project.json never silently diverge.
+  const autosaveRef = useRef<Autosave<StudioProject> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const autosave = createAutosave<StudioProject>({
+      save: (doc) => window.api.studioProjectSave({ project: doc }),
+      onState: (state, err) => {
+        setSaveState(state);
+        setSaveError(state === 'error' ? (err ?? 'Save failed') : null);
+      },
+      debounceMs: SAVE_DEBOUNCE_MS,
+    });
+    autosaveRef.current = autosave;
     setStatus('loading');
     setProject(null);
-    latestRef.current = null;
-    dirtyRef.current = false;
+    setRecovered(false);
     resetOpenMarks();
     markOpen('load:start');
 
-    void window.api.studioProjectLoad({ id: projectId }).then((res) => {
+    void (async () => {
+      const res = await window.api.studioProjectLoad({ id: projectId });
       if (cancelled) return;
       markOpen('load:end');
       if (res.success && res.project) {
-        latestRef.current = res.project;
+        autosave.reset(res.project);
+        // A recovered document is not on disk yet: save it like an edit.
+        if (res.unsaved) autosave.update(res.project);
+        setRecovered(res.recovered === true);
         setProject(res.project);
         setFolderPath(res.folderPath ?? null);
         setStatus('ready');
@@ -43,65 +72,55 @@ export function useStudioProject(projectId: string) {
         setStatus('error');
         setError(res.error ?? 'Failed to load project');
       }
-    });
+    })();
+
+    // Editor closing: hand anything not yet on disk to main in one call —
+    // main owns that write from now on (a save refused by a held project.json
+    // is retried there for minutes; B5 fix round 1). Then tell main the
+    // project is closed so its poster is written now (W6) — a close with
+    // nothing dirty would otherwise leave the save-debounced poster waiting
+    // on a save that never comes.
     return () => {
       cancelled = true;
+      const unsaved = autosave.takeUnsaved();
+      autosave.dispose();
+      if (autosaveRef.current === autosave) autosaveRef.current = null;
+      void (async () => {
+        try {
+          if (unsaved) await handOffToMain(unsaved);
+        } finally {
+          await window.api.studioProjectClose({ id: projectId });
+          window.dispatchEvent(new CustomEvent('vidtsx:studio-projects-changed'));
+        }
+      })();
     };
   }, [projectId]);
 
-  const persist = useCallback(async () => {
-    const doc = latestRef.current;
-    if (!doc || !dirtyRef.current) return;
-    dirtyRef.current = false;
-    const res = await window.api.studioProjectSave({ project: doc });
-    // A later edit may have re-dirtied the doc while this save was in flight.
-    setSaveState(res.success ? (dirtyRef.current ? 'pending' : 'saved') : 'error');
-  }, []);
-
-  const scheduleSave = useCallback(() => {
-    dirtyRef.current = true;
-    setSaveState('pending');
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      void persist();
-    }, SAVE_DEBOUNCE_MS);
-  }, [persist]);
-
   /** Cancel the debounce and save now (no-op when nothing is dirty). */
   const flush = useCallback(async () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    await persist();
-  }, [persist]);
-
-  // Flush pending edits when the editor closes, then tell main the project
-  // is closed so its poster is written now (W6) — a close with nothing dirty
-  // would otherwise leave the save-debounced poster waiting on a save that
-  // never comes.
-  useEffect(() => {
-    return () => {
-      void flush().finally(() =>
-        window.api
-          .studioProjectClose({ id: projectId })
-          .then(() => window.dispatchEvent(new CustomEvent('vidtsx:studio-projects-changed'))),
-      );
-    };
-  }, [flush, projectId]);
+    await autosaveRef.current?.flush();
+  }, []);
 
   // Q10 quit-flush hardening: React cleanup does not run on window close or
   // app quit, so the debounce alone could lose the last ~600 ms of edits.
   // beforeunload posts the save invoke synchronously before teardown, blur is
   // free insurance, and the main-process close guard defers the close until
-  // this hook acks that the flush landed.
+  // this hook acks. The ack follows a HAND-OFF, not a save: a save refused
+  // by a held project.json would outlast the guard's 1.5 s, so main takes
+  // the document and its shutdown waits for it (B5 fix round 1).
   useEffect(() => {
     const flushNow = () => void flush();
     window.addEventListener('beforeunload', flushNow);
     window.addEventListener('blur', flushNow);
     const unsubscribe = window.api.onStudioFlushRequest(() => {
-      void flush().finally(() => void window.api.studioFlushAck());
+      void (async () => {
+        try {
+          const unsaved = autosaveRef.current?.takeUnsaved() ?? null;
+          if (unsaved) await handOffToMain(unsaved);
+        } finally {
+          await window.api.studioFlushAck();
+        }
+      })();
     });
     return () => {
       window.removeEventListener('beforeunload', flushNow);
@@ -118,10 +137,8 @@ export function useStudioProject(projectId: string) {
       await flush();
       const res = await window.api.studioProjectSnapshotRestore({ id: projectId, file });
       if (res.success && res.project) {
-        latestRef.current = res.project;
-        dirtyRef.current = false;
+        autosaveRef.current?.reset(res.project);
         setProject(res.project);
-        setSaveState('saved');
       }
       return res;
     },
@@ -136,27 +153,28 @@ export function useStudioProject(projectId: string) {
         // An updater that changed nothing (a re-announced cache file, an
         // already-merged import) must not dirty the document into a save.
         if (next === prev) return prev;
-        latestRef.current = next;
-        scheduleSave();
+        autosaveRef.current?.update(next);
         return next;
       });
     },
-    [scheduleSave],
+    [],
   );
 
   const importMedia = useCallback(async (): Promise<{
     added: number;
     errors: string[];
     canceled: boolean;
+    /** The assets this import added (the A4 4K card reads their probes). */
+    assets: StudioMediaAsset[];
   }> => {
     const res = await window.api.studioMediaImport({ projectId });
-    if (!res.success) return { added: 0, errors: [res.error ?? 'Import failed'], canceled: false };
-    if (res.canceled || !res.assets) return { added: 0, errors: [], canceled: true };
+    if (!res.success) return { added: 0, errors: [res.error ?? 'Import failed'], canceled: false, assets: [] };
+    if (res.canceled || !res.assets) return { added: 0, errors: [], canceled: true, assets: [] };
     const assets = res.assets;
     if (assets.length > 0) {
       updateProject((prev) => ({ ...prev, assets: [...prev.assets, ...assets] }));
     }
-    return { added: assets.length, errors: res.errors ?? [], canceled: false };
+    return { added: assets.length, errors: res.errors ?? [], canceled: false, assets };
   }, [projectId, updateProject]);
 
   const removeAsset = useCallback(
@@ -175,6 +193,8 @@ export function useStudioProject(projectId: string) {
     status,
     error,
     saveState,
+    saveError,
+    recovered,
     updateProject,
     importMedia,
     removeAsset,

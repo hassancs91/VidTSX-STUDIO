@@ -23,10 +23,18 @@ import { logEngine } from '../../logging/log-engine';
 
 /** Past this, we stop waiting and let the process die rather than hang a quit. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
+/** Studio saves still refused at quit get this long; then project.json.tmp
+ *  is left for recovery on the next open (B5 fix round 1). */
+const PROJECT_WRITE_DRAIN_MS = 4_000;
 
 let shutdownPromise: Promise<void> | null = null;
 
 async function runShutdown(): Promise<void> {
+  // First: a Studio project the closing editor handed to main while
+  // project.json was held (AV, sync, indexer) — bounded, never blocks quit.
+  const { projectWriter } = await import('./studio/project-writer');
+  await projectWriter.drain(PROJECT_WRITE_DRAIN_MS);
+
   stopSystemMonitor();
 
   // Stop update polling first — a check firing mid-teardown would push state to a

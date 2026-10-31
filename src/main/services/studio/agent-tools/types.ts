@@ -36,6 +36,10 @@ export interface StudioTurnState {
   vocabularyProposalCreated: boolean;
   /** W5: one preset-update card per turn (its own gate, like vocabulary). */
   presetProposalCreated: boolean;
+  /** B7 step 4b: per asset, its source ranges on the timeline after an apply
+   *  this turn (the renderer's answer) — overlays the inventory's turn-start
+   *  `sourceKeeps`. Created on first use. */
+  sourceKeeps?: Map<string, Array<{ start: number; end: number }>>;
 }
 
 export function createTurnState(): StudioTurnState {
@@ -109,16 +113,38 @@ export function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** B7 step 4b: keep the renderer's post-apply source ranges for this turn. */
+export function noteAppliedKeeps(
+  state: StudioTurnState,
+  sourceKeeps: Record<string, Array<{ start: number; end: number }>> | undefined,
+): void {
+  if (!sourceKeeps) return;
+  state.sourceKeeps ??= new Map();
+  for (const [assetId, keeps] of Object.entries(sourceKeeps)) state.sourceKeeps.set(assetId, keeps);
+}
+
+/** The asset with this turn's latest source ranges (none left = absent, the
+ *  inventory's rule for an asset that is not on the timeline). */
+function withTurnKeeps(ctx: StudioToolContext, asset: StudioAgentAssetInfo): StudioAgentAssetInfo {
+  const keeps = ctx.state.sourceKeeps?.get(asset.id);
+  if (!keeps) return asset;
+  const next: StudioAgentAssetInfo = { ...asset };
+  delete next.sourceKeeps;
+  if (keeps.length > 0) next.sourceKeeps = keeps;
+  return next;
+}
+
 /** A project asset as the tools see it: the turn-start inventory plus
- *  anything imported on use this turn. */
+ *  anything imported on use this turn, with the timeline's source ranges as
+ *  the last apply of this turn left them. */
 export function findProjectAsset(
   ctx: StudioToolContext,
   assetId: string,
 ): StudioAgentAssetInfo | undefined {
   const known = ctx.req.assets.find((a) => a.id === assetId);
-  if (known) return known;
+  if (known) return withTurnKeeps(ctx, known);
   const imported = ctx.state.importedAssets.get(assetId);
-  return imported ? assetInfoFromMedia(imported) : undefined;
+  return imported ? withTurnKeeps(ctx, assetInfoFromMedia(imported)) : undefined;
 }
 
 export function assetInfoFromMedia(asset: StudioMediaAsset): StudioAgentAssetInfo {
@@ -137,5 +163,5 @@ export function projectInventory(ctx: StudioToolContext): StudioAgentAssetInfo[]
   return [
     ...ctx.req.assets,
     ...[...ctx.state.importedAssets.values()].map(assetInfoFromMedia),
-  ];
+  ].map((asset) => withTurnKeeps(ctx, asset));
 }

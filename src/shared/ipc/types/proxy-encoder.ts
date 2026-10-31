@@ -6,12 +6,24 @@ export type ProxyGpuEncoderId = 'nvenc' | 'qsv' | 'amf';
 export interface StudioProxyEncoderStatusResponse {
   success: boolean;
   error?: string;
-  /** The user's toggle (persisted, default off). */
+  /**
+   * Effective state: the user's explicit choice, or — when they never chose —
+   * on when viable (installed + NVENC working; A4). What the checkbox shows.
+   */
   enabled: boolean;
+  /** The persisted choice; null = never chosen, so `enabled` is automatic. */
+  choice?: boolean | null;
   /** The full ffmpeg binary is on disk. */
   installed: boolean;
   /** A download/extract is in flight (also true across an app restart resume). */
   downloading: boolean;
+  /** The download exists for this platform (the build is win64-only). Absent = older main. */
+  downloadable?: boolean;
+  /**
+   * An NVIDIA adapter is present (Electron's GPU info, read before the full
+   * ffmpeg exists); null = could not tell. Gates the first-4K-import card (A4).
+   */
+  nvidiaAdapter?: boolean | null;
   /** Zip size of the catalogue entry, for the "Download (~80 MB)" button. */
   downloadBytes: number;
   /** Version and licence shown beside the button. */
@@ -38,4 +50,23 @@ export interface StudioProxyEncoderSetEnabledRequest {
 export interface StudioProxyEncoderSetEnabledResponse {
   success: boolean;
   error?: string;
+}
+
+/**
+ * After the first-4K-import card's download (A4): the open project's 4K
+ * videos. Main rebuilds the ones whose proxy this session is building (or
+ * built) on x264 — the card's own clip included — on the GPU encoder.
+ */
+export interface StudioProxyEncoderRebuildRequest {
+  projectId: string;
+  assets: Array<{ assetId: string; path: string }>;
+}
+
+export interface StudioProxyEncoderRebuildResponse {
+  success: boolean;
+  error?: string;
+  /** In-flight x264 builds aborted and queued again. */
+  restarted: string[];
+  /** Finished x264 proxies queued again. */
+  rebuilt: string[];
 }

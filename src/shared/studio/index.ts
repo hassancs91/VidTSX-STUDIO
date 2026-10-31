@@ -42,6 +42,8 @@ export { rangeDurationInFrames, trimTimelineToRange } from './trim-range';
 export { RmsEnvelope } from './cut-planner';
 export type { PlanSpan, PlanWord } from './cut-planner';
 export { snapCutSpans } from './cut-snap';
+export { withEdgeTag, withoutEdgeTag } from './clip-edge-tags';
+export type { ClipEdge } from './clip-edge-tags';
 export type { CutSpanInput, SnapCutSpansInput, SnapCutSpansResult, SnappedCut } from './cut-snap';
 export { TAKE_GAP_SECONDS, isFillerWord } from './transcript-tokens';
 export { isValidShotId, normalizeShots } from './shots';

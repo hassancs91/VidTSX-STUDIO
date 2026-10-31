@@ -4,6 +4,7 @@ import { findSttEntry } from '@shared/presets/stt-models';
 import type { StudioAssetTranscript, StudioMediaAsset, StudioProject } from '../types';
 import type { ClipWaveformData } from '../components/timeline/TimelineClip';
 import { markOpen } from '../services/open-timing';
+import { decodeBase64Utf8 } from '../services/cache-text';
 import { patchProjectAsset, sameIdSet, withCacheFile } from '../services/asset-patch';
 
 interface WaveformFile {
@@ -210,7 +211,7 @@ export function useStudioMedia(
             const res = await window.api.studioCacheRead({ projectId, relPath });
             markOpen(`waveform:read:${assetId}`);
             if (!res.success || !res.data) return null;
-            const parsed = JSON.parse(atob(res.data)) as WaveformFile;
+            const parsed = JSON.parse(decodeBase64Utf8(res.data)) as WaveformFile;
             if (!Array.isArray(parsed.peaks) || !parsed.peaksPerSecond) return null;
             return [assetId, { peaks: parsed.peaks, peaksPerSecond: parsed.peaksPerSecond }];
           } catch {

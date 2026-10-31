@@ -6,6 +6,8 @@ import {
   type EditorialSpanInput,
 } from './editorial-cuts';
 import type { SttModelFeatures } from '@shared/presets/stt-models';
+import type { CutPlanStyle } from '@shared/types/studio-cut-plan';
+import { TEST_NATURAL_STYLE, TEST_TIGHT_STYLE } from '../../../shared/studio/cut-style-test-fixtures';
 
 const BPS = 50;
 
@@ -60,7 +62,7 @@ describe('snapEditorialCuts', () => {
     const spans: EditorialSpanInput[] = [
       { start: 3.0, end: 5.0, category: 'retake', note: 'superseded by the take at 6.0' },
     ];
-    const result = snapEditorialCuts({ spans, words, duration: 9, envelope, features: MEASURED });
+    const result = snapEditorialCuts({ style: TEST_NATURAL_STYLE, spans, words, duration: 9, envelope, features: MEASURED });
 
     expect(result.items).toHaveLength(1);
     const item = result.items[0];
@@ -76,6 +78,18 @@ describe('snapEditorialCuts', () => {
     expect(result.removedSeconds).toBeCloseTo(item.sourceEnd - item.sourceStart, 3);
   });
 
+  it('snaps with the style it is given (the resolved one), pause compression still off', () => {
+    const { words, envelope } = retakeFixture();
+    const spans: EditorialSpanInput[] = [{ start: 3.0, end: 5.0, category: 'retake' }];
+    const run = (style: CutPlanStyle) =>
+      snapEditorialCuts({ spans, words, duration: 9, envelope, features: MEASURED, style }).items[0];
+    const natural = run(TEST_NATURAL_STYLE);
+    // A shorter head before the next take moves the cut end later.
+    expect(run(TEST_TIGHT_STYLE).sourceEnd).toBeGreaterThan(natural.sourceEnd);
+    // The style's internalGap is ignored: an editorial snap never compresses pauses.
+    expect(run({ ...TEST_NATURAL_STYLE, internalGap: 0.01 })).toEqual(natural);
+  });
+
   it('never lets a keep tail ride into cut speech (clamp at the cut start)', () => {
     // Speech is continuous 0.2..5.0; the cut starts right after the kept word.
     const words = [word('keep.', 0.2, 2.0), word('cut', 2.05, 4.9), word('after', 6.0, 7.0)];
@@ -83,7 +97,7 @@ describe('snapEditorialCuts', () => {
       [0.2, 5.0],
       [6.0, 7.0],
     ]);
-    const result = snapEditorialCuts({
+    const result = snapEditorialCuts({ style: TEST_NATURAL_STYLE,
       spans: [{ start: 2.05, end: 5.0, category: 'false_start', note: 'restarts at 6.0' }],
       words,
       duration: 8,
@@ -98,7 +112,7 @@ describe('snapEditorialCuts', () => {
 
   it('merges overlapping spans, keeping the dominant category and both notes', () => {
     const { words, envelope } = retakeFixture();
-    const result = snapEditorialCuts({
+    const result = snapEditorialCuts({ style: TEST_NATURAL_STYLE,
       spans: [
         { start: 3.0, end: 4.5, category: 'retake', note: 'first' },
         { start: 4.0, end: 5.0, category: 'filler', note: 'second' },
@@ -116,7 +130,7 @@ describe('snapEditorialCuts', () => {
 
   it('merges through a short wordless sliver between two cuts', () => {
     const { words, envelope } = retakeFixture();
-    const result = snapEditorialCuts({
+    const result = snapEditorialCuts({ style: TEST_NATURAL_STYLE,
       spans: [
         { start: 3.0, end: 4.05, category: 'retake', note: 'a' },
         { start: 4.15, end: 5.0, category: 'retake', note: 'b' },
@@ -144,7 +158,7 @@ describe('snapEditorialCuts', () => {
       [5.0, 5.8],
       [7.0, 7.8],
     ]);
-    const result = snapEditorialCuts({
+    const result = snapEditorialCuts({ style: TEST_NATURAL_STYLE,
       spans: [
         { start: 2.0, end: 2.8, category: 'filler', note: 'x' },
         { start: 5.0, end: 5.8, category: 'filler', note: 'y' },
@@ -160,7 +174,7 @@ describe('snapEditorialCuts', () => {
 
   it('clamps to the audio and drops spans fully outside it', () => {
     const { words, envelope } = retakeFixture();
-    const result = snapEditorialCuts({
+    const result = snapEditorialCuts({ style: TEST_NATURAL_STYLE,
       spans: [
         { start: 20, end: 25, category: 'retake', note: 'ghost' },
         { start: 3.0, end: 5.0, category: 'retake', note: 'real' },
@@ -177,7 +191,7 @@ describe('snapEditorialCuts', () => {
 
   it('a cut at the very start snaps its start to 0', () => {
     const { words, envelope } = retakeFixture();
-    const result = snapEditorialCuts({
+    const result = snapEditorialCuts({ style: TEST_NATURAL_STYLE,
       spans: [{ start: 0, end: 2.5, category: 'false_start', note: 'abandoned open' }],
       words,
       duration: 9,
@@ -193,7 +207,7 @@ describe('snapEditorialCuts', () => {
 
   it('returns empty for no usable spans', () => {
     const { words, envelope } = retakeFixture();
-    const result = snapEditorialCuts({
+    const result = snapEditorialCuts({ style: TEST_NATURAL_STYLE,
       spans: [{ start: 5, end: 5.01, category: 'filler', note: 'too small' }],
       words,
       duration: 9,
@@ -235,6 +249,11 @@ describe('buildEditorialProposal', () => {
     });
     expect(proposal.items[1].status).toBe('rejected');
     expect(proposal.items[1].category).toBe('fluff');
+    // B4: the snapped span is kept beside the final one an edge drag writes.
+    expect(proposal.items.map((i) => i.snapped)).toEqual([
+      { sourceStart: 1, sourceEnd: 2 },
+      { sourceStart: 4, sourceEnd: 5 },
+    ]);
   });
 
   it('writes an honest headline plus the summary and fluff hint', () => {
@@ -263,5 +282,19 @@ describe('buildEditorialProposal', () => {
     });
     const ids = new Set(proposal.items.map((i) => i.id));
     expect(ids.size).toBe(proposal.items.length);
+  });
+
+  it('carries a QA readout stamped with the asset, and none when not given (B3)', () => {
+    const qa = {
+      hardEntries: 1,
+      clippedTails: 0,
+      joinsChecked: 2,
+      atomsChecked: 2,
+      items: [{ kind: 'hard-entry' as const, sourceTime: 2, overDb: 21.4 }],
+    };
+    const withQa = buildEditorialProposal({ assetId: 'a', items, removedSeconds: 2, sourceDuration: 40, qa });
+    expect(withQa.qa).toEqual({ ...qa, items: [{ ...qa.items[0], assetId: 'a' }] });
+    const without = buildEditorialProposal({ assetId: 'a', items, removedSeconds: 2, sourceDuration: 40 });
+    expect('qa' in without).toBe(false);
   });
 });

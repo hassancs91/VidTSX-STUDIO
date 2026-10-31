@@ -289,11 +289,14 @@ export async function setLlmDefaultModelMigrated(): Promise<void> {
 }
 
 // ─── Studio proxies: optional GPU encoder (T4b, docs/PREVIEW_TESTS_PLAN.md) ───
-// Off unless the user turned it on; it also needs the downloaded full ffmpeg
-// and a working hardware encoder before the generator uses it.
+// The user's explicit choice, or undefined when they never chose. Unset means
+// "on when viable" (A4: NVENC working + the downloaded full ffmpeg — see
+// effectiveProxyGpuEnabled in studio/proxy-encoders.ts); an explicit false
+// stays off.
 
-export async function getProxyGpuEncoderEnabled(): Promise<boolean> {
-  return getValue<boolean>('proxyGpuEncoderEnabled') === true;
+export async function getProxyGpuEncoderSetting(): Promise<boolean | undefined> {
+  const v = getValue<unknown>('proxyGpuEncoderEnabled');
+  return typeof v === 'boolean' ? v : undefined;
 }
 
 export async function setProxyGpuEncoderEnabled(enabled: boolean): Promise<void> {

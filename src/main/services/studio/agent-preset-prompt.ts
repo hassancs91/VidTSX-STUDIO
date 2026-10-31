@@ -13,6 +13,9 @@
 
 import { PRESET_PROMPT_BUDGET, type StudioPresetEntry, type StudioPresetStyle } from '../../../shared/types/studio-preset';
 import { describeWorkflowStep } from '../../../shared/studio/preset-workflow-lines';
+import { CUT_PLAN_KNOBS, normalizeCutStyleSpec } from '../../../shared/studio/cut-style-spec';
+import { pacingToCutBase } from '../../../shared/studio/cut-style-resolve';
+import { CUT_KNOB_INFO, formatCutKnob } from '../../../shared/studio/cut-style-labels';
 
 export interface PresetSkillText {
   name: string;
@@ -41,10 +44,28 @@ const KIND_LABEL: Record<StudioPresetEntry['videoKind'], string> = {
   custom: 'a custom kind of video',
 };
 
+/**
+ * The preset's own cut style (B2): `cut style natural, lead-in 0.25 s` — the
+ * base (else the one its pacing maps to, else the file default) plus every
+ * knob it sets. '' when the preset has no valid `cut`.
+ */
+function describePresetCut(style: StudioPresetStyle): string {
+  const cut = normalizeCutStyleSpec(style.cut);
+  if (!cut) return '';
+  const base = cut.base ?? pacingToCutBase(style.pacing);
+  const knobs = CUT_PLAN_KNOBS.filter((knob) => cut[knob] !== undefined).map((knob) => {
+    const label = CUT_KNOB_INFO[knob].label;
+    return `${label.charAt(0).toLowerCase()}${label.slice(1)} ${formatCutKnob(knob, cut[knob])}`;
+  });
+  return [`cut style ${base ?? 'default'}`, ...knobs].join(', ');
+}
+
 /** One prose line of the structured knobs; absent knobs are not mentioned. */
 export function describePresetStyle(style: StudioPresetStyle): string {
   const parts: string[] = [];
   if (style.pacing) parts.push(`pacing ${style.pacing}`);
+  const cut = describePresetCut(style);
+  if (cut) parts.push(cut);
   if (style.shotsPerMinute !== undefined) parts.push(`about ${style.shotsPerMinute} shots per minute`);
   if (style.sfxPerMinute !== undefined) parts.push(`about ${style.sfxPerMinute} sound effects per minute`);
   if (style.musicBed) parts.push(`music bed ${style.musicBed}`);

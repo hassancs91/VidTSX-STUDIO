@@ -16,8 +16,11 @@ import { getLibraryRoot } from '../library/library-paths';
 import { readPreset } from '../library/preset-store';
 import { describePresetStyle } from './agent-preset-prompt';
 import { addPresetProposal } from './agent-preset-proposals';
+import { loadCutStyleFile } from './cut-style-store';
+import { learnProjectCutKnobs, type ProjectCutLearning } from './learn-cut-knobs';
 import { buildLearnedSection, formatKnobChange, formatStatsLines, formatStatsSummary } from './preset-learn-format';
-import { applyKnobChanges, computeLearnStats, diffPresetKnobs } from './preset-learn-stats';
+import { applyKnobChanges, hasCutKnobChanges } from './preset-knob-apply';
+import { computeLearnStats, diffPresetKnobs } from './preset-learn-stats';
 import { loadProject } from './project-store';
 
 const log = logEngine.createLogger('LearnFromProject');
@@ -99,9 +102,19 @@ export async function learnFromProject(input: LearnFromProjectInput): Promise<Le
 
   const stats = computeLearnStats(project);
   if (stats.totalSeconds <= 0) return { ok: false, error: 'The timeline is empty — there is nothing to learn from yet.' };
-  const changes = diffPresetKnobs(preset.style, stats);
-  const lines = formatStatsLines(stats);
+  // B4: the cut knobs from the joins the user trimmed. A failure here costs
+  // the cut half only — the rest of the card still stands.
+  let cut: ProjectCutLearning | null = null;
+  try {
+    cut = await learnProjectCutKnobs(project);
+  } catch (err) {
+    log.warn('Cut-knob learning failed', { error: err instanceof Error ? err.message : String(err) });
+  }
+  const changes = [...diffPresetKnobs(preset.style, stats), ...(cut?.changes ?? [])];
+  const cutLines = cut?.lines ?? [];
+  const lines = [...formatStatsLines(stats), ...cutLines];
   const changeLines = changes.map(formatKnobChange);
+  const cutFile = hasCutKnobChanges(changes) ? await loadCutStyleFile() : null;
 
   let summary = input.summary?.trim() || null;
   let summaryFallback = false;
@@ -115,7 +128,7 @@ export async function learnFromProject(input: LearnFromProjectInput): Promise<Le
   }
 
   const date = (input.now ?? (() => new Date()))().toISOString().slice(0, 10);
-  const learnedSection = buildLearnedSection({ projectName: project.name, date, summary, stats, changes });
+  const learnedSection = buildLearnedSection({ projectName: project.name, date, summary, stats, changes, cutLines });
   try {
     const proposal = addPresetProposal({
       projectId: project.id,
@@ -127,8 +140,9 @@ export async function learnFromProject(input: LearnFromProjectInput): Promise<Le
       summary,
       ...(summaryFallback ? { summaryFallback: true } : {}),
       knobChanges: changes,
-      proposedStyle: applyKnobChanges(preset.style, changes),
+      proposedStyle: applyKnobChanges(preset.style, changes, cutFile),
       learnedSection,
+      ...(cut ? { cutLearn: cut.report, cutLines } : {}),
       ...(input.note ? { note: input.note } : {}),
     });
     log.info('Preset-update card queued', { projectId: project.id, presetId: preset.id, changes: changes.length, summaryFallback });

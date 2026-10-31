@@ -14,6 +14,9 @@ import type {
   StudioProposal,
   StudioProposalItem,
 } from '../../../shared/types/studio';
+import type { CutQaReport } from '../../../shared/types/studio-cut-plan';
+import { withQaAsset } from '../../../shared/studio/cut-qa';
+import { formatQaUncheckedNote, uncheckQaFlaggedItems } from '../../../shared/studio/cut-qa-flags';
 import {
   snapCutSpans,
   type CutSpanInput,
@@ -32,9 +35,19 @@ export type EditorialCutItem = SnappedCut<EditorialCategory>;
 export type SnapEditorialCutsInput = SnapCutSpansInput<EditorialCategory>;
 export type SnapEditorialCutsResult = SnapCutSpansResult<EditorialCategory>;
 
+/**
+ * Cuts that start in the same review state merge through any wordless gap
+ * between them (B7); an accepted removal never swallows an unchecked fluff.
+ */
+function editorialMergeKey(category: EditorialCategory): string {
+  return category === 'fluff' ? 'fluff' : 'cut';
+}
+
 /** The shared snapper (src/shared/studio/cut-snap.ts), typed to the agent's categories. */
 export function snapEditorialCuts(input: SnapEditorialCutsInput): SnapEditorialCutsResult {
-  return snapCutSpans(input);
+  // B7 step 7: the model's edges are estimates ("needs an ear") — an end it
+  // put in continuous speech moves to the nearest quiet gap.
+  return snapCutSpans({ mergeKey: editorialMergeKey, seekQuietGap: true, ...input });
 }
 
 export interface BuildEditorialProposalInput {
@@ -47,6 +60,8 @@ export interface BuildEditorialProposalInput {
   /** The agent's one-line summary of the pass, shown under the headline. */
   summary?: string;
   qaNotes?: string[];
+  /** The snapped plan's QA readout (`snapCutSpans` → `qa`); absent = none shown. */
+  qa?: CutQaReport;
   createdAt?: string;
 }
 
@@ -54,18 +69,24 @@ export interface BuildEditorialProposalInput {
  * Wrap snapped editorial cuts as a StudioProposal for the review UI.
  * Retakes/false starts/fillers start ACCEPTED (veto-based review); fluff
  * starts REJECTED — the clean-cut policy is "suggest, don't auto-remove".
+ * B7: a cut the plan's QA still hears a hard entry after starts REJECTED too,
+ * with the reason in `qaFlag` (shared/studio/cut-qa-flags.ts).
  */
 export function buildEditorialProposal(input: BuildEditorialProposalInput): StudioProposal {
-  const items: StudioProposalItem[] = input.items.map((item, i) => ({
+  const built: StudioProposalItem[] = input.items.map((item, i) => ({
     id: `cut_${i}_${Math.random().toString(36).slice(2, 8)}`,
     status: item.category === 'fluff' ? 'rejected' : 'accepted',
     assetId: input.assetId,
     sourceStart: item.sourceStart,
     sourceEnd: item.sourceEnd,
+    // B4: the snapped span, kept beside the final one an edge drag writes.
+    snapped: { sourceStart: item.sourceStart, sourceEnd: item.sourceEnd },
     category: item.category as StudioCutCategory,
     ...(item.text ? { text: item.text } : {}),
     ...(item.note ? { note: item.note } : {}),
   }));
+  const qa = input.qa ? withQaAsset(input.qa, input.assetId) : undefined;
+  const items = uncheckQaFlaggedItems(built, qa);
 
   const fluffCount = input.items.filter((i) => i.category === 'fluff').length;
   const headline =
@@ -78,6 +99,8 @@ export function buildEditorialProposal(input: BuildEditorialProposalInput): Stud
       `${fluffCount} fluff suggestion${fluffCount === 1 ? '' : 's'} start unchecked — tick the ones you agree with.`,
     );
   }
+  const qaUnchecked = formatQaUncheckedNote(items);
+  if (qaUnchecked) lines.push(qaUnchecked);
   lines.push(...(input.qaNotes ?? []));
 
   return {
@@ -87,5 +110,6 @@ export function buildEditorialProposal(input: BuildEditorialProposalInput): Stud
     createdAt: input.createdAt ?? new Date().toISOString(),
     agentNote: lines.join('\n'),
     items,
+    ...(qa ? { qa } : {}),
   };
 }

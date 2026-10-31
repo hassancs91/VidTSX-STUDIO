@@ -4,9 +4,13 @@
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { logEngine } from '../../../../logging/log-engine';
+import { formatCutQaLine } from '../../../../shared/studio/cut-qa';
+import { formatQaUncheckedForAgent } from '../../../../shared/studio/cut-qa-flags';
 import { readTranscriptFile } from '../asset-transcriber';
 import { loadRmsEnvelope } from '../cut-plan-runner';
+import { resolveProjectCutStyle } from '../cut-style-store';
 import { EDITORIAL_CATEGORIES, buildEditorialProposal, snapEditorialCuts } from '../editorial-cuts';
+import { cutRunLine } from './cut-run-line';
 import { emitTool, reviewBlocked, text, type StudioTool, type StudioToolContext } from './types';
 
 const log = logEngine.createLogger('StudioAgent');
@@ -53,12 +57,22 @@ export function buildCutTools(ctx: StudioToolContext): StudioTool[] {
         return text('Could not load the audio envelope for this asset, so cut edges cannot be snapped. Ask the user to re-import or check the source file.', true);
       }
 
+      // The same resolved style Auto Cut uses (B2); the snapper keeps pause
+      // compression off — silence removal is Auto Cut's job.
+      let cut;
+      try {
+        cut = await resolveProjectCutStyle(req.projectId);
+      } catch (err) {
+        log.error('Editorial pass: cut style unreadable', err);
+        return text('Could not read the cut style, so cut edges cannot be snapped. Ask the user to check the app installation.', true);
+      }
       const snapped = snapEditorialCuts({
         spans: args.cuts,
         words: file.words,
         duration: envelope.duration(),
         envelope,
         features: file.features,
+        style: cut.style,
       });
       if (snapped.items.length === 0) {
         return text(`No usable cuts survived validation (${snapped.notes.join('; ') || 'all spans empty or out of range'}). Check the span times against the transcript.`, true);
@@ -72,6 +86,7 @@ export function buildCutTools(ctx: StudioToolContext): StudioTool[] {
         engine: file.engine,
         summary: args.summary,
         qaNotes: snapped.notes,
+        ...(snapped.qa ? { qa: snapped.qa } : {}),
       });
       ctx.state.proposalId = proposal.id;
       ctx.emit({ projectId: req.projectId, kind: 'proposal', proposal });
@@ -82,6 +97,9 @@ export function buildCutTools(ctx: StudioToolContext): StudioTool[] {
       return text(
         `Proposal created: ${snapped.items.length} cuts (−${snapped.removedSeconds.toFixed(1)} s; ${breakdown}). ` +
           `${snapped.notes.length > 0 ? `Adjustments: ${snapped.notes.join('; ')}. ` : ''}` +
+          `${snapped.qa ? `${formatCutQaLine(snapped.qa)}. ` : ''}` +
+          formatQaUncheckedForAgent(proposal.items) +
+          (await cutRunLine(ctx, 'editorial', { current: proposal })) +
           'It is now in the review panel — summarize your findings for the user and let them review. Do not call propose_cuts again.',
       );
     },

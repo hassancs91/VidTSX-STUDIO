@@ -9,18 +9,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { RmsEnvelope } from '@shared/studio';
 import type { StudioMediaAsset } from '../types';
+import { decodeBase64Utf8 } from '../services/cache-text';
 
 /** Structural view of the waveform cache file — main owns the full type. */
 interface WaveformFileRms {
   peaksPerSecond?: number;
   rmsDb?: number[];
+  /** Zero crossings per second per bucket (v3); absent ⇒ no fricative rule. */
+  zcr?: number[];
 }
 
 export function parseRmsEnvelope(json: string): RmsEnvelope | null {
   const parsed = JSON.parse(json) as WaveformFileRms;
   // Version-1 files carry peaks only; the caller falls back to padded edges.
   if (!Array.isArray(parsed.rmsDb) || parsed.rmsDb.length === 0 || !parsed.peaksPerSecond) return null;
-  return new RmsEnvelope(parsed.rmsDb, parsed.peaksPerSecond);
+  const zcr = Array.isArray(parsed.zcr) && parsed.zcr.length > 0 ? parsed.zcr : undefined;
+  return new RmsEnvelope(parsed.rmsDb, parsed.peaksPerSecond, zcr);
 }
 
 /** Envelopes per asset id for the given assets (ready waveforms that carry RMS data only). */
@@ -47,7 +51,7 @@ export function useAssetEnvelopes(
         try {
           const res = await window.api.studioCacheRead({ projectId, relPath });
           if (!res.success || !res.data) return;
-          const envelope = parseRmsEnvelope(atob(res.data));
+          const envelope = parseRmsEnvelope(decodeBase64Utf8(res.data));
           if (envelope) setEnvelopes((prev) => new Map(prev).set(asset.id, envelope));
         } catch {
           // No envelope only loses the snap — the delete still works, padded.

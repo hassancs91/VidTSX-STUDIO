@@ -35,6 +35,1008 @@
 - **Open:** per-node pricing on the Run form (known follow-up) · Hasan deletes `vidtsx-2.pem` · pushing main
   (it also carries `14d7a63`, the October UI slice) is his call.
 
+## 2026-10-23 — END-TO-END B7: editorial cuts leave no hard entries — EXIT PARTIAL (overlap waits for Hasan)
+
+- **What:** part B7 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`). It is not a row in the plan's §3: Hasan
+  added it on 2026-10-23 (session 3) after the track-B exit failed on E2's "hard entries 0" (B6's applied cut **6 / 146**,
+  all six at the end of an editorial item). The row: the produced cut of the assistant's real pass leaves no hard entries.
+  Scope = the five mechanisms the track-B exit found: (1) the 1.0 s wordless-sliver merge cap, (2) editorial cut-ins on a
+  removed word's leftover sound, (3) the planner's clamp slicing an onset (0375 122.7), (4) Auto Cut planning over spans
+  the editorial pass already removed (B6: 199.5 s of its 587.1 s), (5) cuts the card's own QA flags reaching Apply. Exit,
+  on ONE real pass (`Cut this video.`, all nine M2 clips, the keyless `claude-subscription`, B6's run shape): **0 hard
+  entries** on the applied cut; **content overlap ≥ 90.5 %** of Hasan's cut seconds (orchestrator decision 8: read on the
+  APPLIED cut, the all-proposed number beside it); **median lead-in / tail within ±30 ms** of the fitted tight. **Result:
+  hard entries 0 and both medians are met on all three live runs and every replay; overlap is not — the last allowed pass
+  missed it by 2.40 s of H, on model variance (decision 12) → EXIT PARTIAL — WAITING-HASAN (overlap).**
+- **The code** (every fix red-first; every change in the shared snap / planner / card code that all consumers use — T1's
+  one-resolver rule):
+  - `31feae2` — the five mechanisms mapped to file:line; fixture `src/shared/studio/cut-snap-b7.fixture.json` (the real 20 ms
+    buckets + words around B6's six hard entries).
+  - `a31080a` — mechanisms 1–3: a wordless gap between two cuts of the same kind merges at any length unless > 1.0 s of it is
+    loud (`cut-snap.ts` `mergeKey`, `LOUD_GAP_MAX_S`); a cut end moves out of the removed word's MEASURED release and out of
+    the kept word's lead-in (new `cut-snap-landing.ts` `landCutEnd`); B2's text-delete style test moved to a roomier gap
+    (both pre-B7 cut-ins there were hard entries, +40.0 / +36.0 dB).
+  - `eaf682d` — item 5: a cut whose join carries a card-QA hard entry starts unchecked with its reason (new `cut-qa-flags.ts`,
+    optional `StudioProposalItem.qaFlag`) on both cards; `propose_cuts` / `run_auto_cut` name it and the reply must; both
+    Apply paths (the click, `accept_proposal`) take only checked items.
+  - `2102419` — item 4: Auto Cut (button and `run_auto_cut`, one `runCutPlan` path) plans over the asset's timeline keeps
+    (new `cut-keeps.ts`, `plan.keeps`, own `-k<tag>` plan file); the card proposes only inside them and headlines "−X s of
+    Y s still on the timeline"; the QA readout adds "— N unchecked by QA".
+  - `d1d253a` — step 4b: `run_auto_cut` after `accept_proposal` in one turn plans over the timeline as the apply left it
+    (the renderer returns `sourceKeeps` computed with the reducer's own `applyProposalByKind`; main overlays them).
+  - `ca51e9f` — step 7: keeps-limited Auto Cut plans only the keeps that hold words, so a wordless clip head / tail is one
+    card item (`keepsWithWords`); an authored editorial end inside a word or a too-short gap lands in the nearest quiet
+    inter-word gap within 1.5 s, on the side holding most of the straddled word (decision 10), with the kept word's
+    walked-onset cap (`endOutOfSpeech`, editorial-only `seekQuietGap`).
+  - `ecaa5bd` — step 9 (a): `run_auto_cut` (incl. "Nothing to cut") and `propose_cuts` results end with the clips on the
+    timeline still without a card of this run, in timeline order (new `cut-sweep.ts`, `agent-tools/cut-run-line.ts`) + the
+    `CLIP-BY-CLIP RUNS` prompt line.
+  - `47b7acf` — step 9 (b), decision 11: when that side has no quiet gap, the other side's is taken only across words the
+    item's own note names as one run (no note → ≤ 2 words, ≤ 0.4 s); the row says `extended past "…" to land on quiet`.
+  - `1b74b73` — decision 13: a retract that would re-keep covered words the item names goes forward instead, within
+    decision 11's cap (step 6's 0375 slate "Another take." 132.732 → 133.826; Hasan's hand 133.816).
+  - Docs: `06d2da9` `f327293` `8b980b3` `734cc74` `965e736` `7ade6bc` `bed6d6c` `0db1b88` `d9cdc13` `629f803` `277f724`
+    `b40e390` + this entry's commit. Kits (gitignored): `.vidtsx-temp/end-to-end/B7/`.
+- **The three live runs** (decision 5's shape: each ONE pass on a FRESH D: copy of the shared M2 + a profile copied WITHOUT
+  `settings.db`; the keyless `claude-subscription`, every turn `claude-sonnet-5-5`; cut style tight · default; every card
+  captured from `project.json` before a real-click answer — Apply = the checked items, "Reject all" when none; measured with
+  `exit_check.py` (analyze_cut `entry_check` on real joins > 0.75 s) and B6's `measure.py`; none broken by the harness —
+  decision 9's three passes are spent):
+
+  | Run (code) | Hard entries (applied) | Lead-in / tail median vs fitted tight | Overlap applied (the bar) / all proposed | Turns · model time · notional | Items editorial + Auto Cut · applied · QA-unchecked | Final V1 |
+  |---|---|---|---|---|---|---|
+  | B6 baseline (pre-B7) | 6 / 146 | 0 / +6 ms | 0.9049 / 0.9051 | 17 · 337.2 s · $3.89 | 39 + 261 · 298 · — | 196 clips · 509.149 s |
+  | Step 6 (`d1d253a`) | **0 / 137** | 0 / −4 ms | 0.8723 / 0.8974 | 17 · 345.0 s · $4.01 | 35 + 163 · 190 · 6 (named) | 187 · 534.285 s |
+  | Pass 2 (`ca51e9f`) | **0 / 121** | 0 / −14 ms | 0.8418 / 0.8479 | 16 · 323.8 s · $2.82 | 33 + 142 · 173 · 1 (named) | 160 · 561.346 s |
+  | **Pass 3 (`1b74b73`, the last)** | **0 / 137** | **0 / −14 ms** | **0.9020 / 0.9024** (2.40 s of H short) | 17 · 355.1 s · $3.97 | 31 + 171 · 201 · 0 | 181 · 510.509 s |
+
+  - **Step 6:** turn 1's reply had no `[next: …]` marker, so `Move on.` was typed (decision 9 records it); turn 8 offered
+    Auto Cut → B6's answer `Yes, run Auto Cut for the pauses on all nine clips.`; turn 17 re-ran Auto Cut on 0375 ("nothing
+    to cut" — item 4 working). Overlap lost to six authored ends in continuous speech left unchecked by QA (15.05 s) and to
+    wordless clip heads / 0373's tail kept whole by keeps-limited Auto Cut (12.27 s) → step 7.
+  - **Pass 2:** turn 1 carried its marker (no `Move on.`); B6's Auto Cut answer after turn 8's offer; the Auto Cut sweep
+    **skipped 0371** (turn 11 miscounted, turn 12 ran 0372, turn 16 said all nine were cut — 47.0 s of H), and 0375's
+    authored 195.0 inside the slate "other" found no quiet gap on decision 10's side (unchecked, 4.96 s) → step 9 (a) / (b).
+  - **Pass 3:** turn 1 ran `run_auto_cut` on 0366 FIRST (the prompt's order; every earlier run started editorial), then
+    editorial cards alone for 0366 0370 0371 0372 0373 0375 0376; 0369 / 0374 got none ("nothing to cut" — the same applied
+    cut as the earlier runs' Reject all on 0369's lone fluff); turn 8 ended the editorial pass **without a marker and
+    without offering Auto Cut**. B6's Auto Cut answer was typed at the same point as in every earlier run, and nothing
+    else — **accepted by the orchestrator as the run shape** (every run got the same input at the same point); **the model
+    did not offer it** (without it the cut after turn 8 measures 0.4581). Then one `run_auto_cut` per clip and all nine got a
+    card (step 9 (a)'s list held; turn 17's "Nothing to cut" on 0373 named 0376 next). 0 cuts unchecked by QA; every card's
+    QA 0 hard entries. Per clip applied: 0366 0.839 · 0369 0.930 · 0370 0.940 · 0371 0.962 · 0372 0.967 · 0373 0.850 · 0374
+    0.869 · 0375 0.908 · 0376 0.880. Where its overlap went (vs B6's applied 735.952 s: −9.209 lost, +6.907 gained; 0 s inside
+    a QA-unchecked item, 0.27 s in the unchecked fluff): the model's own spans in 0373 — "Just the first scan cleaned up 42
+    gigabytes…" 365.651–370.432 (his flag 3, 4.78 s; only B6 cut it), "Uh" 84.16–86.82 (2.66 s; B6 / step 6), "uh"
+    252.9–253.47 (0.57 s; step 6 authored it); gained B6's doubled-phrase misses 0373 25.219–26.816 and 319.72–321.193.
+  - Every run: Hasan's own plan 0 / 134 hard entries; produced speeds 1, monotonic; B6's slivers (0366 4.83 / 12.63, 0373
+    247.86 / 391.59) gone; pass 3 has no wordless produced segment at all.
+- **The replays (decision 12)** — each capture fed offline through the FINAL code (the snap + `buildEditorialProposal` on
+  the captured `propose_cuts` args, the real `runCutPlan` over the replayed timeline's keeps, the real `applyCutProposal`,
+  answered as live; b-root's real envelopes and words; B6's args are cut at 600 chars, so its items replay from the snapped
+  card); kit `replay.b7.test.ts` + `exit_check_replay.py` + `replay-split.py`:
+
+  | Replay | Applied overlap (live) | All proposed | Hard entries | Medians lead / tail | Model share: H no authored span covers | Code share: H inside an authored span, not applied | Shortfall to 0.905·H |
+  |---|---|---|---|---|---|---|---|
+  | B6 | 0.9091 (0.9049) | 0.9102 | 0 / 135 | 0 / −14 ms | 24.551 s | 0.205 s | 0 |
+  | Step 6 | 0.9125 (0.8723) | 0.9143 | 0 / 134 | 0 / −4 ms | 22.143 s | 0.415 s | 0 |
+  | Pass 2 | 0.8480 (0.8418) | 0.8488 | 0 / 122 | 0 / −14 ms | 27.957 s + 50.828 s (0371, no Auto Cut card) | 0.378 s | 46.341 s |
+  | Pass 2 + 0371's Auto Cut card | 0.9061 | 0.9069 | 0 / 132 | 0 / −14 ms | 27.957 s | 0.378 s | 0 |
+  | **Pass 3** | **0.9020 (= live)** | 0.9024 | **0 / 137** | 0 / −14 ms | 30.123 s | 0.427 s | **2.400 s** |
+  | Pass 3 + step 6's two 0373 fillers (`84.16–86.74`, `252.9–253.32`) | **0.9060** | 0.9064 | 0 / 137 | 0 / −14 ms | 26.557 s | 0.427 s | 0 |
+
+  The code share is edge-level in every replay (the tight 0.15 s head pad before a kept word an authored span reached —
+  four in pass 3) and smaller than any shortfall: no code regression.
+- **Outcome (decision 12):** the live pass is the exit (Hasan's wording) and misses the overlap bar by 2.40 s of H; every
+  replay has 0 hard entries; the B6 and step-6 replays clear 0.905, pass 2's misses only by the clip the model skipped (0.9061
+  with it), and pass 3's own capture misses only by spans the model did not author this time (it did in step 6; with them
+  0.9060) → **"missed on model variance" — B7 = EXIT PARTIAL — WAITING-HASAN (overlap)**, onto his real-video list; the run
+  continues to the track-B exit.
+- **The orchestrator's decisions, as they landed:** 1 (item 5) → `eaf682d`; live 6 / 1 / 0 cuts unchecked, every one named
+  in its reply, none ticked. 2 (item 4) → `2102419` + `d1d253a`. 3 → every fix red-first from the real cases. 4 (no
+  regression) → B1's cutlib reproduction 348 / 352 joins + 2 merge flips (report JSON-equal), B3's offline QA 0 / 0 hard +
+  178 / 181 tails (JSON-equal), B2's five Transcript-delete edges 0 ms — after every snap change (kit runs 1–5); B3's LIVE
+  Auto Cut numbers (hard 1 / 164) were not re-measured (they need the app; an untouched clip plans byte-for-byte as before,
+  pinned by `cut-plan-runner.test.ts`). 5–7 → three fresh copies, profiles without `settings.db`, nothing waited on Hasan.
+  8 → the bar read on the applied cut. 9 → step 6, pass 2, pass 3. 10 → "nearest quiet gap by time" = the word rule on all
+  five real cases. 11 → `47b7acf`. 12 → the replays above. 13 → `1b74b73`, built with decision 11's cap (≤ 2 words, ≤ 0.4 s)
+  instead of the literal "end unchanged" branch: naming alone moved five real retracts, because the model's notes quote the
+  winning take too.
+- **Gates (this entry, 2026-10-23, HEAD `b40e390` = the code of `1b74b73`):** guard `28.9 GB C: free; commit 95.0 / 107.3 GB`
+  (C: ≥ 4 GB → no python-models exclusion); full `npx vitest run --maxWorkers=2`, app stopped, **first run green: 471 files /
+  4,030 tests passed, 5 / 34 skipped, 145.2 s** (the counted run; log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\vitest-full.log`);
+  `npm run check:types` → web 26 / node 10 = baseline (`…\B7\types-final.log`). At each code step: the targeted cut / agent
+  set green (last: decision 13's 40 files / 412 tests), check:types 26 / 10, the decision-4 kits unchanged. The three live
+  passes ARE the click-through (real input on isolated profiles over CDP).
+- **Follow-ups (not fixed in B7 — orchestrator rulings 2026-10-23):**
+  - **Step 9 (a)'s list has gaps:** the editorial list never names the clips still lacking Auto Cut (pass 3 ran Auto Cut on
+    0366 only, then editorial alone; nothing told the model eight clips lacked it until the user's message); 0369 / 0374 stay
+    listed after a read with nothing to cut (nothing records "reviewed, nothing to cut"), so 0369 was re-read 3× (turns 3, 5,
+    7); turn 17 claimed 0373 "got no Auto Cut card" (turn 13 carded it). Also by construction: a second same-kind sweep that
+    does not start on a carded clip counts the earlier sweep's clips as done; a card answered < ~1 s before the tool runs can
+    be missed (autosave lag); no line for a timeline with < 2 media assets.
+  - **The cut-out mirror:** an authored START early in the gap after a kept word truncates that word's tail
+    (`cut-planner.ts:163`); a mirror of `landCutEnd` needs `tailFor`'s gap-dependent tail. None of the real cases needed it.
+  - **0376 @ 119.084 at +14.4 dB** (0.6 dB under the hard-entry bar; the gap never drops below +9 dB — breath / room — and the
+    cut keeps 0.3 s of it before "These"): clean by the shipped QA, marginal by ear.
+  - **The readout counting:** the card's QA counts are still the plan's, not recomputed over the checked items (only "— N
+    unchecked by QA" was added); the plan file's `stats.removedDuration` / `sourceDuration` stay whole-source (nothing
+    user-facing reads them).
+  - **`run_auto_cut` and a hand edit during a turn:** the agent's own applies reach the next tool in the turn (step 4b), but a
+    timeline edit the USER makes mid-turn is not seen until the next turn.
+  - **Model behaviour / the prompt:** the `[next: …]` marker missed at step 6 turn 1 and pass 3 turn 8; the "Cut this video."
+    order varies by run (editorial first then an Auto Cut offer, or Auto Cut on the first clip only then editorial alone,
+    with no offer); content every run misses: 0373 112.3–122.0 (his flag 2, 9.7 s) and 0366's cross-clip retake (3.26 s).
+  - **Choices inside B7 (the orchestrator's to change):** decision 13 applies only to the straddled-word retract, and a slate
+    whose forward crossing is > 0.4 s of speech stays in the cut (the literal reading is a two-line change in
+    `cut-snap-landing.ts` `endOutOfSpeech`); step 9 (b)'s fallback is symmetric (a retract fallback also needs named words —
+    no real case takes it); the quiet-gap seek is editorial only (a Transcript delete in continuous speech keeps the user's
+    words; QA still flags it, item 5's rule does not apply to text deletes); `QUIET_GAP_SEEK_S = 1.5`; the Auto Cut plan's QA
+    reads the spoken keeps only.
+  - Smaller: the wordless gap 0373 391.988–393.36 between an applied retake and the unchecked fluff "Okay," stays as the card
+    leaves it; B3's 0373 @ 323.198 true positive now starts unchecked on its card, so that pause stays in the produced cut;
+    B2's scratch preset `profiles\B2\…\youtube-long-form\preset.json` lost its `style.cut` (input drift outside B7, untouched).
+- **For Hasan's real-video list:** the overlap bar (≥ 90.5 % on the applied cut) on a real pass; 0376 @ 119.084 (+14.4 dB) by
+  ear. B6's next-round bar stays PROPOSED.
+- **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\` — step 6 `run\` (`turns.jsonl`, `proposals-raw.json`,
+  `proposals.json`, `proposals-accepted.json`, `run-summary.json`), `exit\`, `measure\`, `measure-accepted\`,
+  `overlap-causes.json`, `s7-landed.json`, `s7-expected-overlap.json`; `pass2\` and `pass3\` (the same layout; pass 3 adds
+  `measure-turns1-8\`); `replay\` (`b6`, `s6`, `p2`, `p2-plus-0371`, `p3`, `p3-plus-s6fillers`, `replay-summary.json`,
+  `replay-split.out`; earlier rounds `replay-s9c\`, `replay-d13\`); the decision-4 kit reports `b1-compare-report.json`,
+  `b2-textdel-report.json`, `b3-compare-report.json`; the gates `vitest-full.log`, `types-final.log`. Applied runs on D: (kept
+  as evidence): `.vidtsx-temp/end-to-end/B7/{root,profile}`, `B7/pass2/`, `B7/pass3/`. `b-root` unchanged (every copy's
+  `project.json` sha256 `EBE94FD7…123DDA` = b-root's). TESTING.md §18.13; HANDOFF `docs/studio/end-to-end/B7/HANDOFF.md`.
+
+## 2026-10-23 — END-TO-END B6: the content measurement — the Studio assistant's real cut pass (editorial + Auto Cut) on all nine raw clips vs Hasan's `cuts.json`: **overlap 90.5 %**, the miss list, the proposed bar for the next round — DONE (a measurement; no `src/` change; verifier fix round 1 corrected the record)
+
+- **What:** part B6 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, docs only). The §3 row: "Auto Cut + editorial
+  on all nine clips vs `cuts.json` — proposed cut seconds ∩ his cut seconds / his cut seconds, and the spans he cut that the
+  pass did not propose, listed by category"; exit "the overlap number and the miss list recorded in STATUS; the bar for the
+  next round is set from this run". This is E2's content half (the join-geometry half is B1–B3).
+- **The run (real input, real model):** scratch copy `C:\Users\hasan\AppData\Local\vidtsx-e2e\B6-root` (`video-14-raw`,
+  copied from the shared M2) + `…\profiles\B6\profile`, CDP 9331, launcher strips every `CLAUDE*` / `ANTHROPIC*` env var.
+  Provider = the app's own keyless `claude-subscription` (Agent SDK, bundled `claude.exe`, no key anywhere, no credential
+  store read) — the B6 profile's default; project `settings.agent` = `{}`; cut style = **tight · default** (B2's fitted
+  tight, read back in every `run_auto_cut` result). Timeline = all nine clips on V1 in raw order, 1,283.148 s, 1,820
+  AssemblyAI words. Prompt typed in the Assistant tab, exactly **`Cut this video.`** Every card was captured from
+  `project.json` BEFORE it was answered, then answered with a real click: Apply (fluff starts unchecked, so the accepted
+  items), or **Reject all** when 0 items were accepted (0369's lone fluff card). The editor's own "Review outcome: …
+  Continue with the next step." message (the `[next: …]` marker) continued every step. **17 turns, all `claude-sonnet-5-5`:**
+  turn 1 typed → 7 auto turns = the editorial pass, one clip per turn (0366 → 0376; 0374 read with 0375, no cuts) → the
+  assistant stopped and OFFERED Auto Cut ("I can run Auto Cut for the pauses, then plan shots and captions") → turn 9
+  typed as the user: **`Yes, run Auto Cut for the pauses on all nine clips.`** → 8 auto turns, one `run_auto_cut` per clip
+  → it stopped offering shots/captions (not taken). Model time (the usage rows' `durationMs`) 222.723 s editorial (turns
+  1–8) + 114.441 s Auto Cut (turns 9–17) = **337.164 s**; tokens
+  in 57,067 / out 17,621 / cache-read 2,524,453; the SDK's notional cost $3.89 (subscription — counts against the plan,
+  not billed per token). One full pass used of the two allowed. Proposals: **39 editorial items** (27 retake, 6 filler, 4
+  false_start, 2 fluff) + **261 Auto Cut items** (153 long_pause, 108 dead_air); after applying, the scratch edit is
+  **8:29.1** (509.1 s, 196 clips) vs his tight **8:04**.
+- **The exit number:** H = his cut seconds = raw time outside his `active_keeps` = **813.3 s** of 1,283.0 s. P = the union
+  of every proposed span in source time = 775.8 s. **Overlap |P∩H| / |H| = 736.1 / 813.3 = 90.5 %**; precision |P∩H| / |P|
+  = 94.9 % (**99.2 %** without Auto Cut's compressions of pauses INSIDE his keeps, 34.0 s, which his tight also compresses
+  but H does not count). Accepted items only (no unchecked fluff): 90.5 % / 95.1 %. Auto Cut alone: overlap 67.8 %,
+  precision 94.0 %; editorial alone: 48.4 %, 98.9 %. Per clip overlap: 0366 79.15 · 0369 93.5 · 0370 93.5 · 0371 95.9 ·
+  0372 96.4 · 0373 87.0 · 0374 86.9 · 0375 90.6 · 0376 87.8 %.
+- **The miss list** (H \ P = 77.2 s; spans ≥ 0.3 s = **52 spans / 42.03 s**, the other 35.18 s are slivers < 0.3 s at cut
+  edges = join geometry, not content; fix round 1: two spans of exactly 0.300 s — 0376 119.084–119.384 unlisted, 0376
+  122.840–123.140 pause — had been dropped by a float compare, 0.29999999999999716 < 0.3; `measure.py` now compares in
+  integer ms): **retake 4 / 5.2 s** (0366 15.6–18.8 "Today everyone is building websites." — he cut ALL of
+  0366, superseded by the take that opens 0369: a cross-clip retake the per-clip pass cannot see; 0373 247.9–248.4; 0375
+  14.5–15.1 "The same—"; 0375 132.7–133.6 "Another take." — a slate left in) · **repeat 4 / 5.1 s** (doubled phrases whose
+  first delivery stayed: 0371 31.9–33.4 "a website,", 0373 25.2–26.8 "and clean up, moves everything.", 0373 83.6–84.2 "You
+  see now?", 0373 319.7–321.2 "Before it's ready,") · **manual 1 / 9.7 s** (0373 112.3–122.0 "So this boilerplate is powered
+  by the Claude Code SDK…" = his judgment-call flag 2, default cut) · **dead_air 1 / 4.0 s** (0376 168.1–172.1, a phantom
+  "M" token 3.8 s long: the assistant left it — "probably silence or a phantom token" — and Auto Cut did not cut it either,
+  presumably keeping the token's span as speech; not traced in code) ·
+  **filler 1 / 1.0 s** (0374 "okay,") · **pause 32 / 13.26 s** (inside his keep gaps, 0.30–0.64 s, median 0.38 s — around
+  the style's 0.4 s internal gap) · **unlisted 9 / 3.72 s** (clip tails / cut-gap slivers).
+- **False cuts** (P \ H, excluding pause-in-keep; every content piece comes from an editorial item): content at ≥ 0.3 s
+  **5 / 4.05 s** (0369 "Look at this." 0.52 s = the rejected fluff card; 0370 "uh" 0.58 s; 0373 "before being ready."
+  0.96 s, "Okay, great." 1.24 s = the unchecked fluff item; 0375 "Please focus." 0.76 s = his flag 4) — accepted-only
+  3 / 2.30 s; counting every content piece
+  (also 0371 "uh" 0.05 s and 0375 "um" 0.17 s) 7 / 4.27 s, accepted-only 5 / 2.52 s. Inside his fluff suggestions 2 / 1.25 s
+  at ≥ 0.3 s (3 / 1.40 s, every piece). **Judgment calls:** his six `flags[]`, each matched to the `cuts[]`/`keeps[]` entry
+  by its quoted text + clip + time — **4 of 6 land on his default**: flag 3 ("his instruction: cut", 0373 365.551–370.432)
+  proposed 100 %; flags 1 / 5 / 6 (default keep: 0375 143.41 "and he's sharing his game…", 0376 69.747 "Since this project is
+  a desktop application?", 0373 91.276 "Do you see this?") untouched; flag 2 (default cut, 0373 112.306–121.903, 9.7 s) not
+  proposed; **flag 4 (default keep, 0375 30.500–31.255 "Please focus.") cut** — the editorial `false_start` item
+  28.909–31.700 "Please focus." (accepted) covers it, plus Auto Cut 28.909–30.350 / 31.375–31.700. (Fix round 1: the first
+  record matched flag 4 to the nearest keep, "it builds the app…" 32.99 s, and counted 5 of 6.) His four
+  `fluff_suggestions` (suggest-only): proposed 0 / 1 / 15 / 0 % — the pass's own two fluff spans were elsewhere.
+- **Also seen (findings, not fixed — B6 is a measurement):** for "Cut this video." the assistant ran the editorial pass
+  FIRST and only offered Auto Cut afterwards (the prompt's "edit this video" order is Auto Cut first); the editorial snap
+  left **hard entries on 8 of 42 editorial joins** (2/4, 1/2, 0/3, 0/5, 0/4, 4/12, 1/7, 0/5) vs Auto Cut's 1 of 164 —
+  E2's "hard entries 0" is not met on the editorial joins; 0369's only proposal was one fluff span, so 0369 got no
+  editorial cut at all. **Auto Cut ran AFTER the editorial cuts were applied but planned over each clip's whole source**
+  (found by the verifier, added in fix round 1): 199.5 s of its 587.1 s fall inside already-applied editorial spans (94 of
+  its 261 items wholly inside), so its card headlines count seconds already removed — 0373's card says "−171.2 s of
+  396.3 s", and 85.6 s of those 171.2 s were already cut by the applied editorial items. A follow-up for the next round,
+  not fixed in B6.
+- **Proposed bar for the next round (Hasan confirms):** with the same run shape (one real pass, `Cut this video.` + the
+  Auto Cut follow-up) — **overlap ≥ 92 %**, **retake + repeat + filler + false_start misses ≤ 6 s in total with none > 1.5 s**
+  (his flagged judgment calls excepted), **false content cuts ≤ 3 s**, **precision without pause-in-keep ≥ 99 %**, **≥ 5 of
+  6 flags at his default**. Reason: of the 77.2 s missed, 35.18 s are sub-0.3 s edge slivers and 13.26 s are 0.30–0.64 s
+  pauses in his keep gaps, around the style's own threshold — join geometry and the style, owned by B1–B3, not by the
+  editorial pass. The content misses are few and named: the cross-clip retake (3.3 s), four first-of-a-doubled-phrase
+  deliveries (5.1 s, the policy's own "cut the FIRST" rule), a slate left in (0.8 s), the phantom-token dead air (4.0 s).
+  Fixing just the cross-clip retake, the repeats and the phantom token adds ≈ 12.4 s → 748.5 / 813.3 = 92.0 %; flag 2
+  (9.7 s) stays a judgment call, so the bar does not demand it. The **≤ 6 s** comes from the same fixes: today's retake +
+  repeat + filler + false_start misses are **11.32 s** (retake 5.15 + repeat 5.13 + filler 1.04; no false_start miss); the
+  fixes named for the overlap bar (the cross-clip retake 3.26 s + the four repeats 5.13 s) leave **2.93 s** (three short
+  retakes 0.50 / 0.56 / 0.84 s + the 1.04 s filler), and 6 s is that remainder with ~3 s of headroom. **Today's run fails 4
+  of the 5 items** — overlap (90.5 %), content misses (11.32 s; two > 1.5 s: 0366's 3.26 s retake, 0373's 1.60 s repeat),
+  false content cuts (4.05 s at ≥ 0.3 s; accepted-only 2.30 s would pass) and flags (4 of 6: flag 4 cut, flag 2 not
+  proposed) — and passes precision without pause-in-keep (99.2 %).
+- **Gates:** `npx vitest run` **465 files / 3,920 tests passed** (5 / 34 skipped) on the first run, app stopped, log
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B6\vitest-run1.log`; `npm run check:types` web 26 / node 10 (baseline 26 / 10);
+  the live click-through IS the run (17 real turns, every card answered by a real click). Editor repo untouched
+  (`tools/__pycache__` newest 2026-10-16; `measure.py` runs cutlib `python -I -B`, read-only); `b-root`'s `project.json` hash
+  unchanged (`ebe94fd7…`). Evidence: `…\vidtsx-e2e\B6\run\` (`turns.jsonl` = every turn's prompt, reply, tool calls, usage;
+  `proposals-raw.json` = the 17 cards as captured; `proposals.json` / `proposals-accepted.json`), `…\B6\measure\measure.json`
+  + `…\B6\measure-accepted\measure.json` (round 0, kept); kit (gitignored) `.vidtsx-temp/end-to-end/B6/` (`run.mjs`,
+  `measure.py`, `launch.sh`, `cdp.mjs`, `probe.mjs`, `restore.ps1`). TESTING.md §18.12; HANDOFF
+  `docs/studio/end-to-end/B6/HANDOFF.md`.
+- **Fix round 1 (2026-10-23, verifier FAIL on the record, not the measurement):** docs + the gitignored `measure.py` only —
+  0.3 s compared in integer ms; flags matched by quoted text + clip + time (no nearest-entry fallback); new outputs
+  `miss_summary`, `false_by_label_min` (≥ 0.3 s), per-category min / median / max, `flags_at_default`; selftest adds the
+  boundary and the six flag entries. Re-run on the SAME capture (`proposals.json` = `proposals-raw.json` derived, 300 = 300
+  items identical; `proposals-accepted.json` = raw minus the 2 unchecked fluff items) → `…\B6\measure-fix1\measure.json` +
+  `…\B6\measure-accepted-fix1\measure.json`: H / P / P∩H / overlap / precision unchanged; misses 52 / 42.03 s; flags 4 of 6.
+  No new model run, no app launch, no `src/` change → the gates above are unaffected (not re-run).
+
+## 2026-10-22 — END-TO-END B5: the Transcript tab (`studio-text-edit`) on the long raw recording — automated pre-pass, four bugs fixed, Hasan's station + by-ear checklist, the flip and a backfill fix prepared (NOT applied); verifier fix round 1 (close / quit during a `project.json` lock) in — DONE up to Hasan's step — exit DEFERRED to Hasan's real-video test (2026-10-23)
+
+- **What:** part B5 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `fb32ab1` → `aa58ee8` → `e69d182`,
+  fix round 1 `750c0d0`; station + checklist `8bf5433` → `3e7a285`). The §3 row: "`studio-text-edit` on in production after Hasan's pass on M2
+  (AssemblyAI transcript, by ear, long project)", exit "his pass clean; flag flipped". Both halves of the exit are
+  Hasan's; B5 built and verified everything up to them — the machine's half of the pass on the long project with real
+  mouse and keyboard over CDP on an isolated profile, the bugs it found fixed (tests first), his station and checklist
+  (walked literally), the flip and the backfill alternative written down and NOT applied.
+- **Material / the long project:** M2 `video-14-raw` (nine raw DJI clips 3840×2160 59.94 fps in a 60 fps project, v3
+  waveforms, Hasan's AssemblyAI transcripts mapped through Studio's `AssemblyAiProvider.mapJob`, 27/44/97/207/183/602/40/
+  330/290 = **1,820 words**) on the scratch copy `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5-root` + `…\profiles\B5\profile`
+  (CDP 9321). Long project = all nine clips on V1 in raw order, nothing cut, speed 1 → **1,283.148 s, toolbar `/ 21:23.09`**.
+- **Open and read:** header **"1,820 words"**, 192 takes; tab click → all 1,820 words in the DOM in **405 / 139 / 241 ms**,
+  first paint **563 / 231 / 360 ms** (three cold mounts — the pane unmounts on a tab switch). Every token vs Hasan's raw
+  AssemblyAI JSON: 1,820 = 1,820, AssemblyAI's text kept (291 punctuated, 268 capitalised), a 27-word time table equal;
+  after the UTF-8 fix **0 text mismatches** (the only differences left are the 76 backfilled starts, below).
+- **Seek / karaoke / scroll:** a real click on the first / middle / last word of every clip → **27/27 playhead frame =
+  round(word start × 60), 0 frames off**, the word lit; the clip's video within −14…+16 ms of the word (≤ one source
+  frame). Karaoke, 12 s from words 900 and 1700: **0 mismatched frames** (rAF p50 16.7 / p95 17.1 ms); played past the
+  bottom of the view (20 s from word 776): the lit word out of view on 1 of 1,155 frames, 36 auto-scrolls. Wheel scroll
+  of the whole document (11,846 px) top → bottom in 3.3 s: p95 29.9 ms, 0 long tasks.
+- **Ten delete cases** (real drag, or click + real SHIFT+click; real Delete key; each from the original timeline): inside
+  0371 (6 words, `Removed 6 words · −4.0 s`), across 0372 → 0373 (6 words, two pills, four tagged edges), one short word
+  ("one" 65 ms, `−0.1 s`), the first word of 0370, the last word of 0374, a long selection 0373 709–777 (**69 words, `−62.5
+  s`**, exact), and four single short words whose start the backfill moved (bf1–bf4, `−1.0 / −3.2 / −2.2 / −2.9 s`).
+  **Every one:** ONE undo step, redo exact, the cut edges the RESOLVED tight style's (B2), both new edges tagged
+  `'text-delete'` (B4), Restore by a real click → length 1283.148, per-asset source cover == original, doc text ==
+  original; Ctrl+Z back to the original on disk.
+- **Fillers:** AssemblyAI in verbatim mode DOES emit them on M2 — **um ×3, uh ×12** (counted in the raw JSON = what the
+  tab tints). "Remove 15 fillers" → **13 cut in one undo step, −13.8 s** (1283.148 → 1269.354, 22 clips); 2 "uh" sit
+  inside their neighbours' pads ("too tight to cut cleanly") and stay; one 0373 "Uh" takes its 4.5 s pause with it
+  (`¶ 7.0s`, the tight style's edges — on Hasan's listening list).
+- **Read-only while an Auto Cut review is open** (real Media → tile → Auto Cut): banner "A review is open — apply or reject
+  it to edit by text.", the bar's Delete and "Remove 14 fillers" disabled, the Delete key changes nothing on disk, an
+  opened pill shows no Restore, a word click still seeks frame-exact; "Reject all" → editable. **Save + reopen:** two
+  deletes, "Back to projects", reopen → 1,808 tokens, both deletions and 4 `'text-delete'` tags intact; both restored by
+  real clicks AFTER the reopen (no in-memory history) → 1283.148 s, 1,820 tokens.
+- **The four bugs fixed (tests first, red before each):** (1) **UTF-8 `fb32ab1`** — all 32 em-dash words (`39—` …) showed
+  as mojibake (`atob` → one char per byte); NEW `cache-text.ts` `decodeBase64Utf8` (`TextDecoder`), every `atob(` → text
+  path in `src/features/studio` goes through it (`cache-text.test.ts` 5, `useAssetTranscripts.test.ts` 2). (2) **Autosave
+  retry `aa58ee8`** — a Windows `rename` refused while another process held `project.json` (EPERM) left the edit unsaved
+  with nothing retrying, so memory and disk diverged (builder #2's "2× long delete" = two correct deletes on top of a
+  failed save): main `renameWithRetry` (EPERM/EBUSY/EACCES, 8 tries, ≤ 1.4 s), renderer `createAutosave` (a refused or
+  thrown save stays dirty and retries at 1/2/5/10 s, a flush waits for it; after 3 failures a persistent red
+  "Save failed — retrying"; `[data-save-state]` on the indicator). Live with a held lock and the editor open: 6 s → saved
+  at 10.4 s with no further edit; 14 s → the error at 9.9 s, saved at 15.5 s (`rename-retry.test.ts` 5,
+  `project-store.test.ts` +2, `autosave.test.ts` 8). **Closing or quitting DURING a lock was not covered by `aa58ee8`:** its
+  close flush gave up ~7.3 s after the close and dropped the edit — a 4 s lock landed, but the verifier's 10 s lock with
+  the close at +2.3 s (and a quit at +2.0 s) lost it, leaving a `project.json.tmp` nobody read. Fixed in fix round 1
+  (`750c0d0`, next bullet). (3) **Restore into view `aa58ee8`** — an opened deletion pill near
+  the bottom put its Restore 14 px below the visible body; it now scrolls into view on open (`DeletionPill.test.ts` 4).
+  (4) **Filler toast `e69d182`** — "Removed 15 fillers" when 13 were cut; `TextDeletePlan.removedTokens` counts the words
+  of the runs really cut (`text-delete.test.ts` +3). 29 new tests over the part before the fix round.
+- **Verifier round 1 → fix round 1 (`750c0d0`, tests first): close / quit while another program holds `project.json`
+  no longer loses the edit.** A closing editor (and the window's quit-flush request) hands its unsaved document to MAIN
+  in one IPC call (`studio:project:handoff`); main's NEW `project-writer.ts` owns the write from then on — one writer per
+  project, serialized, retries in the background at 1/2/3/5/10/15/30 s for up to 10 min (logged; a reopened editor's save
+  supersedes it); on quit `shutdown.ts` drains pending writes for at most 4 s, else the `.tmp` stays. NEW
+  `project-recovery.ts`: on open, a `project.json.tmp` that parses as a project and is newer than `project.json` is
+  finalized (or opened unsaved while still held) and the editor toasts **"Recovered unsaved changes"** once; an older or
+  corrupt `.tmp` is moved aside as `project.json.tmp.ignored-<time>` (kept, logged, not loaded). Unit: `project-writer.test.ts`
+  (the verifier's model — real `createAutosave` + real `renameWithRetry` vs a 10 s hold, close at +2.0 / 2.3 / 3.0 / 6.2 s →
+  lands; give-up bound; quit → `.tmp` → recovered once; recovery on real files), `autosave.test.ts` +4 (`takeUnsaved`),
+  hook-level `useStudioProject.test.ts` 5 + `useTextEdit.test.ts` 1 (reverting either wiring now fails them).
+  **Live on B5-root (CDP 9321, real double-click on "uh" (i165) + real Delete key, PowerShell holding `project.json` with
+  no sharing for 10 s, disk polled every 250 ms):**
+
+  | case | edit applied | close / quit | result | main log |
+  |---|---|---|---|---|
+  | no lock, close | +0.79 s | "Back to projects" +1.01 s | edit on disk +1.27 s (first poll), no `.tmp` | "Handed-off project save landed" (attempt 1, 4 ms) |
+  | **10 s lock, close (the verifier's case)** | +1.49 s | "Back to projects" +2.34 s | lock released +10.09 s → **edit landed +10.31 s**, `.tmp` gone, 10 clips / 1282.568 s | warn "…refused — retrying in the background" (EPERM) +5.03 s; "…landed" attempt 3, 7,974 ms after the hand-off |
+  | no lock, quit (real WM_CLOSE) | +0.65 s | +0.74 s | edit on disk +1.00 s, app gone +1.07 s; relaunch: no toast | "…landed" (attempt 1, 3 ms) |
+  | **10 s lock, quit (real WM_CLOSE)** | +1.67 s | +2.02 s | app gone +7.25 s (5.2 s: 4 s drain); `project.json` untouched, `.tmp` = the edit; **relaunch → "Recovered unsaved changes" once**, `project.json` = the edit, `.tmp` gone; reopen → no toast | warn "…refused" +3.52 s; warn "Quit while a project save was still refused — project.json.tmp is recovered on the next open" +6.97 s; open: "Recovered unsaved changes from project.json.tmp" |
+  | no lock, quit (`window.close()`) | +0.60 s | +0.68 s | edit on disk +0.95 s, app gone +0.96 s; relaunch: no toast | — (a plain save, below) |
+  | **10 s lock, quit (`window.close()`)** | +1.58 s | +2.01 s | `.tmp` written +2.27 s, app gone +4.09 s; `project.json` untouched; **relaunch → "Recovered unsaved changes" once**, the edit on disk, `.tmp` gone; reopen → no toast | open: "Recovered unsaved changes from project.json.tmp" |
+  | older `.tmp` (valid project, `updatedAt` 2020) | — | open | moved aside `project.json.tmp.ignored-…`, bytes equal, NOT loaded (1,820 words), no toast | warn "Ignored project.json.tmp — kept aside" (older than project.json) |
+  | corrupt `.tmp` (cut-off JSON) | — | open | the same | warn … "not a usable project (Unexpected end of JSON input)" |
+
+  A page-script `window.close()` skips the BrowserWindow `close` event (the flush guard): the `beforeunload` flush saves
+  instead, and a refused one survives through the `.tmp` + recovery. The app never calls it (native frame on Windows; X,
+  Alt+F4 and the taskbar send WM_CLOSE = the hand-off path). B5-root's `project.json` written back byte-equal afterwards
+  (`…\vidtsx-e2e\B5\fix1-live\`, still `…\B5\stills\b5-fix1-after-lock-quit-wm.png`).
+- **The 2026-09-17 open items on this material:** clip speed is 1 on all nine clips (the `trimClip` / `trimClipRippleAll`
+  / `applyCutProposal` speed debt does not apply); Hasan's AssemblyAI words hold **0 zero-duration words** (the captions'
+  durationless-word drop does not bite here — it stays open for whisper).
+- **The backfill question (for Hasan's ears) and its prepared fix:** `withSpokenSpans`
+  (`src/features/studio/services/transcript-doc.ts`) gives a word stamped < 50 ms the silence before it (≤ 1 s) — written
+  for whisper.cpp's 0–20 ms stamps — and it also fires on AssemblyAI: **76 of 1,820 starts move earlier, 25 by ≥ 0.5 s**;
+  in 33 of the 37 gaps ≥ 150 ms the RMS peaks ≥ 15 dB over the floor, so whether the word sits there is a listening
+  question (a click seeks up to 1 s early; deleting one such word cut 0.7–3.6 s of source). HASAN-STEP part A puts 8 of
+  them to his ears. **Prepared, NOT applied: `docs/studio/end-to-end/B5/backfill-fix.patch`** (code + test): backfill by
+  the transcript's engine — whisper (or none recorded) keeps it, AssemblyAI / ElevenLabs words stay as delivered. A
+  duration rule cannot separate them (whisper's "the" is 20 ms, AssemblyAI's "a" 16 ms: "≤ 20 ms" would still move 28 of
+  the 76, W5's 708 ms among them). On M2's real words the patch leaves **76 of 76 at their own start** (0 moved;
+  `…\vidtsx-e2e\B5\backfill\count.json`). Red first on HEAD (`2 failed | 16 passed`), `git apply --check` clean on HEAD
+  (it also applies to a CRLF checkout), the patched tree: `transcript-doc` + `text-delete` 35/35, `src/features/studio`
+  49 files / 436 tests, types 26 / 10. `docs/studio/end-to-end/B5/.gitattributes` keeps the patch LF (a CRLF copy does
+  not apply to this checkout's LF files).
+- **Hasan's station:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5-station-root` + `…\profiles\B5-station\profile`, the same
+  long project (`/ 21:23.09`), `settings.agent.providerId = "b5-no-model"` (no model call possible), start snapshot
+  `…\vidtsx-e2e\B5\station-start\project.json` (sha256 `2cfaf220…`); launcher `docs/studio/end-to-end/B5/hasan-station.ps1`
+  (this branch's dev build on the station profile only; `-Reset` backs his project up, then restores the snapshot).
+  Opened once through the launcher, read-only — hash unchanged. **`docs/studio/end-to-end/B5/HASAN-STEP.md` walked
+  literally** with real input on the scratch copy: part A 8/8 clocks exact, part B 11/11 (bar count = toast count, the
+  kept text around each join as written, 1283.148 → 1156.398 s), part C restores + undo/redo, part D "Remove 9 fillers" →
+  `Removed 8 fillers · −12.0 s (1 spot too tight…)`, back to the original with 15 Ctrl+Z. Fix round 1 (the verifier's
+  wording notes): D5 names which of the two "So here's what I did. I created" is kept (the one followed by "a starter",
+  `06:08.40`) and where the selection ends (`06:07.27`); D2's selection includes the "Other take." that opens the 3:49 take
+  (`03:49.35`–`03:49.51`); part A's stamps read "16–49 ms" (W8 "How" is 49 ms) — clocks from the station's own document.
+- **The flip, prepared NOT applied:** the only production gate is `src/shared/feature-flags.ts:73` (`'studio-text-edit':
+  false`, read at `EditorShell.tsx:110`; dev builds force plain flags on) → `true` + the comment `:68-72`; commit message
+  `feat(studio): Transcript tab on in production (studio-text-edit) after the B5 by-ear pass on M2` — in HASAN-STEP.md.
+- **B4 doc debt (decision 6):** B4's row above and TESTING §18.10 said "zoom in 4× (320 px/s)" — now "zoom in until the +
+  magnifier greys out (at least 320 px/s = 4 clicks from the opening zoom, 5–6 from Zoom to fit)", as B4/HASAN-STEP.md.
+- **Gates:** full `npx vitest run` (app stopped; C: 17.7 GB → no exclusion) **first run green: 462 files / 3895 tests
+  passed, 5 / 34 skipped, 46.8 s** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\vitest-full-builder8-run1.log`; also green
+  after each code commit — builders #4 and #5); `npm run check:types` web 26 / node 10 = baseline. Live CDP click-throughs
+  on isolated profiles throughout (above). **Fix round 1:** after `750c0d0` full run 3 `--maxWorkers=4` green (465 / 3920;
+  runs 1–2 hit the DRIVING.md load timeouts `shot-module-resolver` / `flow-render`, each green alone); after the live
+  re-check (app stopped, C: 16.5 GB → no exclusion) **full `npx vitest run` first run green: 465 files / 3920 tests passed,
+  5 / 34 skipped, 50.8 s** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\vitest-full-fix1-builder10-run1.log`); types 26 / 10.
+  25 new tests in the fix round (`project-writer.test.ts` 15, `autosave.test.ts` +4, `useStudioProject.test.ts` 5,
+  `useTextEdit.test.ts` 1).
+- **THE EXIT WAITS FOR HASAN: his by-ear pass per `docs/studio/end-to-end/B5/HASAN-STEP.md`, then his flag flip.**
+  (~55–60 min) From `D:\repos\VidTSX-STUDIO`: `powershell -ExecutionPolicy Bypass -File
+  docs\studio\end-to-end\B5\hasan-station.ps1` → Studio → `video-14-raw` → Transcript tab; part A (8 short words: does the
+  highlight start early? does deleting it eat sound before the word?), part B (11 kept deletes — retakes, a stutter, a
+  filler by hand, a word inside a sentence, a phrase, across two clips — each played across its join), part C (restore +
+  undo), part D ("Remove 9 fillers"). "Clean" = no clipped word start or end, no click, no word lost or doubled, a
+  natural pause, Restore exact. Then the flip (the one-line diff in HASAN-STEP.md) — and, only if part A sounds wrong,
+  `git apply docs/studio/end-to-end/B5/backfill-fix.patch` first.
+- **Honest notes:** the flag is still `false` (production hides the tab) and the backfill patch is not applied, so the
+  station runs the backfill as it is; ElevenLabs transcripts are unverified either way (none in this material — the
+  patch leaves them as delivered; adding `'elevenlabs'` to its one set restores the backfill for them); the patch takes
+  `transcript-doc.ts` from 290 to 305 lines and reads `engine`, which the `StudioAssetTranscript.features` comment asks
+  consumers not to branch on — no `features` flag says "durationless words"; `EditorShell.tsx` stays far over ~300 lines
+  (pre-existing).
+- **2026-10-23 — exit deferred:** the by-ear pass was not run (Hasan's decision, quoted in the B4 entry's 2026-10-23
+  bullet below); `src/shared/feature-flags.ts` `studio-text-edit` stays `false`;
+  `docs/studio/end-to-end/B5/backfill-fix.patch` stays unapplied; the B5 station is untouched (its `project.json` still
+  equals the start snapshot); the pass + his two calls (apply the patch, flip the flag) move to his real-video test.
+
+## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step, fix rounds 1–2 in — exit DEFERRED to Hasan's real-video test (2026-10-23)
+
+- **What:** part B4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `92d846f` → `c5a6f4c` →
+  `2865675` → `f39a220` → `a734ff5`), the plan's §2 T1 "The learning signal". **The signal** (optional fields only —
+  old projects / proposals / presets open untouched): every cut-plan proposal item keeps its `snapped` span beside
+  the user's final span (written by both creators, Auto Cut / `run_auto_cut` and the editorial snap /
+  `propose_cuts`, and kept from the pre-drag span on the first drag); a user trim tags the moved edge
+  `origin.edges[edge] = 'trim'` (`by` / `proposalId` kept, so learn stats still count who placed the clip); a
+  Transcript delete tags the edges it creates `'text-delete'` (not a sample until the user trims it); split / range
+  delete / ripple / restore drop the tags of edges they rewrite; undo restores the untagged clip. **The measurement**
+  (pure, `src/shared/studio/cut-learn*.ts`): at every touched edge, tail = edge − last word end and its level over
+  the floor (the snapper's 50 ms window), lead-in = first word start − edge, each beside the RESOLVED style's own
+  edge at that join (B2's resolver); Q4 gate per knob (since fix round 1) — ≥ 10 edges on its side AND |fitted −
+  current| > 30 ms (margin: > 1 dB). **The learn path:** `StudioPresetKnobKey` widens to `cut.head` / `cut.minTail` /
+  `cut.maxTail` / `cut.margin`; `propose_preset_update` and Inspector → PROJECT → "Learn from this video" (same
+  code, every number computed in code) put the knob rows + cut lines + a collapsible per-join list on the learn card
+  (NEW `CutLearnBlock.tsx`); accept writes `style.cut` through `applyPresetLearning` (base kept; a value equal to
+  the base's drops the override; B2's `cutSpecProblems` refuses an invalid result). No preset → "no editing preset to
+  learn into", nothing saved (the existing pattern; the project override is not a save target).
+- **Why the card FITS instead of taking a raw median (ruling 1):** the snapper's tail is not a knob value — with the
+  fitted tight (minTail 0.08, margin 12) the tails it keeps run ~0.14–0.22 s and land a few dB UNDER floor + 12 (its
+  20 ms walk stops at the first window at or below the line), so a raw median would propose minTail ≈ 0.2 s (the
+  stand-in's median tail is 0.22 s — far outside 0.08 ± 0.03) and a margin read off landings that sit at or under
+  the line. The values come from an L1 fit through the snapper's own rules (it equals the median where the rule is a
+  constant, as for the lead-in); the gate is on the fit (|fitted − current|, per knob), the medians are shown, not gated
+  on. The card shows both: "you kept a
+  median 0.22 s after the last word, cut 11.4 dB over the floor (the style: 0.4 s, 6 dB); minTail 0.08 s and margin
+  12 dB reproduce your edges". **`maxTail` is only ever raised** (ruling 8: identifiable only up to the longest tail
+  kept; the card says "at least N s"; a test fails without the guard). **`softGap` is not learned** (not one of
+  T1's four): Hasan's 10-15 "soft landings off" stays a style choice — a follow-up if he wants it learned.
+- **The stand-in exit, live on M2 (CDP 9301, the reused scratch `vidtsx-e2e\B2-root` + `profiles\B2\profile`; no
+  model call — the project's provider id `b4-no-model` is registered by nothing, proven "not registered" before the
+  click):** start = the old pre-October tight on a scratch PRESET (ruling 7: `style.cut = {base:'tight', head 0.11,
+  minTail 0.14, maxTail 0.4, margin 5}`, softGap 99) → Auto Cut + apply on 0369 / 0370 / 0371 (7 / 15 / 31 cuts,
+  `snapped` on every item) → Act 1 = the raw span behind preview-tight 0:00–1:55 mapped through `cuts.json`'s keeps →
+  47 joins on V1, 28 sentence joins, **the first 21 trimmed** (39 edges, through the reducer's `'trim'` that the
+  edge drag dispatches, ripple all) to the fitted tight's own edges → "Learn from this video" → **`Cut lead-in 0.11 →
+  0.15`, `Cut tail min 0.14 → 0.08`, `Cut margin 5 → 12`** (`Cut tail max 0.4 → 0.5`, "at least"), "learned from 21
+  joins you trimmed (19 lead-ins, 20 tails)" — **Δ 0 / 0 / 0 vs the exit's 0.15 / 0.08 / 12.** Accept → the preset's
+  `style.cut` = `{base:'tight', maxTail:0.5}` (back to base tight's values, before/after recorded). One live defect
+  fixed: the per-join list rendered 420 px wide in the ~200 px Assistant column → stacked rows (`a734ff5`).
+- **The negatives** (the REAL `propose_preset_update` handler on the stand-in's M2 data — real v3 waveforms and
+  transcripts, no model): all 39 tagged edges at the START style's own edges (±≤ 10 ms) → **0 cut changes at 21
+  joins** (medians +0 ms lead-in, +0 ms / +0.1 dB tail); tags on 9 joins only → **0 changes** + "Learned from 9 joins
+  — at least 10 touched joins are needed before the cut knobs change."; as trimmed = the live card exactly.
+- **Hasan's station (ready, click-checked, at its start state):** Studio root `C:\Users\hasan\AppData\Local\vidtsx-e2e\B1-verify-root`
+  + profile `…\vidtsx-e2e\profiles\B1-verify\profile` (scratch; never his own profile or projects); V1 = his own
+  `cuts.json` keeps of 0369 / 0370 / 0371 to the Act-1 cut-off (retakes out) planned with the old tight → **36 clips,
+  33 joins, 1:46.8** (the planner also splits keeps at internal pauses, so a few joins are mid-sentence); preset "B4
+  start — old tight" with the flat knobs zeroed (the card shows cut rows only). In-memory dry run (nothing written):
+  every join trimmed to the fitted tight's edges through the REAL reducer + handler → **33 joins (30 lead-ins, 30
+  tails) → head 0.15 / minTail 0.08 / margin 12** (maxTail ≥ 0.5), no flat rows. Launched once through
+  `docs/studio/end-to-end/B4/hasan-station.ps1 -CdpPort 9311`: project opens, ripple lit, readout `tight + 4
+  overrides · preset “B4 start — old tight”`, one trim tagged and undone; app stopped, station reset (`-Reset`).
+  Re-read on disk at step 7: provider `b4-no-model`, preset `b4-start-old-tight`, V1 36 / A1 0, 0 proposals, 0
+  tagged clips, preset `style.cut` = the old tight, `learned[]` empty.
+- **FIX round 1 (after the B4 verifier's round-1 FAIL, 2026-10-22):** (1) **HASAN-STEP.md** now says to turn **Snap
+  off** before the first trim (the magnet "Snap to edges and playhead" is ON at every editor open,
+  `TimelinePanel.tsx:95`; it pulls an edge to any clip edge within 8 px, and the neighbour's edge sits where the dragged
+  edge started, so a small trim snapped back — no edit, no tag) and to **zoom in** at each join (playhead on the join,
+  Zoom in 4–5× from the default 20 px/s: 320 px/s = 30 ms ≈ 10 px, 640 px/s ≈ 19 px), how to see a trim took (that
+  check was WRONG for lead-ins — replaced in fix round 2, below), and that a missing `Cut lead-in` row means the fit sat ≤ 30
+  ms from 0.11 (read "head X s" off the Lead-in line); time now ~25–30 min. (2) **The head gate (orchestrator
+  decision):** each knob is proposed when ≥ 10 edges on its side AND **|fitted − current| > 30 ms (> 1 dB for
+  margin)** — no longer on the median offset from the style's own edges, which joins where the onset rule gives both
+  styles the same lead-in dilute (`src/shared/studio/cut-learn.ts`; the card still shows the medians and the fitted
+  values). Seeded ±40 ms jitter on the **station's real 33 joins** (`.vidtsx-temp/end-to-end/B4/jitter.b4.test.ts`,
+  `B4_JITTER=1`, the learn path's own loaders read-only, 10 seeds; `…\vidtsx-e2e\B4\jitter-station.json` /
+  `jitter-station.old-gate.json`): head proposed **old gate 2/10 → new 9/10** (±30 ms 4 → 10/10, ±20 ms 7 → 10/10;
+  first 21 joins ±40 ms 4 → 8/10); fitted head 0.13–0.16 in every run; own (start) edges ±20 / ±40 ms → head 0/10
+  both gates, one tail false positive at ±40 ms (minTail 0.14 → 0.10, seed 8). **Not fully closed:** the start head
+  0.11 is only 40 ms under 0.15 and Q4 proposes only moves > 30 ms on the 10 ms knob grid, so a fit of 0.13 / 0.14
+  (inside 0.15 ± 0.03) is NOT proposed — the misses above are exactly those; unit test over 40 synthetic seeds: fit in
+  0.15 ± 0.03 in 40/40, proposed in 32/40 (it fails under the old gate). (3) The card no longer says "Knobs unchanged —
+  the edit matched the preset" above cut lines (now "No knob changes proposed — the cut lines below say what was
+  measured"; PRESET.md: "no knob moved past the learning thresholds"); a join whose head was dragged on the proposal
+  and whose tail was trimmed counts once (`collectCutLearnJoins` merges the drag into the trim join). Station
+  untouched (data, not code).
+- **FIX round 2 (after the B4 verifier's round-2 FAIL, 2026-10-22; docs + one card line):** the round-1 "check each
+  trim took" was WRONG for lead-ins — with ripple on, a lead-in trim slides the clip back so its edge returns to the
+  join (`ripple-ops.ts:266-279`); only the waveform and the timeline total move. **HASAN-STEP.md §2 now:** Snap off
+  FIRST (before the playhead is placed — with Snap on a small drag can snap to the playhead, which stands on the
+  nearest frame, and commit a few-ms trim); per join: ruler click → zoom in until the + magnifier greys out (640 px/s,
+  the top; at least 320 px/s = 4 clicks from the opening 20 px/s, 5–6 from Zoom to fit — aligned with B4/HASAN-STEP.md
+  in B5; at the top the join can sit at the viewport's right edge: scroll it back) → read the toolbar total `/ MM:SS.FF` (frames, 60/s) → drag from the clip's **lower
+  half** (found live: the 12 px "Add transition" square sits on every join at mid-height and the 9 px "Fade in/out"
+  dots in the top corners — grabbing them does not trim) → **the total moves by about the trim for BOTH edges** (30–50
+  ms = 2–3 frames; tail edge stays where dropped, lead-in edge comes back to the join — normal); unchanged = drag
+  again; too much = Ctrl+Z. The join table's times are seconds while the clock shows frames (0:10.25 = `00:10.15`).
+  **Live, real mouse (CDP `Input.dispatchMouseEvent`) on the scratch B2-root laid out as the station (36 clips), Snap
+  off:** lead-in −41 / +41 ms at 320 px/s → total `01:46.47 → 01:46.50 → 01:46.47`, edge x 356 → 356 (back at the
+  join), `sourceIn` 20.450 → 20.409 → 20.450, tag `edges.start: 'trim'`; tail +50 / −30 ms at 640 px/s → `01:46.47 →
+  01:46.50 → 01:46.48`, edge x 352.8 → 384.8 → 365.8, end 10.245 → 10.295 → 10.265, tag `edges.end: 'trim'`; lead-in
+  ∓41 ms at 640 → `01:46.48 → 01:46.51 → 01:46.48`; **a failed trim** (Snap on, playhead away, 4 px) → total
+  unchanged, disk unchanged, no tag — the doc's cue. Grabs on the square / a fade dot changed nothing (pointer target
+  logged). The card shows the stats sentence once when there is no summary model (`PresetUpdateCard.tsx:66-71`).
+  Verifier round 2's numbers, recorded: rule (a) on the station's real 33 joins with seeded jitter **40/40 (±20 ms),
+  40/40 (±30), 39/40 (±40 — the miss is minTail fitting 0.04)**; own-style false positives **0/40 at ±20 / ±30, 5/40
+  at ±40 (minTail only)**. Gates: full `npx vitest run` (no exclusion, C: 19 GB) **first run green: 457 files / 3866
+  tests passed, 5 / 34 skipped, 51.9 s** (`…\vidtsx-e2e\B4\vitest-full-fix2-run1.log`); types 26/10. Hasan's station
+  was only read (its 36 start clips copied into the scratch B2-root's project).
+- **THE EXIT WAITS FOR HASAN** (the §3 row: "after Hasan re-does his 21 Act-1 joins on M2, the card proposes `head`,
+  `minTail`, `margin` within ±30 ms / ±1 dB of the fitted tight"). What he must do — **`docs/studio/end-to-end/B4/HASAN-STEP.md`**
+  (~25–30 min): from `D:\repos\VidTSX-STUDIO` run `powershell -ExecutionPolicy Bypass -File
+  docs\studio\end-to-end\B4\hasan-station.ps1` → Studio → `video-14-raw` (V1 = 36 clips, 01:46.47, ripple buttons
+  lit) → **Snap off FIRST, then per join: playhead on it, zoom in until the + magnifier greys out (4 clicks from the
+  opening zoom reach 320 px/s, 5–6 from Zoom to fit), drag an edge from the clip's lower half, check
+  the toolbar total moved by about the trim** (a lead-in edge comes back to the join with ripple on — normal) → trim
+  each sentence join the way he wants it (about 21 of the 33 listed) by dragging clip edges only — no splits, deletes or
+  Transcript edits → nothing selected → Inspector → PROJECT → **Learn from this video** (not the Assistant chat; leave
+  the Provider dropdown alone) → Assistant tab → **pass rule (a), per knob (orchestrator, 2026-10-22): the row is
+  proposed with its new value in range, OR the row is missing and the card's fitted value for that knob is in range**
+  — `Cut lead-in` / head 0.12–0.18, `Cut tail min` / minTail 0.05–0.11, `Cut margin` / margin 11–13; the record says
+  which case each knob was (a fit inside the range but ≤ 30 ms from the start value is Q4's threshold working as
+  specified). Screenshot the card or note the three numbers + "learned from N joins", then tell Claude. `-Reset` restarts the station (saving his trims first under `…\vidtsx-e2e\B4\station-runs\`).
+- **Gates (fix round 1, C: 19 GB free → no exclusion):** `npx vitest run` run 1 red only on the NEW 40-seed jitter
+  test timing out at 5 s under the suite's load (my own test; given a 60 s timeout, 11/11 alone) → **run 2 counted:
+  457 files / 3866 tests passed, 5 / 34 skipped, 43.1 s** (`…\vidtsx-e2e\B4\vitest-full-fix1-run*.log`); types 26/10.
+  The M2 negatives (`negatives.b4.test.ts`) re-run: unchanged outcomes (as-trimmed = the four changes; own-style → 0;
+  9 joins → 0 + the "at least 10" line).
+- **Gates (build):** `npx vitest run --exclude src/main/services/python-models/service.test.ts --maxWorkers=4` — **run 2 is
+  the counted run: 456 files passed, 5 skipped; 3852 tests passed, 34 skipped, 96.0 s** (app stopped; log
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-full-run2.log`). Run 1 (same command, log `…\B4\vitest-full.log`)
+  had 2 failures, both on DRIVING.md's known-load list — `flow-render.test.ts:255` (the 1 s `vi.waitFor`) and
+  `shot-module-resolver.test.ts:151` (its 1 s background-write poll, "never written") — both passed alone (`…\B4\vitest-alone-run1.log`,
+  2 files / 15 tests). **`python-models/service.test.ts` was EXCLUDED for disk** (DRIVING.md "Vitest gate while C:
+  is low": C: 2.26 GB, D: 4.98 GB free before the runs; the branch never touches `python-models/`); `--maxWorkers=4`
+  because the CPU sat at 100 % from other sessions. `npm run check:types` web 26 / node 10 = baseline. New tests over
+  the part (38): `cut-learn.test.ts` (9), `cut-learn-joins.test.ts` (9), `clip-edit-tags.test.ts` (12, through the
+  real reducer), `agent-tools/preset-tools.test.ts` (5, the REAL `propose_preset_update` + accept handlers, real
+  `cut-style.json` and preset store), `preset-knob-apply.test.ts` (3), plus `snapped` cases in `cut-proposal` /
+  `editorial-cuts` tests.
+- **Honest notes:** joins the user never touches teach nothing; counts are per side (head edges → `head`, tail edges
+  → the tail knobs) and the card's "joins" = joins with ≥ 1 measured edge; all tails are fitted as punchy landings
+  (under a small `softGap` the report says how many landed soft); accept takes every change on the card, `maxTail`
+  included; with a project override the card measures against the override but accept teaches the preset (the card
+  says so). The stand-in preset (copied from YouTube long-form) also moved eight flat knobs on accept — the existing
+  flat learning against a bare timeline, not B4; the station's preset has them zeroed. The stand-in's targets are the
+  fitted tight's own edges (Hasan's 21 individual 10-15 edits are not recorded anywhere), so the real proof is his redo.
+  `AgentPanel.tsx` grew to 425 lines (420 before B4) and `EditorShell.tsx` by one line (1,646) — both pre-existing
+  far over ~300.
+- **Open (follow-ups, not blockers):** a per-knob opt-out on the learn card; learning `softGap` if Hasan wants it;
+  the Inspector's AI Assistant "Provider" dropdown shows "App default (active provider)" for an unregistered provider
+  id (display only); the ripple mode lives in renderer `localStorage`, not in the project. Also in this commit, the
+  B3 doc debt (decision 7): the B3 row and TESTING §18.9 now say eight clips with keeps (not nine) for the hand plan,
+  add the 133 vs 134 joins flip (0373 seg 17), and replace "audition starts ~0.2 s early" with the toolbar-clock
+  misread (the audition plays ±0.99 s, as designed). TESTING §18.10.
+- **Next:** the orchestrator marks B4 `WAITING-HASAN` (his step above) and continues; the B4 verifier is the
+  orchestrator's call.
+- **2026-10-23 — Hasan's station attempt; exit deferred:** on the B4 station he trimmed 14 joins (3 lead-ins, 13 tails)
+  **by the waveform's look, not by ear**; the card proposed `Cut tail min (s) 0.14 → 0.01` and `Cut margin (dB) 5 →
+  21.5` (median tail 0.096 s, +17.9 dB over the floor at 13 joins; the start style 0.4 s / 5.9 dB), no lead-in row (3 <
+  10; median lead-in 0.051 s). Rule (a) missed on both tail knobs, the lead-in not judgeable — and not a valid sample
+  (eyeballed tails end in the word's audible decay; his 10-15 tight ends tails at +12 dB, median ~0.21 s on M2). Update
+  preset was not pressed; his trims stay in the station's `project.json`
+  (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B1-verify-root`) for a later offline re-measure. Hasan: "thats too much, can
+  we just continue working, and I will do full testing on a real new video later" → the exit (≥ 10 joins per side, set
+  by ear, then Learn, rule (a)) moves to his real-video test. ORCHESTRATOR.md "Session 3".
+
+## 2026-10-22 — END-TO-END B3: QA readouts on the cards — hard entries and clipped tails, offending joins listed and auditionable — DONE
+
+- **What:** part B3 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `e583d26` → `47bc6a1` →
+  `99d825d`), the plan's §2 T1 "two QA readouts". **One pure module** `src/shared/studio/cut-qa.ts` = Hasan's
+  `tools/analyze_cut.py` checks with its exact numbers as named constants, over `RmsEnvelope`: **hard entries**
+  (`entry_check`: a real cut join = the first segment or a source skip > 0.75 s; the 0.05 s window from 0.06 s
+  before the cut-in; flag > 15 dB over the floor) and **clipped tails** (analyze_cut main's loop, per ATOM:
+  landing = word end + `tailFor(gap to the next atom)`, 0.05 s window, flag > 6 dB). Computed in main where the
+  plan / proposal is made: `runCutPlan` writes `plan.qa` (also in the plan file) → `buildCutProposal` carries
+  `proposal.qa` stamped with the asset (the toolbar's Auto Cut gets it with the plan — no IPC change); the
+  editorial snap (`snapCutSpans`) returns `qa` → `buildEditorialProposal` → `proposal.qa`; `run_auto_cut` /
+  `propose_cuts` replies end with the QA line. Schema additions are optional only (`StudioCutPlan.qa?`,
+  `StudioProposal.qa?`): old plans and proposals load and render as before. **UI:** NEW `CutQaReadout.tsx` under
+  the cut card's headline (Auto Cut and editorial both go through `ReviewCutsSection`): **"Hard entries N of J
+  joins"** (red when > 0) and **"Tails on a release M of A landings"** (neutral; tooltip "the landing is still more
+  than 6 dB over the room tone — soft landing; listen if it sounds cut" — analyze_cut's "clipped-tail risks");
+  "QA clean" only when both are 0. `List the spots (N)` → hard entries first, then tails loudest first, 20 rows +
+  `Show all N`; every row is **auditionable**: one click maps the spot onto the RESULT timeline
+  (`mapQaItemToTimeline` — master lane first; a time inside an accepted removed span → that cut's join) and plays
+  ~2 s from ~1 s before it with the result preview on (`handlePlayQaSpot` → the existing `playSpan`).
+- **The exit, measured three ways (2026-10-22; M2 = `video-14-raw`, the nine raw DJI clips):**
+  **(a) the same plan as analyze_cut** — Hasan's hand-audited keeps (`cuts.json`), tight from `cut-style.json`
+  (asserted equal to `cuts.json`'s fitted tight knob for knob), M2's v3 waveforms + transcripts, analyze_cut
+  recomputed read-only (`python -I -B`, its `main` never run): **hard entries 0 / 0 on all eight clips with keeps**
+  (0366 has none — Hasan cut it whole; corrected in B4 from "nine", per the B3 verifier); joins checked Studio
+  **133** vs analyze_cut **134** — one real-join flip at 0373 seg 17 (Studio's skip 0.738 s vs analyze_cut's
+  0.798 s across the 0.75 s real-join line, because Studio's seg 16 ends 60 ms later, 63.566 vs 63.506 — the same
+  20 ms-bucket read; not hard either way, +4.8 dB at that cut-in); tails
+  analyze_cut **181** (5, 11, 20, 12, 63, 4, 39, 27 — exactly Hasan's `qa-report.md`, so that report is current)
+  vs Studio **178** (5, 11, 20, 12, 61, 4, 38, 27): 178 flagged by both, 3 by analyze_cut only, 0 by Studio only —
+  each the 20 ms-bucket read B1 documented (one 0.18 dB read at the 6 dB edge; two Studio tails 60 / 20 ms longer,
+  which at cutlib's landing also read over 6 dB). Hottest real join per clip under 15 dB on both sides (max 0376
+  14.17 / 14.41); floors within 0.16 dB. **(b) "hard entries 0 at `head 0.15`"** — met on Hasan's plan (a), and live
+  on Studio's own Auto Cut over all nine clips (CDP, port 9291, the reused scratch `vidtsx-e2e\B2-root` +
+  `profiles\B2\profile`, default style `tight · default`, head 0.15, maxHead 0.3; card == `plan.qa` in the plan
+  file on every run): **hard entries 1 of 164 joins, tails on a release 265 of 298 landings** (per clip
+  hard/joins · tails/landings: 0366 0/3 · 6/8, 0369 0/5 · 5/6, 0370 0/11 · 15/18, 0371 0/23 · 36/44, 0372 0/16 ·
+  26/28, **0373 1/53** · 84/92, 0374 0/3 · 5/7, 0375 0/26 · 50/53, 0376 0/24 · 38/42; a rerun gave identical
+  totals). The one flag is a **TRUE positive** the check exists to catch: 0373's cut-in at source 323.198 s,
+  **+17.7 dB** — an UNTRANSCRIBED sound at 322.4–322.8 s (peak −12 dB; "ready," ends 320.733, "before" starts
+  323.348) in the removed 2.0 s before it decays into the check window (323.14–323.19 s: −35 / −36 dB over a floor
+  of −53.1 / −53.4); Hasan's edit removes 320.01–324.383 as a retake. Not a lead-in failure (the head snapper cannot
+  know about sound the transcript lacks); the card shows it in red and auditions it. **Negative control:** project
+  override `{base: natural, head: 0}` → **121 of 162 joins** hard (tails 97 of 298). **(c) "raising `margin` shows
+  clipped tails as expected"** — met as: on tight the count is already saturated at margin 12 (265 of 298 landings
+  over +6 dB) and does not fall as margin rises — **265 / 265 / 265 at margin 12 / 18 / 24** (project knob override
+  `settings.cutStyle {margin: N}`; per clip identical) — while the flagged landings get louder, **mean +11.45 →
+  +14.51 → +16.23 dB over the floor** (from the plan files); where the count is not saturated it rises: **natural
+  margin 6 → 12 → 18 → 106 → 132 → 132** (tight `softMargin` 6 → 12: 265 → 269). Hard entries 1 → 2 → 2 at margin
+  12 / 18 / 24 (margin moves the segmentation: 0371 gains one real join, which flags; joins 164 → 170 → 172).
+  **Audition:** 0373's `List the spots (85)` → 20 rows + `Show all 85`, row 1 `hard entry 5:23.2 +17.7 dB`; its
+  click (mapped to result time 654.728 = the join) played across the join with the cuts applied — toolbar clock
+  `13:04.33` → `13:05.12` → **`13:07.37` (the removed 2.0 s skipped)** → `13:08.32` (MM:SS.FF in 60 fps frames,
+  `formatClock`) = 784.55 → 785.20 → 787.62 → 788.53 s around the join edges 785.539 / 787.544, i.e. **0.99 s
+  before to 0.99 s after** (the B3 verifier read the same from the video element: source 320.200 → 321.075, skip,
+  323.217 → 324.112 around 321.193 / 323.198), stopped, preview restored off. Evidence:
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\` (`analyze-cut-ref.json`, `compare-b3-report.json`,
+  `exits-<tag>.json`, `audition.json`, `stills\b3-*.png`); drivers and scratch harness in
+  `.vidtsx-temp/end-to-end/B3/`. TESTING §18.9.
+- **Gates:** `npx vitest run --exclude src/main/services/python-models/service.test.ts --maxWorkers=4` **451 files
+  passed, 5 skipped; 3814 tests passed, 34 skipped, 104.7 s** — the counted run, green on the first try (app
+  stopped; log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\vitest-full-run1.log`). **`python-models/service.test.ts`
+  was EXCLUDED for disk** (DRIVING.md "Vitest gate while C: is low": it seeds a 1.68 GB file in `%TEMP%` and fails
+  with `ENOSPC` while C: has < 4 GB free — C: 1.84 GB, D: 1.11 GB before the run; the branch never touches
+  `python-models/`, `git diff --stat main..HEAD -- src/main/services/python-models/` is empty); `--maxWorkers=4`
+  because the CPU sat at ~76 % from other sessions. `npm run check:types` web 26 / node 10 = baseline. New unit
+  tests over the part: `cut-qa.test.ts`, `cut-tools.test.ts` (the real `propose_cuts` handler, no model call),
+  `cut-proposal-qa.test.ts` (9), `CutQaReadout.test.ts` (9), plus QA cases in `cut-plan-runner` / `run-auto-cut` /
+  `cut-proposal` / `editorial-cuts` tests.
+- **Honest notes:** the card's counts are the plan's, not live — rejecting a cut or dragging its edges does not
+  recompute them (no waveform envelope in the renderer); the spots map through the CURRENT result timeline, so a
+  click plays what the user will hear now. On tight the tail count reads "how many landings ride the release" (181
+  of 200 atoms on Hasan's own keeps), not errors — hence the two checks' different weight on the card. The
+  editorial card is proven through the real `propose_cuts` handler on a fixture and the component test (no model
+  call in B3); B6 runs the real editorial pass. `EditorShell.tsx` grew by one 13-line handler (1,645 lines,
+  pre-existing far over ~300). The margin knob was set through the app's own project update (no UI editor exists
+  for a single project knob).
+- **Open (follow-ups, not blockers):** (the earlier "audition starts ~0.2 s early, 1.21 s before / 0.78 s after"
+  is withdrawn — corrected in B4 from the B3 verifier: it took the toolbar clock's frames for hundredths
+  (`formatClock`, `src/features/studio/services/timeline-view.ts:43-52`, MM:SS.FF in 60 fps frames); the audition
+  plays **±0.99 s** around the join, as designed); after the stop the playhead parks at the result-timeline time
+  read as an original-timeline time (pre-existing, shared with `handlePlayJoin`); a median / worst landing-dB line on the card
+  (the tail count saturates on tight); list rows show source `M:SS.d` with no clip label; no UI for single project
+  cut knobs.
+- **Next:** the B3 verifier; then B4.
+
+## 2026-10-22 — END-TO-END B2: the default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section — DONE
+
+- **What:** part B2 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `bc104c3` → `4f0b33b` →
+  `b86b279` → `c50968f` → `bf46298`), the plan's §2 T1 slice. **Data:** `resources/skills/studio-clean-cut/cut-style.json`
+  (ships via `electron-builder.yml` `extraResources` `skills/**/*`) holds three named styles — `tight` = Hasan's
+  fitted tight from `cuts.json` (all twelve knobs incl. B1's `maxHead 0.3 / minSkip 0.12 / fricZcr 3500 /
+  fricMargin 5`), `natural` = his fitted natural (eight knobs, no opt-ins), `relaxed` = natural with every time
+  knob ×1.5 (`internalGap 0.6, head 0.32, minTail 0.39, maxTail 0.68, softGap 1.8, softMaxTail 1.05`, dB margins
+  unchanged — **orchestrator decision 1; it is data, Hasan can change it**) — and `"default": "tight"`. The old
+  `TIGHT_STYLE` / `NATURAL_STYLE` / `CUT_PLAN_STYLES` constants are gone. **One pure resolver**
+  `resolveCutStyle(file, {callStyle?, project?, preset?})` (`src/shared/studio/cut-style-resolve.ts`): per-call
+  style (the agent's `run_auto_cut({style})`) > project `settings.cutStyle` > preset `style.cut` (`base` + partial
+  knobs) > preset `pacing` mapped (tight/normal/relaxed → tight/natural/relaxed) > the file's default; it returns
+  the knobs, a display name (`tight · default`, `natural + 1 override · preset “YouTube long-form”`,
+  `tight · project override`) and an 8-hex key. **All four consumers on it:** the Auto Cut button (sends the live
+  `presetId`/`cutStyle`), `run_auto_cut` (enum + `relaxed`; omitted = the project's style), the editorial snap and
+  Transcript deletes (renderer gets the resolved style over the new `studio:cut-style:resolve` IPC; main is the only
+  reader of the file). The plan cache file is now `<asset>-<style>-<key>.json`, so an edited preset never reuses a
+  stale plan; old `<asset>-tight.json` files are left in place (nothing reads plans back). **UI:** the Transcript
+  section's session picker became `AutoCutRunner` — a read-out of the resolved style (title = every knob) and an
+  override Select (`Preset’s style (<name>)` / Tight · Natural · Relaxed for this project) stored on the project as
+  `settings.cutStyle = {base}` (saved, NOT undoable — the preset-picker pattern; choosing the preset again removes
+  the key); Project settings gains a "Cut style" block (name + all twelve knobs, opt-ins absent = "off",
+  overrides in accent); the preset editor gains a Cut section (base select + one input per knob the base has;
+  only knobs that differ from the base are stored; out-of-range values refused by `validatePresetInput`). Schema
+  additions are optional only: a project without `cutStyle` and a preset without `cut` resolve exactly as before
+  through the new path.
+- **The exit, live 2026-10-22 (CDP, isolated profile on C:, port 9281, on a COPY of M2 in
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root` — the shared M2 was never opened):** Assets › Presets ›
+  YouTube long-form › Cut: base Natural, Lead-in 0.25 → Save → `preset.json` `style.cut = {"base":"natural","head":0.25}`
+  (pacing stays `normal`); Talking-head short saved untouched → no `cut` key; Course lesson Decay margin 600 → "Cut
+  decay margin must be between 0 and 60 dB." in the section and the form, Save refused, file byte-identical. In
+  Studio, preset = YouTube long-form → Project settings and the Inspector read-out both say **`natural + 1 override ·
+  preset “YouTube long-form”`** (Lead-in 0.25 s in accent, Onset reach / Min skip / Fricative ZCR / Fricative margin
+  "off"); **Auto Cut on 0369 → card headline `Auto Cut (natural + 1 override · preset “YouTube long-form”) · assemblyai
+  · −27.8 s of 47.7 s · noise floor -54 dB`**, plan `…-natural-15b4f39a.json` written 10 ms after the click. Override →
+  Tight for this project → disk `settings.cutStyle = {"base":"tight"}`, read-out and Project settings `tight · project
+  override` (twelve knobs), Auto Cut → `Auto Cut (tight · project override) · … −29.8 s of 47.7 s` (`…-tight-42f80e70.json`,
+  22 ms). **Same knobs for editorial and Transcript deletes:** a Transcript delete of words 12–23 ("But I noticed …
+  business.", 3.9 s selected) → "Removed 12 words · −13.1 s", cut at **[7.328, 20.41] s = `planTextDelete` with the
+  resolved tight exactly** (the preset's natural + head 0.25 would cut [7.628, 20.31], plain natural [7.628, 20.35]);
+  the editorial snapper (`snapEditorialCuts`) with the same resolved style on the same words lands on [7.328, 20.41]
+  too; the resolve IPC with the live settings and from disk (the editorial / agent path) give the same key
+  `42f80e70`. **Override survives** 4K → 1080p → undo → redo → the Transcript delete: `settings.cutStyle` stays
+  `{"base":"tight"}` on disk after every step. Back to "Preset’s style" → the `cutStyle` key is removed and the card
+  names the preset again. Stills `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2\stills\b2-{1..10}-*.png`; driver
+  `.vidtsx-temp/end-to-end/B2/drive.mjs`, scratch check `textdel.b2.test.ts` (`B2_TEXTDEL=1`, scratch config).
+- **Gates:** `npx vitest run` **447 files passed, 5 skipped; 3778 tests passed, 34 skipped, 42.0 s** (app stopped,
+  first try); `npm run check:types` web 26 / node 10 = baseline. New unit tests over the part: `cut-style-spec` /
+  `cut-style-resolve` (every rung, garbage at every rung, the key), `cut-style-store` (9), `cut-plan-runner` (3),
+  `cut-style-handlers` (5), `studio-cut-plan-run-handler` (4), `cut-style-override` (9), `preset-cut` (11), plus the
+  repointed planner / editorial / text-delete / proposal tests.
+- **Honest notes:** (decision 4) **editorial and Transcript deletes moved from the old natural** (head 0.19 / minTail
+  0.26 / maxTail 0.45 / margin 5) **to the resolved style — Hasan's fitted tight by default** (head 0.15 with the
+  onset walk up to 0.3, minTail 0.08, maxTail 0.7, margin 12, the fricative rule, min-skip 0.12), so authored joins
+  land tighter unless the preset or project says natural; both keep pause compression off (an editorial-pass
+  choice, not a style). Auto Cut's default stays tight (now the fitted one). The project override is saved but not
+  undoable, like the preset and brand pickers. A spec cannot switch an opt-in knob OFF over a tight base
+  (`CutStyleSpec` = partial values; "no fricative rule" = base natural/relaxed) — **follow-up when Hasan asks**
+  (e.g. `null` = remove). The agent tools still read the project from disk (like `get_preset`), the button reads
+  the live document; they agree once autosave lands (<1 s). B1's finding stands (Studio's `snapHead` can lead in up
+  to +150 ms longer than cutlib's where a 20 ms bucket edge is loud) — B3 measures.
+- **Fix round 1 (2026-10-22, after the verifier's FAIL):** the agent's `run_auto_cut` did NOT use the resolved style
+  in preset projects — the prompt's "EDITING PRESET" mapping (`auto_cut` light/normal → `run_auto_cut(style:
+  "natural")`, aggressive → `"tight"`) sent a call style, the top rung, so the agent's Auto Cut skipped the project
+  override and the preset's cut (Course lesson: agent natural, button / Transcript deletes / editorial relaxed). Now
+  `studio-agent-prompt-tools.ts` says an `auto_cut` step runs `run_auto_cut` WITHOUT `style` (the project's cut style
+  comes from the preset or the project override; the step's aggressiveness does not pick a style; pass `style` only
+  when the user asked for one in this conversation) — the tool line and the generic workflow step say the same — and
+  the preset block's knob line names a preset's own cut (`describePresetStyle`: `pacing tight · cut style natural,
+  lead-in 0.25 s`). No other prompt/skill text instructs a style (grep of `resources/skills/**`,
+  `resources/presets/*/PRESET.md` — their "Auto Cut runs light/normal/aggressive" lines are prose and name no
+  `style` — `preset-workflow-lines.ts`, `studio-agent-prompt*.ts`). An unknown style name in a call is now refused
+  with a typed error instead of silently becoming the file default. `PresetForm.tsx` 307 → 246 lines (the style
+  grid moved to `PresetStyleFields.tsx`, 83). **Evidence (no model call needed):** NEW `run-auto-cut.test.ts` runs
+  the REAL `run_auto_cut` handler with the real cut-style store, preset-store, runner and planner, the shipped
+  `cut-style.json` and the shipped Course lesson preset on a fixture project: no style → reply and plan `relaxed ·
+  preset “Course lesson”`, plan file `a1-relaxed-<key of the shipped relaxed>.json`; project override `{base:
+  natural, head: 0.25}` → `natural + 1 override · project override`; explicit `tight` (the user asked) → `tight ·
+  requested`. `studio-agent-prompt.test.ts` +4 (the full prompt and the block of each of the three shipped presets
+  contain no `run_auto_cut(style:` / `style: "<name>"`; run against the old prompt text the test FAILS),
+  `agent-preset-prompt.test.ts` +2, `cut-style-store.test.ts` +1 (unknown name refused; omitted = the preset's
+  relaxed). Gates: `npm run check:types` web 26 / node 10 = baseline; `npx vitest run --maxWorkers=4` **448 files
+  passed, 5 skipped; 3788 tests passed, 34 skipped, 91.8 s** (the counted run; three default-width runs each had only
+  the known `shot-module-resolver.test.ts:151` 5 s load timeout).
+- **Open:** the Project settings modal's X has no aria-label/title (pre-existing).
+- **Next:** the B2 verifier (round 2); then B3.
+
+## 2026-10-22 — END-TO-END B1: ZCR in the waveform job; snapHead, fricative-aware snapTail, minSkip; the four knobs — DONE
+
+- **What:** part B1 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `2dc5add`), the plan's §2 T1
+  slice: cutlib's October knobs ported with its exact semantics. `CutPlanStyle` gains four OPTIONAL fields
+  (`maxHead`, `minSkip`, `fricZcr`, `fricMargin`; absent = the old behaviour; `TIGHT_STYLE` / `NATURAL_STYLE` and
+  the UI unchanged — B2 moves the defaults). `RmsEnvelope` moved to `src/shared/studio/rms-envelope.ts`
+  (re-exported from `cut-planner.ts`): overlap-weighted `rmsDb` / `zcr` windows over the 20 ms buckets, a floor
+  from 50 ms windows (cutlib's `floor_db`), `snapTail` with the fricative rule, a new `snapHead` (lead-in walked
+  back up to `maxHead`), the `minSkip` merge (`cut-skip-merge.ts`). **Waveform job v3:** decodes mono **16 kHz**
+  for the whole job (was 8 kHz — fricative energy sits above an 8 kHz file's 4 kHz Nyquist, so cutlib's
+  `fric_zcr 3500` needs 16 kHz) and writes `zcr` (zero crossings per second) per 20 ms bucket beside `peaks` /
+  `rmsDb` (`{version: 3, …, zcr}`; pure `waveform-buckets.ts`). Old v1/v2 waveform files still parse everywhere
+  and regenerate once on project open and before planning (no zcr ⇒ the fricative rule is off). 29 new unit tests
+  (`rms-envelope.test.ts` 13, `cut-planner-knobs.test.ts` 11, `waveform-buckets.test.ts` 5) mirror cutlib's cases.
+- **Material (M2, shared by track B):** Studio project `video-14-raw` in the scratch root on C:
+  (`C:\Users\hasan\AppData\Local\vidtsx-e2e\b-root`), the nine raw DJI clips of video-14 referenced in place
+  (3840×2160 @ 59.94), NVENC proxies + v3 waveforms for all nine in ~9 min 20 s; Hasan's saved AssemblyAI
+  transcripts mapped through Studio's own `AssemblyAiProvider.mapJob` ($0, no STT call; word counts match all
+  nine). Waveform job alone: **0.1 s for a 47.7 s clip, 0.7 s for 396.2 s** (~570× realtime).
+- **The exit, measured 2026-10-22:** Studio's `planClip` on M2's v3 waveforms vs Hasan's `tools/cutlib.py`
+  `plan_clip` (run read-only, `python -I -B`) on his 16 kHz WAVs, same keeps (`cuts.json`), same AssemblyAI
+  words, Hasan's fitted tight with all four knobs. **"Clip 1" = `0369`** (`0366`, the first raw clip, is cut
+  entirely — keeps `[]`, no joins): **6 segments both sides, 12 joins, start/end deltas 0/0 · 0/0 · 0/0 · −10/0 ·
+  0/0 · 0/+20 ms → all within ±20 ms.** Broader: all eight clips with keeps → **352 joins, 348 within ±20 ms
+  (98.9 %)**, 4 at +40/+60 ms and 2 merge flips (their outer joins within ±20), each a tail knife-edge on the
+  20 ms grid (level within ~0.6 dB of floor + 12 dB, one 2.1 dB, or ZCR straddling 3500) — every one explained
+  with the waveform in `docs/studio/end-to-end/B1/HANDOFF.md`. Noise floors within 0.16 dB on every clip; Studio's
+  v3 buckets equal the WAV's 20 ms RMS at **lag 0** (mean |dB| 0.02–0.03).
+- **Click-through (CDP, isolated profile, port 9271):** the 0369 waveform marked `"version":2` → opening
+  `video-14-raw` rewrote it as v3 **211 ms** after the project card click (warm cache — the app had already read
+  the clip; the B1 verifier measured **~5 s** for the first open after a fresh launch, a cold read of two clips
+  at 2 jobs at once), byte-identical to the original v3 file; pool context menu "Add to timeline" → the clip on V1 (47.7 s); Transcript section → **Auto Cut (tight)**
+  → `cache/cut-plans/…-tight.json` written **21 ms** after the click: built-in tight, 6 segments, 7 proposals,
+  −28.7 s of 47.7 s, noise floor −54.457 dB, review open ("Apply 7 cuts" / "Reject all"); that plan equals the
+  pure `planCuts` on the same files (scratch test). Stills `.vidtsx-temp/end-to-end/B1/stills/step3-{1-open,
+  2-added,3-autocut-review}.png`. M2 restored afterwards (`project.json` byte-identical to before).
+- **Gates:** `npx vitest run` **439 files passed, 5 skipped; 3699 tests passed, 34 skipped, 36.5 s** (app
+  stopped; the two runs before it each failed only load timeouts outside B1 — four zip-package suites at 5000 ms,
+  then `flow-render.test.ts`'s 1 s `vi.waitFor` — all pass alone); `npm run check:types` web 26 / node 10 =
+  baseline.
+- **Honest notes:** existing behaviour moved slightly, by design toward cutlib: every `RmsEnvelope` consumer
+  (Auto Cut, the editorial snap, Transcript deletes) now reads overlap-weighted windows and a 50 ms-window floor,
+  and 16 kHz levels after regeneration; no existing test changed. Every waveform of an old project regenerates on
+  first open (plan §5; cheap — ~570× realtime). The 20 ms grid over-reads a loud bucket edge in the HEAD walk
+  (20 ms head windows: p95 11.4 dB off cutlib's, max 30.8), so Studio's `snapHead` can lead in up to +150 ms
+  longer than cutlib's (4 of 200 atoms on video-14; all inside segments both sides merged, so no join moved; safe
+  direction) — a finer analysis grid would be a cache/plan change, left for B2/B3 to weigh.
+- **Open:** `media-jobs.ts` is 314 lines (310 before B1); D: free space fell ~0.6 GB during M2 setup without a
+  writer found in our folders (other sessions run on this machine).
+- **Next:** the B1 verifier; then B2 (default style values, `resolveCutStyle`, the consumers, the UI).
+
+## 2026-10-22 — END-TO-END A6: the A/V check ("Check A/V") on the finished Studio export row + report JSON — DONE
+
+- **What:** part A6 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `bcea695`, `a4b88d3`,
+  `16f1a37`, `1ffa650`, fix round 1 `717bc74`), the plan's §2 T8: a user-facing port of the editor's `verify_sync.py`. **Verdict**
+  (`src/shared/studio/sync-verdict.ts`): pass iff median |offset| < 25 ms and |drift × span| ≤ 40 ms over ≥ 3
+  confident probes, else fail; < 3 confident = "Not enough to judge" (never a pass); + = audio behind the
+  picture. **Probes** (`src/shared/studio/sync-probes.ts`): the reference is the first camera clip's file in the
+  export (audio-bearing, speed 1); probes sit only where that picture is visible — cutaway shots are skipped with
+  a reason, overlays are named, a PiP box is mapped back to camera pixels through the clip's transform.
+  **Measure** (`src/main/services/studio/export-engines/sync-measure.ts`, `sync-media.ts`,
+  `export-sync-check.ts`, `sync-xcorr.ts`): an 8 kHz FFT xcorr locates each 2 s export audio window in the camera
+  audio within ±2 s of the timeline's time, a z-score frame match finds the shown camera frame among 96 camera
+  frames centred between the audio's and the timeline's time, **each camera frame labelled by its own timestamp**
+  (ffmpeg `-fps_mode passthrough` + `-stats_enc_pre`; a frame without one is an error, never a guess), error =
+  video − audio; a **layout mask** learned from all probes of one box (median residual) handles an overlay painting
+  over part of the PiP. Report `<export>.sync.json` (version 2) beside the file. **IPC** `studio:export:sync-check` (+ cancel, progress push), source =
+  the queue row's export entry or a project + range. **UI:** "Check A/V" on a finished Studio export row
+  (`RenderItem.tsx:181`) → progress "probe N of 16" + Cancel → a green/red/amber verdict line, offset · drift ·
+  probes · time, the report name + "Open report". No schema change.
+- **Measured 2026-10-22 09:13–09:26, with the fixed code** (`717bc74`), on the two A5 exit files (video-14 copy,
+  80–110 s 4K60; reference = the 4.05 GB 59.94 fps master), live click-through over CDP on an isolated profile
+  (port 9261, `.vidtsx-temp/end-to-end/A6/`): **A5 Standard** → **IN SYNC, offset −2.6 ms, drift +3.5 ms over
+  10.1 s, 16 of 16 probes confident, 52.5 s**; **A5 Fastest** → **IN SYNC, the same numbers, 48.3 s** (identical
+  per-probe errors; reports beside each file in `.vidtsx-temp/end-to-end/A5/export/`). Offset files (ffmpeg stream
+  copies, no queue row; through the app's IPC over CDP): **audio +100 ms → FAIL, +96.8 ms** ("audio 96.8 ms BEHIND
+  the picture", 16/16, 50.0 s — the exit); **video 3 frames late → FAIL, −52.6 ms** (project + range source, 50.7 s);
+  **audio 27 ms early → FAIL, −29.6 ms** (52.3 s); **audio 600 ms early → FAIL, −602.9 ms** (49.6 s). Out of the app
+  (live test, 11 files, every one 16/16) **every verdict matches the truth** (|shift| < 25 ms ⇒ pass, else fail):
+  true 0 / 0 / +10 / −27 / −30 / −33 / −80 / −600 / video +2 fr / video +3 fr / +100 ms → measured −2.6 / −2.6 / +7.4 /
+  −29.6 / −32.6 / −35.6 / −82.6 / −602.9 / −35.9 / −52.6 / +96.8 ms, spread 3.1–3.4 ms. Cancel mid-check (round 1)
+  → panel back to idle in < 2 s, no ffmpeg left, the earlier report untouched. `npx vitest run` **436 files passed,
+  5 skipped; 3670 tests passed, 34 skipped, 36.8 s** (the two runs before it each failed only
+  `shot-module-resolver.test.ts` "a changed transpiler fingerprint" — the known load flake, passes alone 10/10);
+  `npm run check:types` web 26 / node 10 = baseline.
+- **Fix round 1 (the verifier's round-1 FAIL):** the bundled ffmpeg, piping frames at a constant rate, REPEATED the
+  first camera frame after ~1/3 of seeks, and the check labelled frames `first + index`, so those windows read one
+  camera frame (16.7 ms) late. Audio 27 and 33 ms early PASSED (−18.9 / −23.2 ms) and the round-1 numbers (+0.2 ms on
+  the A5 files, +99.4, −50.5) were wrong; audio 600 ms early read "Not enough to judge" and blamed the picture (the
+  audio search was ±0.5 s). Fixed: passthrough decode + frames labelled by their own timestamps (a regression unit
+  test pins a window whose first frame repeats), audio search ±2 s, "Not enough to judge" names the side that failed.
+- **The −2.6 ms is real, and kept:** the check measures the FILE's own picture-vs-sound offset, including where the
+  render put whole camera frames. On the A5 files the sound sits on the timeline to 0.0 ± 0.1 ms at all 16 probes;
+  each picture is a whole 59.94 fps camera frame in a 60 fps export (the nearest frame on 14 probes, the next on 2),
+  and the median of those 16 quantization steps is −2.6 ms (the 59.94/60 beat moves the phase only 0.06 frame/s, so
+  10.1 s samples ~0.6 of one cycle). Every file made from them inherits it, so measured = applied shift − 2.6 ms.
+  Near the bar the check reads the export's true offset: this file with its audio shifted +26 ms would read +23.4 ms
+  → pass, and its pictures really are 23.4 ms from their sound.
+- **Honest notes:** on video-14 the plain whole-frame match found **0 of 16** probes (0.65–0.72): the
+  `V14A1Scratch` overlay paints a card over ~56 % of the PiP and no document field says so. The mask derived
+  from the data (≥ 3 probes of one box agreeing) lifts the match to 0.95–0.99 at the unchanged 0.90 bar; a
+  negative-control test pins that it cannot invent a match. But masked quality is computed over pixels chosen
+  BECAUSE they agree, so 0.95–0.99 overstates confidence and the 0.90 bar is weaker than it reads; each probe's
+  unmasked `plainQuality` stays in the report. ~50 s per check of a 30 s 4K range.
+- **Open (by design / not built):** the queue row reads the export's context sidecar, which the 24 h sweep
+  removes — an older row says "This export can no longer be checked from the queue … Export it again to check it"
+  (handler-tested, not driven: the A4 sidecar was still present); only Studio export rows can be checked (no
+  "check any file" picker); "Open report" not clicked live (it opens the OS default app).
+- **Next:** the A6 verifier, round 2; then B1 (A6 is track A's last row).
+
+## 2026-10-22 — END-TO-END A5: Fastest on video-14 (30 s 4K60 range, split + cutaways); Standard at 25 % for the record — DONE
+
+- **What:** part A5 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `06edaf0`, `f84a78d`), the
+  plan's §2 T7 measurement. **Step 0 (two fixes):** a render whose Remotion pre-encode ffmpeg dies can no longer
+  hang — `render-stall-guard.ts` (wired in `remotion-renderer.ts` for every engine and the Render page) fails the
+  job "Render stalled at frame X of Y …" after the per-frame timeout + 2 min (min 5 min, 12 min at default) with
+  no new frame, cancelling Remotion first so its processes and temp are released; one font fetch blip no longer
+  refuses an export — `font-upstream-fetch.ts` retries a network error / 5xx once (never a 4xx), and the
+  preflight says "N of M font files … could not be downloaded — check your connection" unless ALL failed.
+  **Prerequisites:** the full ffmpeg (NVENC) was installed in A4 by the in-app card download and carried over
+  in a copy of A4's profile; on a fresh launch all three engines were available (no second download, no
+  restart). **Range:** 80.000–110.000 s = frames 4800–6600 (1800 @ 60 fps) of the video-14 copy — enters and
+  leaves the PiP split `clip_mvba3wua_309b03` (89.9–103.15 s) and crosses the cutaways `V14A1OneWord`,
+  `V14A1Template`, `V14A2Starter`. Both files kept in `.vidtsx-temp/end-to-end/A5/export/` for A6 and the
+  track exit. No schema change.
+- **Measured 2026-10-22** over CDP on an isolated profile (port 9245, `.vidtsx-temp/end-to-end/A5/`),
+  3840×2160 @ 60, Quality high, CPU low (25 %), render processes below normal, machine held awake:
+  **Fastest** — wall **1178.3 s (19.6 min), 1.53 fps**; span plan copied 0 / composited 56 % (OneWord composite
+  324 f in 355.4 s · Template composite 270 f in 29.4 s · the split as a browser span 795 f in 556.5 s · Starter
+  composite 411 f in 229.3 s); `studio-video-14_2026-10-21T21-10-24.mp4` **35,076,111 B**, h264 Main 3840×2160
+  60/1, 1800 frames, 30.000 s, 9.08 Mb/s + AAC 48 kHz stereo 30.000 s. **Standard** — wall **1046.4 s
+  (17.4 min), 1.72 fps**; `studio-video-14_2026-10-21T21-30-54.mp4` **17,002,605 B**, h264 High 3840×2160 60/1,
+  1800 frames, 29.999 s, 4.26 Mb/s + AAC 48 kHz stereo 30.000 s. Both: 1800/1800 persisted `done`, job scratch
+  gone, no new `%TEMP%` entries, 0 "Render stalled" lines. **Fastest cancel** (moved from A2) PASS: 85–95 s
+  cancelled at 24/600 → `cancelled`, no output, scratch (107 MB while running) gone, no Remotion/Chrome
+  leftovers in `%TEMP%`. Disk estimate at 4K runs high (safe): output 268 MB estimated vs 35.1 / 17.0 MB.
+  `npx vitest run` **431 files passed, 4 skipped; 3623 tests passed, 22 skipped, 43.3 s**; `npm run
+  check:types` web 26 / node 10 = baseline.
+- **Honest note:** Fastest copies **0 %** of video-14 — its 55 shots tile the whole timeline (a cutaway on
+  every plain clip, an overlay on every PiP), so every span is composited or rendered in the browser (plan §5
+  "Copy engines and splits", expected). On this range **Standard (1.72 fps) beat Fastest (1.53 fps)** and wrote
+  a file half the size (x264 CRF vs NVENC). Fastest pays off only on footage with no shot over it.
+- **Open (found, no fix made):** bundling progress is sent 100× too big (`render-handlers.ts:199` →
+  "bundling 600% … 10000%"); the Fast/Fastest rows always read "Needs the GPU encoder download" even when it
+  is installed (`export-engines.ts:46,54`); `remotion-renderer.ts` is 444 lines (over the ~300 rule before A5);
+  a real dead encoder was not driven live (unit-tested only).
+- **Next:** A6 (the A/V check on these two files).
+
+## 2026-10-21 — END-TO-END A4: export font preflight; GPU proxies default on + the first-4K-import download card — DONE
+
+- **What:** part A4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `3417d46`, `4671622`,
+  `139a4a9`, `3d450ba`; test-only `22593db`, `0afc196`), the plan's §2 T7 slice. **Fonts:** every Studio export
+  now scans the shot, caption and transition COPIES for Google Fonts URLs (new optional
+  `StudioExportEntry.fontUrls`, `export-entry.ts:76`), warms the font cache strictly (`ensureFontCached`,
+  `font-proxy.ts:145`; 6 workers in `export-font-check.ts`) and refuses to start with a clear message when a
+  file is missing and upstream is unreachable (`font-preflight.ts`, wired in `run-export.ts:81-92` before the
+  scratch dir exists) — the font proxy's 502-mid-render path no longer happens. Dev-only
+  `VIDTSX_FONT_UPSTREAM_OVERRIDES` (ignored packaged) blocks upstream for testing. **GPU proxies:** an unset
+  setting now means "on when NVENC works" (`effectiveProxyGpuEnabled`/`decideProxyGpuEncoder`,
+  `proxy-encoders.ts:82,97`); an explicit off stays off, QSV/AMF stay opt-in, the one-failure x264 latch is
+  kept; no setting is written by the default. **The card:** the first 4K import through the media pool offers
+  the full ffmpeg (76 MiB = 80,069,496 B) with the measured 91 s vs 12 s per minute; after the download, main
+  re-queues this session's x264 4K proxies on NVENC (`studio:proxy-encoder:rebuild`, media-jobs `restart()`),
+  so the clip that triggered the card ends on the GPU without a re-import. "Not now" lasts the app session.
+  Step 0 also fixed the `shot-generator.test.ts` full-suite flake (test isolation: it cancelled one timer
+  tick after starting a NEW shot, before the run was tracked). No schema change (optional fields only).
+- **Verified 2026-10-21** over CDP on an isolated profile (port 9244, `.vidtsx-temp/end-to-end/A4/`):
+  **GPU exit** — fresh profile, 3840×2160 HEVC 60 fps DJI clip (20.3 s) → card **1.6 s** after Import →
+  Download **80,069,496 B in ~106 s** → probe `working:[nvenc,qsv]` 3.7 s after install → the TRIGGERING
+  clip's proxy rebuilt as `nvenc-540p-intra-q33` in **7.9 s** (x264 had taken **23.7 s**); re-import straight
+  to NVENC in **6.3 s**; **no restart, no Settings visit**; Settings row "Detected: NVIDIA NVENC — on
+  automatically", ticked, **no `proxyGpuEncoderEnabled` key written**. **Font exit** (video-14 copy, Standard
+  1080p 0:06–0:11, CPU low): cold cache + blocked upstream → refused, "Export not started: … Google Fonts …
+  (103 font files missing) …" in the Queue row's Details, no scratch, no output; unblocked → preflight
+  **103 URLs, 0 failed** (strict per-URL rule stays), completed 166.3 s, 1,362,839 B; **blocked after warm-up →
+  preflight 0 fetched / 202 cached / 0 failed (36 ms), 0 upstream lines, completed in 181.5 s, 1,362,505 B**
+  (h264 1920×1080, 300 frames + AAC). `npx vitest run` **428 files passed, 4 skipped; 3598 tests passed,
+  22 skipped, 46.6 s**; `npm run check:types` web 26 / node 10 = baseline.
+- **Known issue (seen once, not root-caused):** in step 4b a Standard export started ~10 s after the
+  previous one lost its `remotion\react-motion-render*` folder mid-render; Remotion's pre-encode ffmpeg died at
+  frame 66 and `renderMedia()` never settled (its `onFrameBuffer` throw is an unhandled rejection), so the job
+  sat at "rendering" / 70 % for 11 min until Cancel (which cleaned up fully). It did NOT reproduce in 3 traced
+  back-to-back runs (a delete tracer saw nothing in the app delete that folder). A guard that fails the job
+  when the pre-stitcher dies moves to A5 step 0.
+- **Open (Hasan):** a refused export shows nothing in the editor (no toast) — the message lives in Queue →
+  Details (same as A2's disk refusal). The preflight is strict: a project's FIRST export needs the network
+  once even when the preview filled the cache (all weights × subsets, ≈100 URLs for video-14's 4 families);
+  after that, exports work offline. Brand fonts and pack filters are not scanned.
+- **Next:** A5.
+
+## 2026-10-21 — END-TO-END A3: the no-react fix — `remotion/<subpath>` external in shot bundles — DONE
+
+- **What:** part A3 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `c3aefe8`), the
+  plan's §2 T7. The shot bundle step keeps `remotion/<subpath>` external
+  (`EXTERNAL = /^(react|remotion(\/.+)?|@vidtsx\/kit)$/`, `shot-bundle.ts:43`), so a shot that loads a
+  font through `@remotion/google-fonts` no longer carries its own copy of `remotion/no-react`, whose
+  top-level `window.remotion_delayRenderHandles = []` ran mid-render inside the lazy `__vidtsxInit()`
+  and orphaned the export entry's `'brand fonts'` hold (the 2026-10-16 4K timeout). The lint accepts
+  `remotion/no-react` + `remotion/version` only (`shot-lint.ts` `isShotModuleSpecifier`, shared with the
+  import classifier); the preview maps both to the Player's one copy (`virtual-module-files.ts`, new
+  `/virtual/remotion.js/version` route — before, a direct import went to esm.sh); the export needed
+  nothing (`@remotion/bundler` aliases both subpaths to the app's 4.0.435). No schema change. Parity
+  spike: the inlined 4.0.486 google-fonts uses only `NoReactInternals.ENABLE_V5_BREAKING_CHANGES`,
+  present in 4.0.435 → T7 kept, no fallback.
+- **Verified 2026-10-21** on a copy of video-14 (`.vidtsx-temp/end-to-end/v14-root`, Hasan's project
+  untouched), CDP isolated profile port 9231: **one-shot render** 0:06–0:11 across `V14A1Nobody`,
+  Standard, 3840×2160 @ 60, High, CPU low, below-normal → **completed 300/300 frames in 232.7 s**
+  (~1.36 fps; ffprobe h264 3840×2160 60/1, 300 frames, 4.999 s + AAC), no delayRender timeout, export
+  still = Player still (before: 171 frames in 607 s, cancelled). **All 55** re-bundled by the copy's
+  import script (`--shots-only`): 55/55, 0 problems, `remotion_delayRenderHandles` 54 → 0, 8,698 →
+  6,355 KB; `grep remotion_delayRenderHandles` over the 55 `v1.tsx` = **0 hits**. **Player** at 8.0 s and
+  30.0 s with all 55 re-bundled: 0 handles, `renderReady` true for 30 s each, Space Grotesk + Inter via
+  the font proxy (9 × 200), `/virtual/remotion.js{,/no-react}` 200, 0 esm.sh, 0 non-2xx, 0 exceptions.
+  `npx vitest run` 425 files: 420 passed, 4 skipped, 1 failed = the known `shot-generator.test.ts`
+  flake (3 tests; alone 18/18 pass); `npm run check:types` web 26 / node 10 = baseline.
+- **Open (Hasan):** your own `~/Videos/VidTSX Studio/projects/video-14` still has the OLD 55 bundles
+  (only the copy was re-bundled), as does any other project whose shots were bundled before A3 with a
+  `@remotion/*` font load; there is no in-app re-bundle. The copy's `project.json` points its 127 media
+  assets at the ORIGINAL's `media/` by absolute path (read-only, seen in the Player's `/asset` requests).
+- **Next:** A4.
+
+---
+
+## 2026-10-21 — END-TO-END A2: export disk preflight + cancel/failure cleanup of the job's Remotion temp — DONE
+
+- **What:** part A2 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `dd77b87`,
+  `88de827`, `4b1156d`). Every Studio export (Standard, Fast, Fastest) now runs its Remotion calls in an
+  `AsyncLocalStorage` scope on `os.tmpdir()` (`remotion-temp-scope.ts`), so Remotion's
+  `remotion-v4.0.435-assets*` source copies, its Chrome profiles and `react-motion-render*` land in the
+  job's own scratch `%TEMP%\vidtsx-studio\export\<jobId>\remotion\` and leave with it on success,
+  cancel and failure (`removeDirWithRetry`: 12 × 500 ms, then a background retry); renders outside the
+  scope keep the real temp. The fresh-bundle composition listing runs in its own `export\probe-*`
+  folder (`bundle-compositions.ts`). Before any scratch or output is made, a disk preflight
+  (`export-disk-check.ts`) estimates output + temp per drive (`disk-estimate.ts`: H.264 0.15 bit/px/frame
+  at CRF 18, PCM, AAC, ProRes shot layer) and refuses with the numbers when a drive lacks need + 512 MB.
+  Dev-only `VIDTSX_EXPORT_DISK_OVERRIDES` fakes free space (ignored when packaged). No schema change,
+  no dialog change (an estimate line in the Export dialog is a logged follow-up).
+- **Verified 2026-10-21** (CDP, isolated profile port 9242, scratch root `.vidtsx-temp/end-to-end/A2/`,
+  1080p60 test clip, CPU low, below-normal): **Standard range cancel** after a fresh bundle (127/1800
+  frames) — during, the job scratch held the 26,117,588 B assets copy + 2 Chrome profiles (60.2 MB);
+  12 s after, no scratch, no output, **no new `%TEMP%` entry**. **Fast range cancel** (copy span + browser
+  span, 829/1800) — job dir 73.3 MB during, then nothing left, no new `%TEMP%` entry. **Refusal** with C:
+  faked to 300,000,000 B: queue row Error → Details "Not enough disk space for this export. C: needs about
+  609 MB free — temporary files 97 MB (copies of the sources 25 MB, rendered video 67 MB, audio 5 MB) +
+  512 MB to spare — and has 286 MB."; no scratch, no output file. **Completed** 10 s Standard range:
+  4,344,305 B (H.264 1920×1080 60 fps 600 frames + AAC, 10.000 s) vs estimate 23 MB output / 49 MB temp
+  (5.4× over — the safe side). `%TEMP%` over launch → Fast cancel → complete → stop: 0 new entries.
+  Deliberate disk users: the bundle cache (`<userData>/bundle-cache`, +18 MB per fresh bundle, pruned)
+  and the GPU-encoder ffmpeg download (178 MB, `<userData>/ffmpeg-full`). `npx vitest run` 424 files:
+  419 passed, 1 failed = the known `shot-generator.test.ts` flake (3 tests; alone 18/18 pass);
+  `npm run check:types` web 26 / node 10 = baseline.
+- **Open (Hasan):** `%TEMP%` holds ~3,135 stray `puppeteer_dev_chrome_profile-*` (22 GB, last 10 days)
+  from Remotion callers outside exports (shot stills, TSX builder stills, Creator) and other tools —
+  not deleted, no sweep added.
+- **Next:** A3.
+
+---
+
+## 2026-10-21 — END-TO-END A1: 4K New Project tile, 1440p + 1080p export presets, undoable frame size — DONE
+
+- **What:** the first part of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `e4803cd`).
+  New Project reads the shared `FORMAT_PRESETS` (`project-format.ts`) — four tiles 16:9 1080p · 16:9 4K ·
+  9:16 · 1:1, the W5 preset→orientation mapping keeps a tile that already fits (4K stays 4K under a 16:9
+  preset). Export gains **1440p and 1080p** (`render-presets.ts` ladder 1440p/1080p/720p/540p/360p;
+  never-upscale unchanged, so a 1080p project still lists Full/720p/540p/360p); the Settings default
+  export resolution row lists the same ladder. Project-size edits (typed W/H and the format buttons in
+  Project settings) are one `set-frame-size` timeline action — undo/redo like any edit; fps / name / STT
+  stay plain edits; no proxy or shot reaction to a size change (plan §5). No schema change.
+- **Verified 2026-10-21:** CDP click-through on an isolated profile (port 9241, scratch Studio root
+  `.vidtsx-temp/end-to-end/A1/`): New Project showed tiles `1080p|4k|portrait|square` (1080p pressed);
+  4K + 60 fps + Create → editor up, `project.json` settings **3840×2160 @ 60**; Export resolution listed
+  **Full (3840×2160), 1440p (2560×1440), 1080p (1920×1080), 720p, 540p, 360p**; Project settings → 16:9
+  1080p wrote 1920×1080 to disk in 265 ms and Export then listed Full (1920×1080)/720p/540p/360p;
+  Ctrl+Z → 3840×2160 on disk, Ctrl+Y → 1920×1080, Ctrl+Z → 3840×2160 (~0.8 s each); close + reopen left
+  `project.json` byte-identical. `npx vitest run` 415 files / 3513 tests passed (37.0 s);
+  `npm run check:types` web 26 / node 10 = baseline.
+- **Next:** A2 on Hasan's "go".
+
 ---
 
 ## 2026-10-21 — END-TO-END PLAN: written and DECIDED, build not started

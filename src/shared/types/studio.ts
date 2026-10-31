@@ -12,6 +12,7 @@ import type { SttModelFeatures } from '../presets/stt-models';
 import type { ThinkingLevel } from '../tsx-engine/types';
 import type { CaptionRuntimeProps, StudioCaptionLayer } from './studio-captions';
 import type { StudioClipEffect } from './studio-effects';
+import type { CutQaReport, CutStyleSpec } from './studio-cut-plan';
 
 // Caption types are a sibling file (they are a published contract for pack
 // authors), re-exported here so every consumer keeps one import site.
@@ -110,9 +111,23 @@ export interface StudioClipTsx {
   mode: 'cutaway' | 'overlay';
 }
 
+/** A user edit that placed a clip edge (plan T1 "the learning signal", B4). */
+export type StudioClipEditOp = 'trim' | 'text-delete';
+
 export interface StudioClipOrigin {
+  /** Who PLACED the clip (learn stats count it); a later user edit keeps it. */
   by: 'user' | 'agent';
   proposalId?: string;
+  /** B4: the last user edit that shaped this clip. Absent = none recorded. */
+  op?: StudioClipEditOp;
+  /**
+   * B4: which user edit last placed each edge, in the clip's source. 'trim' =
+   * the user put the edge there by hand (learn-from-video measures it);
+   * 'text-delete' = a Transcript delete placed it with the resolved cut style
+   * (no timing preference — a later trim of that edge turns it into 'trim').
+   * A split hands each half only the edge it keeps.
+   */
+  edges?: { start?: StudioClipEditOp; end?: StudioClipEditOp };
 }
 
 /** `'crossfade'` / `'dip-to-black'` — the two the engine draws itself — or a
@@ -313,6 +328,18 @@ export interface StudioProposalItem {
   note?: string;
   /** True once the user has dragged this span's edges — provenance stays honest. */
   adjusted?: boolean;
+  /**
+   * B4: the span as the snapper made it (cut plans), kept beside the user's
+   * final `sourceStart/End`. Written at creation, never changed by an edge
+   * drag. Absent on items made before B4 = no learning signal.
+   */
+  snapped?: { sourceStart: number; sourceEnd: number };
+  /**
+   * B7: the card's own QA heard a hard entry where kept speech resumes after
+   * this cut (its loudest one), so the cut was built unchecked. Absent = a
+   * clean join, or a card made before B7. See shared/studio/cut-qa-flags.ts.
+   */
+  qaFlag?: { kind: 'hard-entry'; sourceTime: number; overDb: number };
   // Shot plans (S4 D8). Placement is source-anchored via assetId/sourceStart
   // above, renderer-mapped at review AND apply (the cut-proposal discipline);
   // `timelineStart` is the fallback for UNANCHORED shots only.
@@ -332,6 +359,12 @@ export interface StudioProposal {
   createdAt: string;
   agentNote?: string;
   items: StudioProposalItem[];
+  /**
+   * Cut-plan proposals: analyze_cut's two checks on the plan that made them
+   * (hard entries, tails on a release), items stamped with their asset. Absent
+   * on proposals made before B3 and on every other kind.
+   */
+  qa?: CutQaReport;
 }
 
 // ---------------------------------------------------------------------------
@@ -374,6 +407,13 @@ export interface StudioProjectSettings {
    * preset; a stale id (preset deleted) degrades to none.
    */
   presetId?: string;
+  /**
+   * Cut-style override for this project (plan T1): beats the preset's
+   * `style.cut` / `pacing`. A `base` replaces the preset's choice; knobs
+   * alone layer over it. Absent = the preset's style, then the default in
+   * `cut-style.json`. Read through `resolveCutStyle`, never directly.
+   */
+  cutStyle?: CutStyleSpec;
   /**
    * The Export dialog's last output choice for this project (docs/studio/
    * EXPORT_OUTPUT_OPTIONS_PLAN.md): a resolution preset id and a quality

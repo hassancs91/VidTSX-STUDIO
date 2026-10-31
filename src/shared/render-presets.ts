@@ -1,7 +1,7 @@
 /**
  * Render output presets shared by every dialog that sizes a render: the TSX
  * `RenderSettingsModal` (Original / 4K / 1080p / 720p / 480p) and the Studio
- * `ExportDialog` (Full / 720p / 540p / 360p) — one aspect-aware, even-
+ * `ExportDialog` (Full / 1440p / 1080p / 720p / 540p / 360p) — one aspect-aware, even-
  * dimension, never-upscaling rule and one quality → CRF table
  * (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md, Phase 1). Pure; no React.
  */
@@ -52,7 +52,7 @@ export function renderCrf(quality: RenderQualityLevel, codec: RenderCodec = 'h26
   }
 }
 
-export type ResolutionPresetId = 'original' | '4k' | '1080p' | '720p' | '540p' | '480p' | '360p';
+export type ResolutionPresetId = 'original' | '4k' | '1440p' | '1080p' | '720p' | '540p' | '480p' | '360p';
 
 export interface ResolutionPreset {
   value: Exclude<ResolutionPresetId, 'original'>;
@@ -81,8 +81,14 @@ export const TSX_RESOLUTION_PRESETS: readonly ResolutionPreset[] = [
   { value: '480p', label: '480p', targetHeight: 480 },
 ];
 
-/** The Studio export dialog's ladder: check-the-cut sizes under the project size. */
+/**
+ * The Studio export dialog's ladder: delivery sizes for a 4K/1440p project
+ * (1440p, 1080p) above the check-the-cut sizes — never-upscale hides every
+ * rung at or above the project size, so a 1080p project still sees 720p down.
+ */
 export const EXPORT_RESOLUTION_PRESETS: readonly ResolutionPreset[] = [
+  { value: '1440p', label: '1440p', targetHeight: 1440 },
+  { value: '1080p', label: '1080p', targetHeight: 1080 },
   { value: '720p', label: '720p', targetHeight: 720 },
   { value: '540p', label: '540p', targetHeight: 540 },
   { value: '360p', label: '360p', targetHeight: 360 },
@@ -94,7 +100,10 @@ export function makeEven(n: number): number {
 }
 
 export function isResolutionPresetId(value: unknown): value is ResolutionPresetId {
-  return value === 'original' || value === '4k' || value === '1080p' || value === '720p' || value === '540p' || value === '480p' || value === '360p';
+  return (
+    value === 'original' || value === '4k' || value === '1440p' || value === '1080p' ||
+    value === '720p' || value === '540p' || value === '480p' || value === '360p'
+  );
 }
 
 /**

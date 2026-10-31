@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collectImportSpecifiers, lintShotSource } from './shot-lint';
+import { collectImportSpecifiers, isShotModuleSpecifier, lintShotSource } from './shot-lint';
 
 const VALID_SHOT = `import React from 'react';
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from 'remotion';
@@ -63,6 +63,26 @@ describe('lintShotSource (acceptance-gate table)', () => {
   it('accepts the @vidtsx/kit import (SHOT_QUALITY_DESIGN Q4 — the one widened entry)', () => {
     const shot = `import { BrowserWindow, EASINGS } from '@vidtsx/kit';\n${VALID_SHOT}`;
     expect(lintShotSource(shot)).toEqual({ ok: true, errors: [] });
+  });
+
+  it("accepts remotion's own subpaths (END_TO_END_PLAN T7: a bundled shot keeps them external)", () => {
+    const shot = [
+      "import { NoReactInternals } from 'remotion/no-react';",
+      "import { VERSION } from 'remotion/version';",
+      VALID_SHOT,
+    ].join('\n');
+    expect(lintShotSource(shot)).toEqual({ ok: true, errors: [] });
+    expect(isShotModuleSpecifier('remotion/no-react')).toBe(true);
+    expect(isShotModuleSpecifier('remotion/version')).toBe(true);
+  });
+
+  it('still rejects a remotion subpath that is not one of its entry points, and every other package', () => {
+    for (const spec of ['remotion/foo', 'remotion/dist/esm/no-react.mjs', '@remotion/google-fonts/Inter', 'react-dom']) {
+      expect(isShotModuleSpecifier(spec)).toBe(false);
+      const result = lintShotSource(`import x from '${spec}';\n${VALID_SHOT}`);
+      expect(result.ok).toBe(false);
+      expect(result.errors.join(' ')).toMatch(/only import from 'react', 'remotion', and '@vidtsx\/kit'/);
+    }
   });
 
   it.each([

@@ -1,5 +1,5 @@
 import { logEngine } from '../../logging/log-engine';
-import { getCompositions } from '@remotion/renderer';
+import { listBundleCompositions } from './bundle-compositions';
 
 const log = logEngine.createLogger('Bundler');
 import { createHash } from 'crypto';
@@ -16,7 +16,6 @@ import { materializeAbsoluteStaticFiles } from './remotion-static-files';
 import { registerFontProxy } from './font-proxy';
 import { ASSET_ROOT_ROUTE, serveAssetRoot } from './asset-roots';
 import { ASSET_ROUTE_EXTENSIONS } from './asset-route-extensions';
-import { getRemotionBinariesDir } from '../utils/paths';
 import { getAppRoot } from '../utils/paths';
 import {
   BUNDLE_ROUTE,
@@ -352,20 +351,8 @@ export async function bundleComposition(
 
     try {
       log.debug('Getting compositions', { serveUrl });
-      const remotionCompositions = await getCompositions(serveUrl, {
-        timeoutInMilliseconds: 30000,
-        binariesDirectory: getRemotionBinariesDir() ?? undefined,
-      });
-
-      log.debug('Found compositions', { ids: remotionCompositions.map((c) => c.id) });
-
-      compositions = remotionCompositions.map((comp) => ({
-        id: comp.id,
-        width: comp.width,
-        height: comp.height,
-        fps: comp.fps,
-        durationInFrames: comp.durationInFrames,
-      }));
+      compositions = await listBundleCompositions(serveUrl);
+      log.debug('Found compositions', { ids: compositions.map((c) => c.id) });
     } catch (compError) {
       // If getCompositions fails, return empty array but still allow preview
       log.warn('Failed to get compositions', { error: compError instanceof Error ? compError.message : String(compError) });

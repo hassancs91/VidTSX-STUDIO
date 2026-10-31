@@ -2,11 +2,18 @@ import { describe, it, expect } from 'vitest';
 import type { StudioTimeline } from '@shared/types/studio';
 import { applyTextDelete, planTextDelete } from './text-delete';
 import { buildTranscriptDoc, withSpokenSpans } from './transcript-doc';
-import { ASSET, makeEnvelope, makeTimeline, master, shots, wordSource } from './text-edit-fixtures';
+import { TEST_NATURAL_STYLE, TEST_TIGHT_STYLE } from '@shared/studio/cut-style-test-fixtures';
+import { QA_ENTRY_LOOKBACK_S, QA_ENTRY_WINDOW_S, QA_HARD_ENTRY_DB } from '@shared/studio/cut-qa';
+import { ASSET, WORDS, makeEnvelope, makeTimeline, master, shots, wordSource } from './text-edit-fixtures';
 
 const envelopes = () => new Map([['a1', makeEnvelope()]]);
 
-function plan(timeline: StudioTimeline, pick: (text: string, index: number) => boolean, withEnvelope = true) {
+function plan(
+  timeline: StudioTimeline,
+  pick: (text: string, index: number) => boolean,
+  withEnvelope = true,
+  style = TEST_NATURAL_STYLE,
+) {
   const doc = buildTranscriptDoc(timeline, wordSource());
   return planTextDelete({
     timeline,
@@ -14,6 +21,7 @@ function plan(timeline: StudioTimeline, pick: (text: string, index: number) => b
     words: wordSource(),
     envelopes: withEnvelope ? envelopes() : new Map(),
     assets: [ASSET],
+    style,
   });
 }
 
@@ -32,6 +40,41 @@ describe('planTextDelete', () => {
     expect(span.to).toBeGreaterThanOrEqual(2.2);
     expect(span.to).toBeLessThan(2.45);
     expect(result.unsnappedAssetIds).toEqual([]);
+  });
+
+  it('snaps with the style it is given (B2: the resolved project style)', () => {
+    // A short 'um' (ends 2.00) leaves 0.45 s of quiet before 'to', so both
+    // styles' lead-ins sit clear of its release and the style decides the edge.
+    const words = WORDS.map((w) => (w.text === 'um' ? { ...w, end: 2.0 } : w));
+    const planWith = (style: typeof TEST_NATURAL_STYLE) => {
+      const timeline = makeTimeline();
+      return planTextDelete({
+        timeline,
+        tokens: buildTranscriptDoc(timeline, wordSource(words)).tokens.filter((t) => t.text === 'um'),
+        words: wordSource(words),
+        envelopes: new Map([['a1', makeEnvelope(words)]]),
+        assets: [ASSET],
+        style,
+      }).spans[0];
+    };
+    const natural = planWith(TEST_NATURAL_STYLE);
+    const tight = planWith(TEST_TIGHT_STYLE);
+    // Tight keeps a shorter lead-in before 'to' (head 0.11 vs 0.19), so its cut ends later …
+    expect(tight.to).toBeGreaterThan(natural.to + 0.05);
+    // … and never starts later (its tail floor is shorter: minTail 0.14 vs 0.26).
+    expect(tight.from).toBeLessThanOrEqual(natural.from + 1e-6);
+  });
+
+  it('lands the cut-in past the removed word\'s release in a short gap, whatever the style (B7)', () => {
+    // 'um' sounds to 2.22; 'to' at 2.45. Both styles' lead-ins (head + 0.08
+    // feature compensation) start inside um's release + the QA's 60 ms entry
+    // lookback, so both land at the first clean point instead of a hard entry.
+    const env = makeEnvelope();
+    for (const style of [TEST_NATURAL_STYLE, TEST_TIGHT_STYLE]) {
+      const span = plan(makeTimeline(), (text) => text === 'um', true, style).spans[0];
+      expect(span.to).toBeCloseTo(2.28, 3);
+      expect(env.rmsDb(span.to - QA_ENTRY_LOOKBACK_S, QA_ENTRY_WINDOW_S) - env.floorDb()).toBeLessThan(QA_HARD_ENTRY_DB);
+    }
   });
 
   it('removes the selected words and nothing else', () => {
@@ -109,6 +152,51 @@ describe('planTextDelete', () => {
   });
 });
 
+describe('planTextDelete — counting what a delete really removes (B5)', () => {
+  // AssemblyAI on video-14-raw: 0373 "a 15.654–15.780 · uh 15.780–15.820 · desk 15.847–16.168"
+  // — the "uh" sits inside the pads of its neighbours, so "Remove fillers" can't cut it.
+  const words = [
+    { text: 'Hello', start: 0.5, end: 0.9 },
+    { text: 'um', start: 1.2, end: 1.5 },
+    { text: 'today', start: 1.9, end: 2.3 },
+    { text: 'a', start: 3.0, end: 3.126 },
+    { text: 'uh', start: 3.126, end: 3.166 },
+    { text: 'desk', start: 3.193, end: 3.514 },
+    { text: 'cleaner.', start: 3.514, end: 4.0 },
+  ];
+  const planFor = (pick: (text: string) => boolean) => {
+    const timeline = makeTimeline();
+    const doc = buildTranscriptDoc(timeline, wordSource(words));
+    return planTextDelete({
+      timeline,
+      tokens: doc.tokens.filter((t) => pick(t.text)),
+      words: wordSource(words),
+      envelopes: new Map([['a1', makeEnvelope(words)]]),
+      assets: [ASSET],
+      style: TEST_TIGHT_STYLE,
+    });
+  };
+
+  it('counts only the words its spans remove — a run too tight to cut is not "removed"', () => {
+    const result = planFor((text) => text === 'um' || text === 'uh');
+    expect(result.spans).toHaveLength(1);
+    expect(result.skippedRuns).toBe(1);
+    expect(result.removedTokens).toBe(1);
+  });
+
+  it('counts every word of a run it cuts', () => {
+    const result = planFor((text) => text === 'Hello' || text === 'um' || text === 'today');
+    expect(result.skippedRuns).toBe(0);
+    expect(result.removedTokens).toBe(3);
+  });
+
+  it('removes nothing when every run is too tight', () => {
+    const result = planFor((text) => text === 'uh');
+    expect(result.spans).toHaveLength(0);
+    expect(result.removedTokens).toBe(0);
+  });
+});
+
 describe('planTextDelete — a word the engine gave no duration', () => {
   it('cuts the gap it was spoken in, and the words around it survive', () => {
     const words = withSpokenSpans([
@@ -126,6 +214,7 @@ describe('planTextDelete — a word the engine gave no duration', () => {
       words: wordSource(words),
       envelopes: new Map([['a1', makeEnvelope(words, 10)]]),
       assets: [ASSET],
+      style: TEST_NATURAL_STYLE,
     });
     expect(result.spans).toHaveLength(1);
     expect(result.spans[0].from).toBeGreaterThanOrEqual(7.02);

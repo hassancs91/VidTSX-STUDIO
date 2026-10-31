@@ -6,12 +6,13 @@ import type {
   StudioMediaAsset,
   StudioCaptionStyle,
   StudioProject,
+  StudioProjectSettings,
   StudioProposal,
   StudioProposalKind,
   StudioShot,
   StudioShotKind,
 } from '../../types/studio';
-import type { CutPlanStyleName, StudioCutPlan } from '../../types/studio-cut-plan';
+import type { CutPlanStyleName, CutStyleFile, ResolvedCutStyle, StudioCutPlan } from '../../types/studio-cut-plan';
 import type {
   StudioMemoryProposal,
   StudioStylePromotionProposal,
@@ -88,6 +89,11 @@ export interface StudioProjectLoadResponse {
   project?: StudioProject;
   /** Absolute project folder — the renderer builds cache/proxy URLs from it. */
   folderPath?: string;
+  /** B5 fix round 1: the document came from a save that never reached
+   *  project.json (a pending hand-off or project.json.tmp) — say so once. */
+  recovered?: boolean;
+  /** …and it is still not on disk (project.json is held): save it. */
+  unsaved?: boolean;
   error?: string;
 }
 
@@ -108,6 +114,17 @@ export interface StudioProjectCloseRequest {
 }
 
 export interface StudioProjectCloseResponse {
+  success: boolean;
+  error?: string;
+}
+
+/** B5 fix round 1: the editor is closing (or the window quitting) with a
+ *  document that is not on disk yet — main owns the write from here. */
+export interface StudioProjectHandoffRequest {
+  project: StudioProject;
+}
+
+export interface StudioProjectHandoffResponse {
   success: boolean;
   error?: string;
 }
@@ -374,7 +391,19 @@ export interface StudioCutPlanRunRequest {
   assetId: string;
   /** Absolute source path — needed if the RMS envelope must be regenerated. */
   sourcePath: string;
+  /** An explicit style; absent = the project's resolved cut style (B2). */
   style?: CutPlanStyleName;
+  /**
+   * The LIVE document's settings the resolver reads (an unsaved override
+   * counts); absent = the project.json on disk. Ignored when `style` is set.
+   */
+  settings?: StudioCutStyleSettings;
+  /**
+   * B7: the asset's source ranges still on the timeline (cut-keeps
+   * `timelineKeepsForAsset`) — the plan runs over them only. Absent = the
+   * whole source.
+   */
+  keeps?: Array<{ start: number; end: number }>;
 }
 
 export interface StudioCutPlanRunResponse {
@@ -382,6 +411,32 @@ export interface StudioCutPlanRunResponse {
   plan?: StudioCutPlan;
   /** Absolute path of the written plan JSON, for external inspection. */
   planPath?: string;
+  error?: string;
+}
+
+/** The project settings the cut-style resolver reads. */
+export type StudioCutStyleSettings = Pick<StudioProjectSettings, 'presetId' | 'cutStyle'>;
+
+export interface StudioCutStyleResolveRequest {
+  projectId: string;
+  /**
+   * The LIVE document's settings (an unsaved override counts); absent = the
+   * project.json on disk.
+   */
+  settings?: StudioCutStyleSettings;
+}
+
+export interface StudioCutStyleResolveResponse {
+  success: boolean;
+  /** Override > preset > default, resolved against the shipped cut-style.json. */
+  resolved?: ResolvedCutStyle;
+  error?: string;
+}
+
+/** The shipped cut styles (cut-style.json, parsed by main) — the preset editor's bases. */
+export interface StudioCutStyleFileResponse {
+  success: boolean;
+  file?: CutStyleFile;
   error?: string;
 }
 
@@ -405,6 +460,12 @@ export interface StudioAgentAssetInfo {
     /** Verbatim disfluencies preserved — the editorial pass depends on this. */
     verbatim?: boolean;
   };
+  /**
+   * B7: the source ranges of this asset still on the timeline when the turn
+   * started (cut-keeps `timelineKeepsForAsset`) — `run_auto_cut` plans over
+   * them only. Absent = not on the timeline (or an older renderer): the whole source.
+   */
+  sourceKeeps?: Array<{ start: number; end: number }>;
 }
 
 export interface StudioAgentSendRequest {
@@ -485,6 +546,14 @@ export interface StudioAgentActionResultRequest {
   /** What happened, in the renderer's words — relayed to the model. */
   message?: string;
   error?: string;
+  /**
+   * B7 step 4b (an applied proposal): per asset with a media clip before or
+   * after the apply, its source ranges still on the timeline AFTER it
+   * (cut-keeps `sourceKeepsAfter`; `[]` = none left). Main overlays them on the
+   * turn's `sourceKeeps`, so `run_auto_cut` later in the same turn plans over
+   * the timeline as it is then. Absent = nothing changed / an older renderer.
+   */
+  sourceKeeps?: Record<string, Array<{ start: number; end: number }>>;
 }
 
 export interface StudioAgentActionResultResponse {

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "notes": "The default cut style beside the studio-clean-cut skill: data the main process reads (never injected into a prompt). Times are seconds; margin, softMargin and fricMargin are dB over the clip's noise floor; fricZcr is zero crossings per second. tight and natural were fitted by ear on a talking-head recording (2026-10); relaxed is natural with every time knob x1.5 and the same dB margins. maxHead, minSkip, fricZcr and fricMargin are opt-in: a style without them keeps the fixed head lead-in, no short-skip merge and no fricative rule. A preset picks a base and may override single knobs (preset.json style.cut); a project may override the preset (project.json settings.cutStyle). The style used when nothing names one is 'default'.",
+  "default": "tight",
+  "styles": {
+    "tight": {
+      "internalGap": 0.4,
+      "head": 0.15,
+      "minTail": 0.08,
+      "maxTail": 0.7,
+      "margin": 12.0,
+      "softGap": 99.0,
+      "softMaxTail": 0.6,
+      "softMargin": 6.0,
+      "maxHead": 0.3,
+      "minSkip": 0.12,
+      "fricZcr": 3500,
+      "fricMargin": 5.0
+    },
+    "natural": {
+      "internalGap": 0.4,
+      "head": 0.21,
+      "minTail": 0.26,
+      "maxTail": 0.45,
+      "margin": 6.0,
+      "softGap": 1.2,
+      "softMaxTail": 0.7,
+      "softMargin": 3.0
+    },
+    "relaxed": {
+      "internalGap": 0.6,
+      "head": 0.32,
+      "minTail": 0.39,
+      "maxTail": 0.68,
+      "margin": 6.0,
+      "softGap": 1.8,
+      "softMaxTail": 1.05,
+      "softMargin": 3.0
+    }
+  }
+}

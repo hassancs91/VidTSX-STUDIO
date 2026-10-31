@@ -64,14 +64,19 @@ export function buildLearnedSection(input: {
   summary: string;
   stats: StudioPresetLearnStats;
   changes: readonly StudioPresetKnobChange[];
+  /** B4: the cut measurement lines (cut-learn-format.ts), when joins were touched. */
+  cutLines?: readonly string[];
 }): string {
   const lines = [`## Learned from ${input.projectName} on ${input.date}`, '', input.summary.trim(), ''];
   for (const line of formatStatsLines(input.stats)) lines.push(`- ${line}`);
   if (rateKnobsWithheld(input.stats)) lines.push(`- ${rateKnobsWithheldNote(input.stats)}`);
+  for (const line of input.cutLines ?? []) lines.push(`- ${line}`);
   lines.push(
     input.changes.length > 0
       ? `- Knobs: ${input.changes.map(formatKnobChange).join('; ')}`
-      : '- Knobs: unchanged — the edit matched the preset',
+      : (input.cutLines?.length ?? 0) > 0
+        ? '- Knobs: unchanged — no knob moved past the learning thresholds'
+        : '- Knobs: unchanged — the edit matched the preset',
   );
   return lines.join('\n');
 }

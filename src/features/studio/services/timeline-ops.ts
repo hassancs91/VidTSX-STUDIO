@@ -4,6 +4,7 @@
 //
 // All times are seconds — see docs/studio/PLAN.md §4.
 
+import { withoutEdgeTag } from '@shared/studio';
 import type { StudioClip, StudioTimeline, StudioTrack } from '../types';
 
 /** Shortest clip a trim/split may leave behind (~1 frame at 25 fps). */
@@ -179,13 +180,14 @@ export function splitClip(
   // eat the clamp budget), both re-clamped to their new durations. The right
   // half also inherits `transitionOut` (it owns the original end boundary);
   // the left half must drop it explicitly — the halves are contiguous, so the
-  // reducer's prune pass would see a stale copy as valid.
-  const leftRaw: StudioClip = { ...clip, duration: offset };
+  // reducer's prune pass would see a stale copy as valid. B4: each half keeps
+  // only the edit tag of the edge it keeps (the cut point is a new edge).
+  const leftRaw: StudioClip = withoutEdgeTag({ ...clip, duration: offset }, 'end');
   delete leftRaw.fadeOutSec;
   delete leftRaw.transitionOut;
   const left = clampFades(leftRaw);
   const rightRaw: StudioClip = {
-    ...clip,
+    ...withoutEdgeTag(clip, 'start'),
     id: newId,
     timelineStart: atSeconds,
     duration: clip.duration - offset,

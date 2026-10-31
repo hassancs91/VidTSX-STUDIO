@@ -101,10 +101,10 @@ function freshState(shots: StudioShot[], clips: StudioClip[] = [], proposals: St
     {
       projectId: null,
       past: [],
-      present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null, removedAssets: [] },
+      present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null, removedAssets: [], frame: { width: 1920, height: 1080 } },
       future: [],
     },
-    { type: 'reset', projectId: 'p', timeline: timeline(clips), proposals, shots, captions: null },
+    { type: 'reset', projectId: 'p', timeline: timeline(clips), proposals, shots, captions: null, frame: { width: 1920, height: 1080 } },
   );
 }
 

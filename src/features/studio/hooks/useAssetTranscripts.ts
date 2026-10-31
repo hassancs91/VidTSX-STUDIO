@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StudioMediaAsset } from '../types';
 import type { CutContextWord } from '../services/cut-proposal';
+import { decodeBase64Utf8 } from '../services/cache-text';
 
 /** Structural view of the transcript cache file — main owns the full type. */
 interface TranscriptFileWords {
@@ -32,7 +33,7 @@ export async function fetchTranscriptWords(
 ): Promise<CutContextWord[]> {
   const res = await window.api.studioCacheRead({ projectId, relPath });
   if (!res.success || !res.data) return [];
-  return parseTranscriptWords(atob(res.data));
+  return parseTranscriptWords(decodeBase64Utf8(res.data));
 }
 
 /**
