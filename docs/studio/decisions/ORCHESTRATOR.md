@@ -838,6 +838,26 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   decisions-*` tests, `src/features/ai-models`, `src/features/flows`, `src/main/services/agents/tools`, the preload-surface + decisions-handlers
   tests, `src/main/services/decisions`, `src/decision-engine`) → **59 passed + 1 skipped files, 482 passed + 2 skipped tests** (the skipped =
   the gated live test) (`B4\orch-f-recheck.log`); tsc **web 25 / node 10** (`B4\tsc-{web,node}-orch-f.log`).
+- **D-r25 (orchestrator, 17:31) — how the stub checks of §15.3 3 / 4 / 5 are read (for (h) and the D5 brief).** §15.3 3 was written before
+  D-r18: under D-r18 a confident "no" (top probability = 1 − p ≥ 0.9) is `band = act` with answer `no`, so "one true row and one false row →
+  act / escalate" cannot hold with real numbers on a false row. So: (1) **the stub serves D1's RECORDED numbers, never a made-up probability** —
+  for a `noul` question the Jev-shaped stub answers with the recorded Jev `pTrue` of the T3 row whose text is in the request
+  (`src/main/services/decisions/benchmark/fixtures/hosted-jev-t3-noul.json` + `t3-verify.json`), for a `choice` question with the recorded Jev
+  `probs` of the T2 row (`hosted-jev-t2-choice.json` + `t2-routing.json`); served `model` = `jev-1.14.0` (so `calibrated` follows the D-r17 table
+  and the family); `usage.input_tokens` and no `usage.cost` (Jev's recorded shape — the app then prices tokens × $0.042 / M). The
+  OpenRouter-shaped stub serves the same numbers with `model` `microsoft/microsoft-decision-1-20261009` and a `usage.cost` (MSD1's shape). (2)
+  **§15.3 3 = THREE flow runs of `input_text` (×2, wired to `item` and `request`) → `check_matches_request`:** `t3-01` (true, recorded 0.96 →
+  `act`, answer yes), `t3-09` (false, recorded 0.02 → top 0.98 → `act`, answer no) and `t3-27` (true, recorded 0.88 → top 0.88 < 0.9 →
+  `escalate`) — the answer follows the fixture's label, the band follows D-r18 on the recorded number, so both bands appear on recorded data;
+  each run's `run.json` holds `p` (= the top probability, D-r22 (3)); the canvas shows the band only (no `p` handle, D-r24 (4)). (3) **§15.3 4's
+  "agent run"** is a real agent run in the app (the agent runtime's LLM = the keyless claude-subscription engine — each run counts as ONE of the
+  ≤ 10 keyless calls; (h) uses ≤ 3, so D5 keeps room) whose agent can call `decide`, on one T2 row; PASS = the tool's text passes the D-r22 (1)
+  whole-word no-claim test and the usage row (`window.api.aiUsageGetLog`) carries `featureSource: 'decision-agent'`, `requestType: 'decision'`,
+  `provider: 'typesafe'`, `costUsd` = `inputTokens` × 0.042 / 1,000,000. If the agent's model never calls `decide` in a run, that run counts, it
+  is reported, and one more run with a firmer prompt is allowed within the cap. (4) **§15.3 5:** two stub ports, one per D-r21 variable, so the
+  stub log names which URL was hit; mode `off` → `decisionsDecide` answers `no-provider` with ZERO new stub hits; then mode `auto` with `jev`
+  removed from `decisionsHostedOrder` (a FAKE OpenRouter key saved) → the OpenRouter-shaped port is hit and its body carries the noul criteria
+  (`noulCriteriaRequired`, D-r23 (7)). The fake OpenRouter key is saved AFTER check 4 (so it cannot change the agent run's LLM path).
 
 ## Stops (session 3)
 
@@ -863,3 +883,6 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   `DecisionsProvidersSection.tsx`, the `feature-flags.ts` / `CustomNode.tsx` / `flows.ts` / `decide-run.ts` / `ProviderKeysTable.tsx` /
   `useProviderKeyDrafts.ts` / `ProvidersContent.tsx` diffs and `port-visibility.ts`; imports of the new `src/shared/decisions-*.ts` = `./ipc/types/
   decisions`, `./types/decisions`, intra only → ruling **D-r24**. D4 builder #9 (step 5 of (f), then (h)'s stub live checks) to spawn.
+- 17:28–17:31 · orchestrator: D1's recorded Jev T3 numbers read from the tree's fixtures — the only Jev T3 row with top < 0.9 is `t3-27` (true,
+  pTrue 0.88); false rows `t3-09` / `t3-10` / `t3-11` = 0.02 / 0.01 / 0.02; `t3-01` (true) = 0.96; served model `jev-1.14.0` → ruling **D-r25**
+  (the stub serves recorded numbers; §15.3 3 = three runs t3-01 / t3-09 / t3-27; §15.3 4's agent run = keyless, ≤ 3 in (h); §15.3 5's two ports).
