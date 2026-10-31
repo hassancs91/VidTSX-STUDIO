@@ -782,7 +782,8 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   (session 2)), all still stamped 11:47–11:49 — unchanged since the pause. Resources 17:11: C: 42.99 GB free; memory commit headroom
   63.29 GB (36.41 of 99.70 GB committed); RAM 31.98 GB free → the guard holds (≥ 3 GB / ≥ 6 GB).
 - The model is Opus 5.5 → commits end `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- **Caps ledger (E-g, whole run):** hosted 0 / 60 requests, $0.000 / $0.50 (D5 ≤ 20 / ≤ $0.05); keyless claude-subscription 0 / 10.
+- **Caps ledger (E-g, whole run):** hosted 0 / 60 requests, $0.000 / $0.50 (D5 ≤ 20 / ≤ $0.05); keyless claude-subscription **1 / 10**
+  (D4 builder #10's §15.3 4 agent run, 17:58).
 - Folders / ports as session 2: D4 builders CDP **9302**, profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile`
   (not yet created); the verifier CDP **9305**, profile `…\profiles\decisions-D5-verify\profile`; both copied from `profiles\source\profile`
   WITHOUT `settings\settings.db*`. Kits `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\` and `\D5\`; scratch
@@ -791,7 +792,7 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | **DONE** (step 5 at `3f50e63` / docs `f86221c`) | 2 (#8, #9) | re-check 17:25 → D-r24; 17:54 (stills looked at) | code `cc754fa` `8f6ff6f` `3f50e63` | related 482 tests + 58; tsc 25 / 10; stills `B4\f5-{settings-decisions-row,providers-decisions}.png` | 2026-10-31 17:13 / 17:46 |
-| D4 (h) — the exit check | BUILDING — stub checks §15.3 2 / 1 / 3 PASS (`8b24e81`); §15.3 4 / 5 next, then the gate half | 1 (#9) | re-check 17:54 → D-r26 | — | max IPC gap 20.4 ms (20 concurrent); flow act / act / escalate, p in run.json | 2026-10-31 17:46 / — |
+| D4 (h) — the exit check | BUILDING — stub checks §15.3 1–5 all PASS (`8b24e81`, `8f55668`, `efb1ee9`); the gate half next | 2 (#9, #10) | re-check 17:54 → D-r26; 18:05 → D-r27 | — | max IPC gap 20.4 ms (20 concurrent); flow act / act / escalate, p in run.json; agent "Decision: cut (act)", usage 416 × 0.042e-6; off → no-provider 0 / 0 hits; OpenRouter port hit with criteria | 2026-10-31 17:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 3 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-3.md, verbatim)
@@ -882,6 +883,25 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   `h3-flow-runs-2.json` act / yes / 0.96, act / no / 0.98, escalate / yes / 0.88, and `p` read straight from two `run.json` files on disk
   (`…\profiles\decisions-D4\profile\flows-runs\01M69AA9S8FS1CNNWXAZ84XW9S\{1dec8639…,caee4cef…}\run.json` → node `n-check` outputs);
   `stub-log.jsonl` 28 lines, 0 hits for `authorization` / `bearer` / the fake key.
+- **D-r27 (orchestrator, 18:05) — D4 builder #10's §15.3 4 / 5 decisions, accepted; two notes for Hasan, not §15 terms.** (1) §15.3 4's agent
+  = a scratch, unsigned user agent `d4/decide-probe` (`tools: ['decide']`, kit `D4\make-agent.cjs`, installed in the `decisions-D4` profile
+  only) whose AGENT.md hands the model D1's T2 framing; "the T2 framing" = D1's t2_01 dry-run body, which the `calls.json` args equal. (2) The
+  tool text is recomputed through the tree's whole chain (`readSystemOneAnswers` → `isDecisionCalibrated` → `decisionOutcome` →
+  `decisionText`) in a kit-only vitest (`D4\h4-text\h4-decision-text.test.ts`) — stricter than D-r26 (6) asked. (3) §15.3 5's OpenRouter call is
+  a noul sent WITHOUT criteria, so the criteria `true` / `false` port B saw prove the adapter's `noulCriteriaRequired` (D-r23 (7)). (4) "Zero new
+  hits" = each port's `/__stub/stats` + the stub log's line count unchanged. **Notes (never a FAIL — §15 has no `skipped` term):** (a) with
+  `jev` removed from the order the result's `skipped` lists only `local` (`ladder.ts` `skippedBefore` lists rungs AHEAD of the used one; the
+  switched-off rung is reported by `decisions:status` as "switched off in Settings", seen in `h5-or-call.json`) — whether D2 §3's "the rungs
+  'auto' passed over" should name a switched-off rung is a question for Hasan; (b) the live agent run shows the `act` band only — `escalate` is
+  covered offline (part (d)'s no-claim / band tests) and live by §15.3 3's t3-27. Re-check 18:04–18:05: HEAD `efb1ee9`, tree clean,
+  `e539586..HEAD -- src` empty, 0 `electron.exe`, nothing on 9302 / 18471 / 18472; read `h4-run1.json` (reply "TOOL TEXT: Decision: cut (act)",
+  15:58:45.8 → 15:58:56.9 Z, events tool / done), `h4-run1-calls.json` (one `decide`, args = D1's T2 rule + the t2-01 question + the six
+  families, no `isError`), `h4-usage.json` (typesafe / jev-1.14.0 / decision-agent / decision / 416 tokens / $0.000017472 = 416 × 0.042 / 1e6),
+  `h4-decision-text.json` (stub hit t2-01 → served `cut`), `h5-off.json` (`no-provider` "Decisions are switched off in Settings." in 1 ms),
+  `h5-or-call.json` (port B, `openrouter-decisions`, `microsoft/microsoft-decision-1-20261009`, p 0.95, calibrated, 267 tokens / $0.000011214),
+  `h5-restore.json` (final: mode auto, order jev → openrouter-decisions, OpenRouter `hasKey: false`); `stub-log.jsonl` 32 lines (the two new
+  ones = t2-01 on port A, t3-30 on port B with criteria true / false); 0 `FAKE-D4` in the stub log and the h4 / h5 files. **Caps:** keyless
+  1 / 10 used (this run), hosted 0 / 60.
 
 ## Stops (session 3)
 
@@ -925,3 +945,12 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 - 17:52–17:54 · **Orchestrator re-check** (details in D-r26) → ruling **D-r26** (incl. the §15.3 4 evidence rule: the app stores no tool result
   text, so calls.json + the stub hit + the agent's word-for-word quote = the tree's `decisionText` on the served numbers). D4 builder #10 (§15.3 4
   then 5) to spawn.
+- 17:55 · D4 builder #10 spawned (HEAD `e539586`).
+- 18:04 · D4 builder #10 HANDOFF (~79 tool calls, ~9.5 min; docs `8f55668` `efb1ee9`, no `src/` change): **§15.3 4 PASS** (1 keyless run: scratch
+  agent `d4/decide-probe`, session `s-a6550d3a`, t2-01, 11.1 s, quoted "Decision: cut (act)" = the tree's chain on the served numbers, no-claim 0,
+  usage typesafe / decision-agent / decision / 416 / $0.000017472) and **§15.3 5 PASS** (mode off → `no-provider` 1 ms, 0 / 0 hits; fake
+  OpenRouter key via the UI; jev out of the order → port B with the adapter's criteria, MSD1 snapshot, calibrated, usage cost = the stub's;
+  restored). The Explore agent's agent-run pointers checked against the code (one correction: the settings patch fields are `mode` /
+  `hostedOrder` / `openRouterModel`). Four decisions + Open problems 23–26 (→ D-r27). App + stub stopped.
+- 18:04–18:05 · **Orchestrator re-check** (details in D-r27) → ruling **D-r27**. D4 builder #11 (the gate half of (h): full gate + proofs, tsc,
+  house-rules sweep, Status.md row, TESTING.md §20) to spawn.
