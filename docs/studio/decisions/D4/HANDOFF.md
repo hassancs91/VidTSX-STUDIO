@@ -1,9 +1,12 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF (D4 builder #5, 2026-10-31 11:16) — **part (d) DONE at `feb5e69`** (the `decide` tool / node + `check_matches_request` +
-`route_request`; 3 new test files + registry.test.ts = 4 files / 38 tests green after a red run; related `agents/tools` + `flows` +
-`shared/agents` 49 / 49 files, 365 tests; tsc web 25 / node 10); **part (e) is next** (the benchmark replay + the gated live test + the D-r21
-stub hook). Part (c) DONE: (c1) `b7b1648` + (c2) `d9ec730`; part (b) DONE at `ed79420`; part (a) DONE at `c7ad6da`.
-Earlier: D4 builder #4 10:45 — (c2); D4 builder #3 10:34 — (c1); orchestrator 09:44 —
+status: HANDOFF (D4 builder #6, 2026-10-31 11:38) — **part (e) DONE at `5605c48`** (the committed benchmark: D1's 4 recorded answer files
+scrubbed + the tree's scorer + the replay = `c-hosted.md` §2 cell for cell; the gated live test (SKIPPED without `VIDTSX_DECISIONS_LIVE=1`,
+never run by a builder) + its dry run on the recorded bodies; the D-r21 dev stub hook; 5 test files = 38 passed + 2 skipped after a red run;
+related suites 86 files / 703 tests + 1 skipped file; tsc web 25 / node 10); the verifier's launcher
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\live-test.sh` written, `bash -n` only. **Part (f) is next** (the Settings row + the
+Providers "Decisions" section + the dev tester). Part (d) DONE at `feb5e69`; part (c) DONE: (c1) `b7b1648` + (c2) `d9ec730`; part (b) DONE at
+`ed79420`; part (a) DONE at `c7ad6da`.
+Earlier: D4 builder #5 11:16 — (d); D4 builder #4 10:45 — (c2); D4 builder #3 10:34 — (c1); orchestrator 09:44 —
 D3 judged **FAIL, the local rung stays empty → part (g) is NOT built**; rulings **D-r16** (binds (b), (d), (e)) and **D-r17** (builder #1's
 four contract decisions, accepted 10:02).
 
@@ -47,7 +50,7 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 | (b) | `providers/system-one-provider.ts` (injected `fetch`) + contract tests on D1's recorded responses (scrubbed fixtures) + dry-run bodies; `decision-engine.ts` + `presets.ts` + `index.ts`; the LLM-fallback provider (§5.4) | **DONE** | `ed79420` |
 | (c) | `src/main/services/decisions/` (decision-init from credentials like `image-init.ts`, decision-usage, decision-settings, decision-runtime); registry `typesafe` + `'decision'` capability + label; `openrouter` gains `'decision'`; IPC (§12) + preload + status; the preload-surface test | **DONE** — (c1) services + registry + wire types; (c2) IPC + preload + key-save hook + the preload-surface test | (c1) `b7b1648`, (c2) `d9ec730` |
 | (d) | `src/main/services/agents/tools/decide.ts` (tool + flow node via `ports`) + `check_matches_request` + `route_request`; T2 / T3 unit tests through an injected provider; the no-claim test | **DONE** | `feb5e69` |
-| (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`); **+ the dev-only stub hook of ruling D-r21** (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL`, honoured only unpackaged + loopback; unit-tested) — (h) and the verifier need it for §15.3 1 / 3 / 4 / 5 | TODO | — |
+| (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`); **+ the dev-only stub hook of ruling D-r21** (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL`, honoured only unpackaged + loopback; unit-tested) — (h) and the verifier need it for §15.3 1 / 3 / 4 / 5 | **DONE** (live test written + dry-run-proven, NOT run — DEFERRED-HASAN / the verifier) | `5605c48` |
 | (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | TODO | — |
 | (g) | ONLY if D3 PASSED — `src/local-decider-engine/` + the worker on the `pytorch` runtime path + the download entry | **NOT BUILT — D3 FAILED** (`D3-mapika-report.md` §6–§7: 3 PASS / 4 FAIL). The ladder starts at Jev; the local rung is reported in `skipped` as `'no local model'` (D2 §6); `local-decider-provider.ts` is NOT written in this slice; `provider: 'local'` pinned → `no-provider` | — |
 | (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | TODO | — |
@@ -382,6 +385,74 @@ ProviderKeyRow.tsx`; `src/main/services/agents/tools/{registry-core,generate-tex
 9. A test-harness lesson: `beforeEach(() => fn.mockReset())` RETURNS the mock, and vitest calls a function returned from `beforeEach` as a
    teardown — with a throwing implementation that fails the test with the mock's own error. Use a block body.
 
+**Part (e) — `5605c48` (2026-10-31 11:37), 19 paths, all as of `5605c48`:**
+- `src/main/services/decisions/benchmark/fixtures/hosted-{jev,openrouter-msd1}-t{2-choice,3-noul}.json` — D1's four recorded answer files,
+  SCRUBBED by `C:\Users\hasan\AppData\Local\Temp\claude\d--repos-VidTSX-STUDIO\d49810c3-af6a-4487-806f-0a54cc0c7f22\scratchpad\make-answer-fixtures.cjs`
+  to `format`, `candidate`, `task`, `mode`, `probability`, `requests[{requestId, latencyMs, questions, phase, model (served)}]`,
+  `answers[{id, probs}]` / `[{qid, pTrue}]` (dropped: createdAt, notes, env, status, usage, error, per-answer requestId).
+- `benchmark/types.ts` (123) — `T2Fixture` / `T3Fixture` rows, `ChoiceAnswerFile` / `NoulAnswerFile`, `GroupMeasures` (D1's + `right`),
+  `BenchmarkScore`. `benchmark/measures.ts` (135) — D1's `measures.cjs` ported exactly: `binOf` :17 (`floor(10·p + 1e-9)`, max 9),
+  `reliability` :22 (ECE), `binaryMeasures` :56, `normalise` :73, `topOf` :80 (ties → option order, off-list after), `choiceMeasures` :88
+  (top-label + multiclass Brier, off-list), `quantile` :115 (nearest rank), `latency` :122. `benchmark/score.ts` (86) — `scoreChoiceAnswers`
+  :30 / `scoreNoulAnswers` :48 (D1's `score.cjs` groups: ALL / Arabic / English + T3's template / caption / clip; pTrue clamped; probs
+  renormalised, `maxProbSumDeviation`), `c2Cells` :74 (one §2 row's cells, formatted `(100·x).toFixed(1)` / `toFixed(3)` as score.cjs).
+- `benchmark/live-requests.ts` (54) — `buildLiveBenchmarkRequests(t2, t3)` :39: T2 = D1's T2 rule verbatim as `state` + 40 `choice`
+  questions `routeQuestion(DEFAULT_ROUTE_SUBJECT, row.request)` with the families' meanings as criteria; T3 = `CHECK_MATCHES_STATE` + 40
+  `noul` questions `checkMatchesQuestion(kind, item, request)` with `CHECK_MATCHES_CRITERIA`; D1's keys (`t2_01` …); family routing / verify.
+- `benchmark/live-run.ts` (171) — `LIVE_KEY_ENV` :18, `LIVE_MAX_REQUESTS = 4` :24, `isLiveBenchmarkEnabled` :28 (exactly `'1'`),
+  `createRequestCap` :33 (past the cap a call throws without reaching the network), `runLiveBenchmark` :110 (refuses a blank / unset key
+  before any request; a fresh `DecisionEngine` + `registerDecisionProviders` with that key only; T2 then T3, pinned, `featureSource:
+  'decision-test'`, family set, 15 s; latency = wall ms of `engine.decide`; each set scored by `score.ts`) → `LiveProviderResult` (numbers,
+  served model, `calibrated`, error code — never a key, header or state).
+- `benchmark/live-bar.ts` (82) — `LIVE_BAR` :10, `liveBarViolations` :18 (≥ 38 / 40, Brier ≤ 0.05, 0 off-list, 0 errors, Jev ≤ 2,000 ms every
+  request, MSD1 ≤ 4,000 ms with its first call — T2 — excluded; empty = PASS; no result at all → a violation), `liveResultJson` :62
+  (`vidtsx-decisions-live/1`: bar,
+  requests, per provider × set the whitelisted fields, verdict, violations).
+- Tests: `score.test.ts` (100 — THE REPLAY: the 4 T2 / T3 rows of `c-hosted.md` §2 copied verbatim, parsed, compared cell for cell with
+  `c2Cells`; headline numbers; 16 / 10 / 14 kinds; D1's latencies; each served model calibrated for its family, not `other`, never `llm`),
+  `measures.test.ts` (61 — bins, ECE, missing answers, ties, off-list, multiclass, normalise, quantiles), `live-dry-run.test.ts` (139 — the
+  gate; bodies EQUAL D1's dry-run bodies; both providers on the RECORDED bodies via a stub fetch: 40 / 40 × 2, the replay's Brier, 1 HTTP call
+  per set, preset URL + `Bearer <fake>`, bar empty; MSD1 first call excluded / Jev not; key refusal with no request; the cap; a 401 → errors;
+  the result JSON whitelist), `live.test.ts` (51 — `describe.skipIf(!isLiveBenchmarkEnabled(process.env))`; one shared 4-request cap over the
+  real `fetch`; per provider `runLiveBenchmark` → `liveBarViolations` = []; `afterAll` writes `liveResultJson` to `$VIDTSX_DECISIONS_LIVE_OUT`
+  else the OS temp dir and logs the path only).
+- The D-r21 stub hook: `src/main/services/decisions/decision-init.ts` (54 → 109) — `DecisionBaseURLs` :28, `DECISION_STUB_URL_ENV` :40,
+  `resolveDecisionStubURLs` :69 (pure; `isPackaged` / `env` / `log` / `warn` injected; honoured only unpackaged + `http:` + host `127.0.0.1` /
+  `localhost`, no userinfo; one warning per ignored variable naming the variable, never the URL; one `decisions: dev stub URL in use for <rung>
+  (<host:port>)` line per rung), `registerDecisionProviders` :87 takes `baseURLs` (a stubbed `openrouter-decisions` keeps
+  `noulCriteriaRequired: true`). `decision-runtime.ts` (226 → 253) — dep `resolveBaseURLs?` :42, resolved ONCE in `register()` (:89-95; a
+  failure → the presets' URLs), `getDecisionRuntime` (:231) resolves via `await import('electron')` `app.isPackaged` (no app → treated as packaged),
+  `process.env`, `console.log` / `console.warn`. **Part (b) touched (+6 lines, decision 9 below):** `src/decision-engine/types.ts`
+  `DecisionProviderConfig.noulCriteriaRequired?` :92, passed by `decision-engine.ts` `register` :150. Test: `decision-init-stub.test.ts` (132 —
+  unpackaged + loopback used / packaged ignored / 6 non-loopback-or-malformed ignored / unset silent; registration per rung with the OpenRouter
+  shape kept; the runtime resolves once across start + keysChanged).
+- Kit (not in git): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\live-test.sh` — hosted-live.sh's sourcing block VERBATIM (lines 8–15 =
+  its 4–11), then `VIDTSX_DECISIONS_LIVE=1`, `VIDTSX_DECISIONS_LIVE_OUT` (default
+  `C:/Users/hasan/AppData/Local/vidtsx-e2e/decisions/D5/live-result-<stamp>.json`), `cd` the worktree, `exec node …/vitest.mjs run
+  src/main/services/decisions/benchmark/live.test.ts "$@"`. Not executed.
+
+**Decisions builder #6 made (the orchestrator may overrule any):**
+1. **MSD1's "first call excluded" = its T2 request** (sent first; D1's cold 2,983 ms call was T2 too): recorded (`firstCall: true`), not judged;
+   its T3 is judged ≤ 4,000 ms; Jev's T2 and T3 are both judged ≤ 2,000 ms. With one request per set, "p95 per request" IS each request. No
+   warm-up request (it would break ≤ 4 requests).
+2. **Latency = the wall ms of the product call** (`engine.decide`, incl. a retry if one happens), not the bare HTTP round trip.
+3. **A hard 4-request cap inside the live test** (`createRequestCap`): the adapter's one retry on 429 / 5xx could otherwise make a 5th; a
+   capped call never reaches the network, and its set counts as an error (bar fails).
+4. **The live requests use the built-ins' own framing functions** (not the dry-run JSON), packed 40 per request with D1's keys, through
+   `registerDecisionProviders` (the product registration) — and the dry run pins both bodies EQUAL to D1's dry-run bodies (D-r16 (c)).
+5. **The replay compares EVERY T2 / T3 cell of §2** (accuracy, Arabic, Brier + multiclass note, ECE, 3 selective, off-list), parsed from the
+   verbatim rows embedded in the test — MSD1's ECE 0.044 / 0.013 included. T1 rows are not in the product benchmark (§15.1).
+6. **No new calibration-table test** — `src/decision-engine/calibration-table.test.ts` (part (a)) already pins D-r17's six rows exactly and false
+   for every other triple / `llm` / `other`; `score.test.ts` only ties the replay to it (each recorded file's served model).
+7. **The stub URLs are resolved once, at the runtime's first start** (the first decisions use), so the env must be set when the app is
+   LAUNCHED; a key change re-registers with the same URLs and logs nothing again.
+8. **A key refusal** throws before any request; in `live.test.ts` that provider's case fails and is filed `refused: true` in the result JSON;
+   the other provider still runs.
+9. **`DecisionProviderConfig.noulCriteriaRequired?` (part (b)'s types + engine, +6 lines):** the adapter detects OpenRouter by HOST, so a
+   127.0.0.1 stub URL would silently drop OpenRouter's required noul criteria — the stub would then not see the "OpenRouter shape" §15.3 5 names.
+   Main sets it `true` for a stubbed `openrouter-decisions` only; real URLs are unchanged (host detection as before; every `src/decision-engine`
+   suite passes in the related run below).
+
 ## Verified
 
 All from the worktree root, as of `c7ad6da` (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
@@ -478,18 +549,53 @@ Part (d), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidt
   src/main/services/decisions/benchmark/fixtures/*.json` → empty (exit 1); the only ≥ 32-char runs in `t2-routing.json` are repo paths. Tests'
   key: `sk-test-FAKE-decide-0031` / `-0041`. No hosted call, no app launch, no package.json / lock change.
 
+Part (e), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
+- RED (11:32, the 5 test files written, no (e) source): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/main/services/decisions/benchmark src/main/services/decisions/decision-init-stub.test.ts` → `Test Files 5 failed (5)`, `Tests 11 failed |
+  1 passed (12)`; the 4 benchmark files fail only on "Cannot find module './live-requests' | './live-run' | './measures' | './score'", the stub
+  file on "resolveDecisionStubURLs is not a function" (9) + its registration / runtime assertions (2) (`e-red.log`).
+- GREEN (11:36): the same command → `Test Files 4 passed | 1 skipped (5)`, `Tests 38 passed | 2 skipped (40)` (`e-green-1.log`; verbose
+  `e-green-2.log`). **The 2 skipped = `live.test.ts`'s `jev` and `openrouter-decisions` cases — proof the live test is skipped without
+  `VIDTSX_DECISIONS_LIVE=1`** (no request made; it never ran).
+- Related suites (11:37): `… vitest.mjs run src/main/services/decisions src/decision-engine src/main/services/agents/tools src/main/services/flows
+  src/main/ipc src/preload src/shared/agents` → `Test Files 86 passed | 1 skipped (87)`, `Tests 703 passed | 2 skipped (705)` (`e-green-3.log`).
+- tsc (11:36): `… tsc -p tsconfig.web.check.json --noEmit` → **25** (`tsc-web-e.log`); `-p tsconfig.node.check.json --noEmit` → **10**
+  (`tsc-node-e.log`); no error in a decisions / benchmark file; `--listFilesOnly` (node) lists all 10 new `benchmark/*.ts`, the 4 new answer
+  fixtures and `decision-init-stub.test.ts`.
+- **The replay, side by side** (`c-hosted.md` §2 as printed │ the tree's `c2Cells` — `score.test.ts` asserts every cell equal):
+
+  | set | accuracy | Arabic | Brier (multiclass) | ECE | sel ≥ 0.5 | sel ≥ 0.7 | sel ≥ 0.9 | off-list |
+  |---|---|---|---|---|---|---|---|---|
+  | Jev T2 — §2 │ tree | 100.0 (40 / 40) │ same | 100.0 (10 / 10) │ same | 0.021 (0.001) │ same | 0.059 │ same | 100.0 (100.0) │ same | 100.0 (90.0) │ same | 100.0 (82.5) │ same | 0 │ 0 |
+  | Jev T3 | 100.0 (40 / 40) │ same | 100.0 (7 / 7) │ same | 0.003 │ same | 0.044 │ same | 100.0 (100.0) │ same | 100.0 (100.0) │ same | 100.0 (97.5) │ same | — │ — |
+  | MSD1 T2 | 100.0 (40 / 40) │ same | 100.0 (10 / 10) │ same | 0.014 (0.000) │ same | 0.044 │ same | 100.0 (100.0) │ same | 100.0 (95.0) │ same | 100.0 (87.5) │ same | 0 │ 0 |
+  | MSD1 T3 | 100.0 (40 / 40) │ same | 100.0 (7 / 7) │ same | 0.002 │ same | 0.013 │ same | 100.0 (100.0) │ same | 100.0 (100.0) │ same | 100.0 (95.0) │ same | — │ — |
+
+  The dry run of the live path on the recorded bodies gives the same 40 / 40 × 4 and Brier 0.021 / 0.003 / 0.014 / 0.002 (`live-dry-run.test.ts`).
+- Key-pattern scan (11:37) over the 4 new fixtures: `grep -noE 'sk-[A-Za-z0-9]|sk-or-|[Bb]earer|[Aa]uthorization|api_key|apikey|x-api-key|TYPESAFE|OPENROUTER|[A-Za-z0-9+/_=-]{32,}'
+  src/main/services/decisions/benchmark/fixtures/hosted-*.json | grep -v ':microsoft/microsoft-decision-1-20261009$'` → **empty** (exit 1; the
+  only raw hit of the 32-char pattern is the served model id) and `grep -noiE 'password|secret|token|key"' …/fixtures/hosted-*.json` → **empty**
+  (exit 1). Keys in the new tests: only `sk-test-FAKE-live-0051`, `sk-or-v1-FAKE-live-0052`, `sk-test-FAKE-stub-0061`, `sk-or-v1-FAKE-stub-0062`.
+- The launcher (11:37): `bash -n D:/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D4/live-test.sh` → exit 0; `diff <(sed -n '4,11p' …/D1/hosted-live.sh)
+  <(sed -n '8,15p' …/D4/live-test.sh)` → exit 0 (the sourcing / CR-strip / export block is identical); a scan for `echo|set -x|printenv|env|cat`
+  outside comments → exit 1 (none). NOT executed; no `.env` opened.
+- House rules (11:37): imports of the new files = `decision-engine` (+ `/calibration-table`, the part-(b) recorded-bodies fixture in the dry-run
+  test), `shared/types/decisions`, `../decision-init` / `./decision-init` / `./decision-settings` (type), `agents/tools/{check-matches-request,
+  route-request}`, intra-benchmark, the fixtures, `node:fs` / `node:os` / `node:path` (live.test.ts only), `vitest` — none from studio /
+  asset-library / renderer / features; no `any`, no `export default`; longest new source `live-run.ts` 171, longest new test
+  `live-dry-run.test.ts` 139; `decision-runtime.ts` 253, `decision-engine.ts` 266. No hosted call, no app launch, no package.json / lock change.
+
 ## Next step
 
-Part (e), in a FRESH builder context — red first: in `src/main/services/decisions/benchmark/` (fixtures dir ALREADY holds `t2-routing.json`,
-`t3-verify.json` and `d1-dry-run-t2-t3.json` from (d) — do not re-copy them) add the RECORDED Jev + MSD1 T2 / T3 answer files (D1's
-`D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\answers\hosted-{jev,openrouter-msd1}-t{2-choice,3-noul}.json`, scrubbed, key-scanned), the
-tree's scorer (accuracy, Brier, ECE the way D1's `K1\measures.cjs` computes them) and the replay test = table equality with D1's `c-hosted.md` §2
-(Jev T2 40 / 40, T3 40 / 40, Brier 0.021 / 0.003, ECE 0.059 / 0.044; MSD1 40 / 40, 40 / 40, Brier 0.014 / 0.002), the gated live test (skipped
-unless `VIDTSX_DECISIONS_LIVE=1`; sends D1's fixtures through the product adapter in D-r16's shape — reuse `check_matches_request` /
-`route_request`'s framing or `d1-dry-run-t2-t3.json`; ≤ 4 requests; never run by a builder), and ruling D-r21's dev-only stub hook in
-`decision-init.ts` (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL` honoured only when NOT packaged AND the URL is loopback
-`http://127.0.0.1:<port>/…`; injected + unit-tested). Read first: D2 §15.1, ORCHESTRATOR D-r16 (c) + D-r21 (full text), part (b)'s
-`providers/fixtures/d1-scored-t2-t3.json` (already holds D1's scored probs — reuse before copying more) and `decision-init.ts`.
+Part (f), in a FRESH builder context — red first: build the Settings › General "Decisions" row (mode auto / off, the hosted order, the OpenRouter
+model), the AI → Providers "Decisions" section (the TypeSafe row + OpenRouter listed under it; the TypeSafe Test button calls
+`window.api.decisionsDecide({ test: 'jev' })`, DISABLED until a TypeSafe key is SAVED — D-r19 (3) / D-r20) and the dev-preview-gated free-form
+tester (`featureSource: 'decision-test'`, D2 §12), all from `window.api.decisionsStatus` / `decisionsSettingsSet` / `onDecisionsEvent` only (no
+key ever in the renderer), and decide D-r22 (2)'s hidden `p` handle (≤ ~20 lines in the node renderer, else leave the label and note it). Read
+first: `UI_SPEC.md` (colors, spacing, layout), D2 §8 + §12 + §15.3 2 / 5, ORCHESTRATOR D-r19 / D-r20 / D-r22, `src/shared/ipc/types/decisions.ts`
+(`DecisionsStatus`), `src/preload/api/decisions.ts`, `src/features/ai-models/components/providers/{ProviderKeyRow,ProviderKeysTable}.tsx` +
+`useProviderKeyDrafts.ts`, the library-search Settings row of `docs/studio/search/ORCHESTRATOR.md`'s S3 Log (the pattern that shipped), and
+`src/shared/providers/registry.ts` (the `typesafe` entry, `decision` capability / label).
 
 ## Open problems
 
@@ -524,7 +630,19 @@ unless `VIDTSX_DECISIONS_LIVE=1`; sends D1's fixtures through the product adapte
     so the verifier's two-node flow needs both wired (two `input_text` nodes, or one wired to `item` with `request` bound by a run param) — the
     D5 brief should say so.
 12. `docs/studio/decisions/ORCHESTRATOR.md` is still modified in the working tree (not this builder's edit) — left unstaged in `feb5e69` and
-    (d)'s docs commit.
+    (d)'s docs commit; likewise in `5605c48` and (e)'s docs commit.
+13. **For the orchestrator (builder #6's decisions 1–9, part (e)):** the ones that shape §15 are **#1** (MSD1's excluded first call = its T2
+    request; one request per set, so "p95 per request" is each request — the D5 brief should say so) and **#9** (part (b)'s
+    `DecisionProviderConfig` gained `noulCriteriaRequired?`, +6 lines, so a stubbed OpenRouter rung keeps the OpenRouter shape §15.3 5 names).
+    Also #3 (a hard 4-request cap inside the live test).
+14. **How the verifier runs the live test (D5, ≤ 4 of its ≤ 20 requests, < $0.01):** `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D4/live-test.sh`
+    (Git Bash; from any directory — it `cd`s into the worktree). PASS = vitest `Tests 2 passed (2)`; the result JSON lands at
+    `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D5\live-result-<stamp>.json` (override with `VIDTSX_DECISIONS_LIVE_OUT`) with `verdict`
+    and `violations`. A provider whose key does not load fails as `refused` without a request.
+15. **For (h) / D5's §15.3 1 / 3 / 4 / 5 on the stub server:** launch the worktree's UNPACKAGED `out/` app with `VIDTSX_DECISIONS_JEV_URL=
+    http://127.0.0.1:<port>/…` (and `VIDTSX_DECISIONS_OPENROUTER_URL=http://127.0.0.1:<port2>/…` for §15.3 5) in its environment — the runtime
+    reads them at the FIRST decisions use, so they must be set at launch; main logs `decisions: dev stub URL in use for jev (127.0.0.1:<port>)`.
+    A FAKE TypeSafe key must be saved through the Providers row (the key still comes from the credential store).
 
 ## Do-not-redo
 
@@ -545,6 +663,10 @@ unless `VIDTSX_DECISIONS_LIVE=1`; sends D1's fixtures through the product adapte
   registration (`registry.ts`, `AGENT_TOOL_IDS`), the 3 test files + the registry.test.ts additions, and the benchmark fixtures `t2-routing.json`
   / `t3-verify.json` / `d1-dry-run-t2-t3.json` (key-scanned). The D-r16 (c) equality is proven on all 80 rows through the real engine — (e) need
   not repeat it; its live test may reuse the built-ins' framing.
+- **Part (e) is DONE at `5605c48`** — the 4 scrubbed answer fixtures (key-scanned), `benchmark/{types,measures,score,live-requests,live-run,live-bar}.ts`,
+  the 4 benchmark test files (the replay = §2 cell for cell; the live test SKIPPED without the env var; its dry run), the D-r21 hook
+  (`resolveDecisionStubURLs` + `baseURLs` + the runtime's once-at-start resolve + `noulCriteriaRequired`) and `decision-init-stub.test.ts`, and the
+  kit launcher `D4\live-test.sh`. Do not re-copy, re-port or re-run any of it; NEVER run the live test or the launcher as a builder.
 
 ## Agents so far
 
@@ -558,3 +680,6 @@ unless `VIDTSX_DECISIONS_LIVE=1`; sends D1's fixtures through the product adapte
   registration + preload + `electron.d.ts` + the key-save hook green → `d9ec730`; part (c) DONE; HANDOFF + LOG → part (d).
 - 2026-10-31 10:49–11:17 · D4 builder #5 · ~68 tool calls (incl. ~7 on the `beforeEach` teardown trap) · part (d): 3 test files + registry.test.ts
   red → `decide` / the two gates / the shared run + outcome modules green → `feb5e69`; part (d) DONE; HANDOFF + LOG → part (e).
+- 2026-10-31 11:25–11:40 · D4 builder #6 · ~50 tool calls · part (e): 5 test files red → the scrubbed answer fixtures + scorer + replay + the gated
+  live test (skipped, dry-run-proven) + the D-r21 stub hook green → `5605c48`; kit launcher `D4\live-test.sh` (`bash -n` only); part (e) DONE;
+  HANDOFF + LOG → part (f).
