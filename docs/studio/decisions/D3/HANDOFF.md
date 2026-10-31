@@ -1,5 +1,5 @@
 # D3 — the Mapika spike: decider-2b as the local rung (no product code)
-status: NEW (2026-10-31 08:52 — written by the orchestrator; no builder yet)
+status: IN PROGRESS (2026-10-31 09:06 — builder #1: step (a) done; step (b) the venv next)
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it unless absolute).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — section "Session 2": its "Answers in force" (Hasan's E-a … E-h,
@@ -83,7 +83,13 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
 
 ## Done
 
-(nothing yet)
+- **(a) facts — `K3\reports\a-facts.md`** (builder #1, 09:05; outside the tree). Raw Hub / PyPI / PyTorch-index responses verbatim in
+  `K3\reports\raw-hub\` (+ `fetched-at.txt`), summarised by `K3\scripts\hub-facts.py` → `raw-hub\hub-facts.out.txt`. Headlines (all in
+  a-facts.md): the local weights = Hub tag **v11** (sha256 `acaef222…817f`, equal; config byte-identical); the Hub `main` is now **v12**
+  (2026-10-20, same 3,763,692,048 B size, different sha256, Noul T 0.05 = uncalibrated yes/no by default); **GGUF / ONNX exist**
+  (`Mapika/decider-2b-GGUF`, v12 builds; community ONNX) — contradicts the paste-in's "likely not"; decider-ai latest 1.10.0 and it
+  declares `flash-linear-attention` as a hard dependency (fla-core needs only `einops`; Triton only in extras); torch 2.14.1+cu130 cp313
+  wheel 1,990.6 MB, sha256 `f064c797…8319`.
 
 ## Verified
 
