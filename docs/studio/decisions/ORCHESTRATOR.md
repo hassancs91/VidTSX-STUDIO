@@ -444,7 +444,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D3 — the Mapika spike (no product code) | BUILDING — (a) (b) DONE (builder #1); (c) next | 1 | orchestrator re-check (the D1 precedent) | — | — | — |
+| D3 — the Mapika spike (no product code) | BUILDING — (a) (b) (c) DONE, (d) headline DONE (builders #1–#2); CPU + product notes, (e) next | 2 | orchestrator re-check (the D1 precedent) | — | — | — |
 | D4 — the build (D2 §14 (a) → (h)) | TODO | 0 | — | — | — | — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
@@ -501,6 +501,13 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   (Hub `main` since 2026-10-20; noul T 0.05 = uncalibrated yes / no by default; a fitted map on its card), the maker's v12 GGUFs and decider-0.8b
   are FACTS in the report, not measured — the brief authorises the experiment's folder, no new 3.8 GB download. A D4 (g) first-use download pins
   revision `v11` and checks that sha256 (the size cannot tell v11 from v12).
+- **D-r15 (orchestrator, 09:33) — the rest of D3 (d): the packed T3 / T1 notes are NOT run; the CPU note and one product-shaped note are.**
+  The packed form does not fit this 6 GB card: T2 packed (40 questions in one call) peaked at 6,185 MB VRAM allocated / 6,746 MB reserved and
+  took 268.85 s to its answer vs 89.3 ms per one-row request (`d-summary.md`); the T3 packed run was cut at 590 s. Neither changes the verdict
+  (D-r12: the headline is one row per request) — the finding for the record is "one row (or a few) per forward pass on this GPU class". The
+  paste-in's own "T2 + T3 on CPU as a note" runs (one row per request). **One product-shaped NOTE on GPU** (state = the row's own text, a short
+  generic instruction, the same criteria — T3 first, T2 if cheap) is run so the report can say whether the FAIL depends on D1's framing; it
+  never replaces the headline. Then step (e).
 
 ## Stops (session 2)
 
@@ -534,4 +541,20 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   K3 holds `reports\{a-facts.md,b-venv.md,b-pip-freeze.txt,b-smoke-gpu-run1.json,b-smoke-gpu-run2.json,raw-hub\}`, `scripts\{b-smoke.py,
   hub-facts.py,load-snapshot.ps1}`; `b-smoke-gpu-run2.json` read — every number above is in it; a-facts §1 / §4 / §5 read; 0 python processes.
   → rulings **D-r13** (peak RSS; RSS-only fail → no (g) this session) and **D-r14** (v11 only). D3 builder #2 (step (c) the worker + host, then
-  (d)) to spawn.
+  (d)) to spawn. (Commit `e8fdfbc` landed 09:10:19; the rulings' "09:12" stamps and this entry's "09:12" were estimates.)
+- 09:11 · D3 builder #2 spawned (HEAD `e8fdfbc`; step (c) worker + host, then (d) the runs; (e) only with budget to spare).
+- 09:29 · D3 builder #2 HANDOFF (~47 calls, ~19 min; docs `15b00d8` `048c8a7`): **(c)** `K3\mapika_worker.py` (loads once via the unmodified
+  `Decider`; JSONL `hello` / `ready` / `result` / `exit` / `fatal`; ops `system_one` / `ping` / `stats` / `shutdown`; fd 1 → stderr so stdout is
+  protocol only; exits on EOF / `shutdown` / `--idle-s`) + `K3\mapika-host.cjs` (spawn once, `TORCHDYNAMO_DISABLE=1` + `HF_HUB_OFFLINE=1`, ids,
+  timeouts, Node → Python → Node timing) + `K3\d1-questions.cjs` (D1's texts, verbatim from `K1\hosted-run.cjs:35-82`); smoke 3 / 3 T2 rows
+  (`c-host-smoke-cuda.json`). **(d) GPU headline, one row per request (`K3\reports\d-summary.md`):** T2 95.0 % (38 / 40), Brier 0.053, ECE 0.061,
+  off-list 0, warm p50 / p95 89.3 / 92.5 ms, Arabic 90.0 %; **T3 82.5 % (33 / 40), Brier 0.122**, ECE 0.148, warm 54.7 / 227.2 ms, Arabic 85.7 %;
+  T1 choice NOTE 73.3 %, D-r2 τ 0.5 R@1 47.1 % / wrong-confident 5.8 %, τ 0.9 no picks; spawn → first answer 14.27–16.11 s; peak RSS ≈ 4,483 MB
+  on every run, steady 1,673.9–1,737.8 MB, peak private 6,702.6–7,521.8 MB, VRAM max allocated 3,647.5–3,988.8 MB; CPU ≤ 30 % in every sample (no
+  repeat needed). T2 packed: 95.0 %, Brier 0.052, but 6,185 MB VRAM and 268.85 s; T3 packed cut at 590 s; T1 packed not started.
+- 09:30–09:33 · **Orchestrator re-check:** HEAD `048c8a7`, `e8fdfbc..HEAD -- src scripts package*.json` empty, only D3 HANDOFF / LOG changed; 0
+  python processes; `d-summary.md` read in full; **D1's `score.cjs` re-run by the orchestrator on the two headline answer files (outputs in the
+  session scratchpad, K1 untouched) → T2 ALL 95.0 % / Brier 0.053 / ECE 0.061 / off-list 0; T3 ALL 82.5 % / Brier 0.122 / ECE 0.148 — equal to
+  the builder's.** On these numbers D3 FAILS several terms of its bar (T3 accuracy and Brier, T2 Brier, peak RSS) — not RSS alone → per the
+  paste-in's (e) the local rung stays empty (a note, no STOP: the runtime runs on this laptop and D2 already designs an empty rung); the
+  verdict is written by the (e) builder from the files. → ruling **D-r15**. D3 builder #3 (CPU note, product-shaped note, then (e)) to spawn.

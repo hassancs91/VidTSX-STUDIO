@@ -163,6 +163,13 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
 
 ## Next step
 
+> **Orchestrator, 09:33 — ruling D-r15 REPLACES items (1) and (3) below:** the packed T3 and T1 notes are NOT run (the T2 packed run already
+> shows the packed form overflows the 6 GB card — record that as the finding, with the cut T3 attempt). Run instead: **(2) the CPU note as
+> written below**, then **one product-shaped NOTE on GPU** (state = the row's own text, a short generic instruction, the same criteria; T3 first,
+> T2 if cheap; one row per request; a new run name, e.g. `…-gpu-t3-noul-product`) so the report can say whether the FAIL depends on D1's
+> framing — it never replaces the headline. Then step (e). The orchestrator re-scored the two headline files with `K1\score.cjs` and got the
+> same numbers (T2 95.0 % / Brier 0.053; T3 82.5 % / Brier 0.122).
+
 Finish (d), each as its own background command with NO `timeout` wrapper shorter than the job (`run_in_background: true`, then wait for the
 notification), from K3: (1) `node d-run.cjs --runs t3:noul:cuda:packed` (expect ~4–5 min: the T2 packed call spilled past the 6 GB card —
 see Open problems); (2) `node d-run.cjs --runs t2:choice:cpu:per-request,t3:noul:cpu:per-request` (the CPU note; fp32 eager ≈ 8 GB RAM; check
