@@ -838,7 +838,7 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   decisions-*` tests, `src/features/ai-models`, `src/features/flows`, `src/main/services/agents/tools`, the preload-surface + decisions-handlers
   tests, `src/main/services/decisions`, `src/decision-engine`) → **59 passed + 1 skipped files, 482 passed + 2 skipped tests** (the skipped =
   the gated live test) (`B4\orch-f-recheck.log`); tsc **web 25 / node 10** (`B4\tsc-{web,node}-orch-f.log`).
-- **D-r25 (orchestrator, 17:31) — how the stub checks of §15.3 3 / 4 / 5 are read (for (h) and the D5 brief).** §15.3 3 was written before
+- **D-r25 (orchestrator, 17:27) — how the stub checks of §15.3 3 / 4 / 5 are read (for (h) and the D5 brief).** §15.3 3 was written before
   D-r18: under D-r18 a confident "no" (top probability = 1 − p ≥ 0.9) is `band = act` with answer `no`, so "one true row and one false row →
   act / escalate" cannot hold with real numbers on a false row. So: (1) **the stub serves D1's RECORDED numbers, never a made-up probability** —
   for a `noul` question the Jev-shaped stub answers with the recorded Jev `pTrue` of the T3 row whose text is in the request
@@ -883,6 +883,9 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   `DecisionsProvidersSection.tsx`, the `feature-flags.ts` / `CustomNode.tsx` / `flows.ts` / `decide-run.ts` / `ProviderKeysTable.tsx` /
   `useProviderKeyDrafts.ts` / `ProvidersContent.tsx` diffs and `port-visibility.ts`; imports of the new `src/shared/decisions-*.ts` = `./ipc/types/
   decisions`, `./types/decisions`, intra only → ruling **D-r24**. D4 builder #9 (step 5 of (f), then (h)'s stub live checks) to spawn.
-- 17:28–17:31 · orchestrator: D1's recorded Jev T3 numbers read from the tree's fixtures — the only Jev T3 row with top < 0.9 is `t3-27` (true,
+- 17:26–17:27 · orchestrator: D1's recorded Jev T3 numbers read from the tree's fixtures — the only Jev T3 row with top < 0.9 is `t3-27` (true,
   pTrue 0.88); false rows `t3-09` / `t3-10` / `t3-11` = 0.02 / 0.01 / 0.02; `t3-01` (true) = 0.96; served model `jev-1.14.0` → ruling **D-r25**
   (the stub serves recorded numbers; §15.3 3 = three runs t3-01 / t3-09 / t3-27; §15.3 4's agent run = keyless, ≤ 3 in (h); §15.3 5's two ports).
+  (Commit `e1f075c`, 17:27:25 — its "17:31" / "17:28–17:31" stamps were estimates, corrected to the measured clock in the next commit.)
+- 17:28 · D4 builder #9 to spawn (HEAD = the correction commit; step 5 of (f), then (h)'s stub live checks §15.3 1 / 2 / 3 / 4 / 5 per D-r25).
+  0 `electron.exe`, nothing on 5173 / 9222 / 9302 at 17:27.
