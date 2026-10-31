@@ -1,5 +1,7 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF — **D4 builder #8, 2026-10-31 17:22: part (f) steps 1–4 BUILT and committed (code + tests green, tsc at baseline); step 5 (the
+status: IN PROGRESS — **D4 builder #9, 2026-10-31 17:47: part (f) DONE** (step 5: build + two CDP stills on `decisions-D4`, one wording
+fix `3f50e63`); part (h)'s stub live checks (§15.3 1–5) in progress — see "Part (h) — stub live checks" under Verified. Previous status:
+HANDOFF — **D4 builder #8, 2026-10-31 17:22: part (f) steps 1–4 BUILT and committed (code + tests green, tsc at baseline); step 5 (the
 worktree's own build + the two CDP stills on profile `decisions-D4`) is NOT done — it is the Next step.** Builder #7's leftovers were judged
 and kept (one fix: the tester's 30 s budget) → sub-checkpoint (f1) `cc754fa`; the UI (Settings › General "Decisions" row, AI → Providers
 "Decisions" section with the TypeSafe Test button, the dev-preview tester, the `p` handle hidden) → (f2), see "Done". Previous status (orchestrator
@@ -63,7 +65,7 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 | (c) | `src/main/services/decisions/` (decision-init from credentials like `image-init.ts`, decision-usage, decision-settings, decision-runtime); registry `typesafe` + `'decision'` capability + label; `openrouter` gains `'decision'`; IPC (§12) + preload + status; the preload-surface test | **DONE** — (c1) services + registry + wire types; (c2) IPC + preload + key-save hook + the preload-surface test | (c1) `b7b1648`, (c2) `d9ec730` |
 | (d) | `src/main/services/agents/tools/decide.ts` (tool + flow node via `ports`) + `check_matches_request` + `route_request`; T2 / T3 unit tests through an injected provider; the no-claim test | **DONE** | `feb5e69` |
 | (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`); **+ the dev-only stub hook of ruling D-r21** (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL`, honoured only unpackaged + loopback; unit-tested) — (h) and the verifier need it for §15.3 1 / 3 / 4 / 5 | **DONE** (live test written + dry-run-proven, NOT run — DEFERRED-HASAN / the verifier) | `5605c48` |
-| (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | **IN PROGRESS** — steps 1–4 built + tested (f1 + f2); step 5 (build + CDP stills) TODO | (f1) `cc754fa`, (f2) `8f6ff6f` |
+| (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | **DONE** (builder #9, 17:47) — steps 1–4 (f1 + f2); step 5: worktree build + profile `decisions-D4` + two CDP stills `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\f5-settings-decisions-row.png` / `f5-providers-decisions.png` (DOM: `f5-settings-dom-2.json`, `f5-providers-dom.json`); one wording fix found in the first still ("no key · no key" → `rungLineText`) | (f1) `cc754fa`, (f2) `8f6ff6f`, (f3) `3f50e63` |
 | (g) | ONLY if D3 PASSED — `src/local-decider-engine/` + the worker on the `pytorch` runtime path + the download entry | **NOT BUILT — D3 FAILED** (`D3-mapika-report.md` §6–§7: 3 PASS / 4 FAIL). The ladder starts at Jev; the local rung is reported in `skipped` as `'no local model'` (D2 §6); `local-decider-provider.ts` is NOT written in this slice; `provider: 'local'` pinned → `no-provider` | — |
 | (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | TODO | — |
 
@@ -688,7 +690,36 @@ Part (f), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidt
   `./decisions-*`; longest touched file `ProviderKeyRow.tsx` 157 (151 → 157); `GeneralSettingsContent.tsx` 151 → 155, `useProviderKeyDrafts.ts`
   135 → 144, `ProvidersContent.tsx` 97 → 106, `ProviderKeysTable.tsx` 92 → 96. Keys in the new tests: only `sk-test-FAKE-client-0081`,
   `sk-test-FAKE-keytest-0091`. No hosted call, no app launch, no package.json / lock change, no preload / IPC file touched.
-- NOT yet verified: the UI in the running app (step 5 below).
+- **Step 5 (builder #9, 17:29–17:47, as of `3f50e63`)** — resources 17:29: C: 42.18 GB free, commit headroom 63.25 GB (99.7 limit), 0
+  `electron.exe`, nothing on 5173 / 9222 / 9302. Build: `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+  D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build` → rc 0, 17:29:11–17:30:39 (`f5-build.log`). Profile
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile` = robocopy of `profiles\source\profile` with `/XF settings.db*`
+  (2,325 files, 371.8 MB; 3 skipped; a recursive search for `settings.db*` in the new profile → 0). Kit `D:\repos\VidTSX-STUDIO\.vidtsx-temp\
+  decisions\D4\`: `launch.sh` (DRIVING's worktree recipe, CDP 9302, + `VIDTSX_DECISIONS_JEV_URL=http://127.0.0.1:18471/v1/systemone` and
+  `VIDTSX_DECISIONS_OPENROUTER_URL=http://127.0.0.1:18472/api/alpha/decisions`), `cdp.mjs` (wait / eval / evalfile / shot with `restore.ps1`
+  in the same call), `set-root.js`, `open-settings.js`, `open-providers.js`. First CDP call `set-root.js`: `studioRootGet` before =
+  `C:\Users\hasan\Videos\VidTSX Studio` (the default), after = `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\studio-root`. The first
+  `decisionsStatus` (no key) → `jev` / `openrouter-decisions` `hasKey: false`, `why: 'no key'`, `local.state 'none'`, `llm.available: true`
+  (`h-status-0.json`); main's `app.log` lines 22–23: `decisions: dev stub URL in use for jev (127.0.0.1:18471)` / `… for openrouter-decisions
+  (127.0.0.1:18472)`.
+  - Still (a) `f5-settings-decisions-row.png` (Settings › General, `[data-decisions-row]`, LOOKED AT): description; "Now: No hosted provider is
+    ready — only callers that accept an uncalibrated answer get one (your AI provider) · Jev — no key · OpenRouter — no key"; the mode select
+    (Auto (default) / Off); rung 1 Jev and rung 2 OpenRouter with grey dots, ↑ ↓ ✕; "– Local none available"; the OpenRouter model input
+    `microsoft/microsoft-decision-1` + Save. **The first still read "no key · no key" on each rung** (has-key text + the why, both "no key") →
+    fixed red first: `src/shared/decisions-view.ts` `rungLineText` + 2 tests in `decisions-view.test.ts` (red 17:42: `Tests 2 failed | 13
+    passed (15)` `f5-red.log`; green: `… run src/shared/decisions-view.test.ts src/shared/decisions-client.test.ts
+    src/shared/decisions-tester-form.test.ts src/features/ai-models src/preload/api/decisions.test.ts` → `Test Files 8 passed (8)`, `Tests 68
+    passed (68)` `f5-green.log`); `DecisionsRow.tsx` renders `rungLineText(v)`; tsc web **25** / node **10** (`tsc-web-f5.log`,
+    `tsc-node-f5.log`); committed `3f50e63`; app stopped, rebuilt (rc 0, 17:43:20–17:44:51, `f5-build-2.log`), relaunched; the retaken still
+    (same path, overwrites the first) reads "1 Jev no key" / "2 OpenRouter no key" (`f5-settings-dom-2.json`).
+  - Still (b) `f5-providers-decisions.png` (AI → Providers scrolled to `[data-decisions-providers]`, LOOKED AT): "Decisions — Calibrated yes /
+    no and pick-one answers for flows and the agent. No call happens without one of these keys."; row TypeSafe (typesafe.ai → API keys — Jev
+    decisions · Decisions · No key · `TypeSafe API key` password input · Test greyed); row OpenRouter (Decisions · No key · "Uses the OpenRouter
+    key in API keys above — Microsoft-Decision-1. Order and model: Settings › General › Decisions."). The API keys table above it lists Fal,
+    BytePlus, OpenRouter, Cloudflare, AssemblyAI, ElevenLabs, Claude (API Key) — no TypeSafe (D-r24 (1)). DOM (`f5-providers-dom.json`):
+    `[data-provider-test="typesafe"]` visible, `disabled: true`, `title: "Save a TypeSafe key first — the test uses the saved key"`.
+  - The dev-preview tester is ABSENT (`document.querySelector('[data-decisions-tester]')` → null): `decisions-tester` is a `false` dev-preview
+    flag, hidden in this production build — D-r24 (3), D2 §12's gate working; not a defect.
 
 ## Next step
 
