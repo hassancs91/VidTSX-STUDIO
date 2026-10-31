@@ -1,5 +1,5 @@
 # D3 — the Mapika spike: decider-2b as the local rung (no product code)
-status: HANDOFF (2026-10-31 09:28 — builder #2: (c) DONE; (d) GPU headline T2 + T3 + T1-note DONE, T2 packed DONE; left in (d): T3 + T1 packed, CPU T2 + T3)
+status: DONE (2026-10-31 09:42 — builder #3: (d) finished per D-r15 (CPU note + product-shaped note); (e) `docs/studio/decisions/D3-mapika-report.md` written — verdict **FAIL, the local rung stays empty** (not RSS-only; D4 (g) not built))
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it unless absolute).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — section "Session 2": its "Answers in force" (Hasan's E-a … E-h,
@@ -141,6 +141,20 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
 - **Preview of the bar (for (e) — the builder of (e) re-reads the files):** T2 38/40 meets "≥ 38" but Brier 0.053 > 0.05; T3 33/40 and Brier
   0.122 fail; off-list 0; warm p95 per request 92.5 (T2) / 227.2 (T3) ms ≤ 300; peak RSS ≈ 4,483 MB > 2 GB (steady ≈ 1.7 GB). → several terms
   fail, NOT "RSS only" → per (e) the rung stays empty (a note, not a STOP: the runtime runs, D2 already allows an empty rung).
+- **(d) finished per D-r15 (builder #3, 09:32–09:39).** `K3\d-run.cjs` gained a `product` framing (`PRODUCT_Q` / `productShaped`: state = the
+  row's own text — T2 the typed request, T3 the row's `question` text; question T2 "Which ONE tool family must act on this request?", T3 "Does
+  the item really do what the request asks, by plain meaning?"; D1's criteria; one row per request; name suffix `-product`). Four runs, numbers
+  = `K3\reports\d-summary.md` (generated 07:39:22Z) + `score-<name>.md|.json` + `d-run-<name>.json`, answers `K3\answers\<name>.json`:
+  `cpu-t2-choice` 95.0 % (38/40), Brier 0.050 (0.0503), p95 4,043.3 ms, peak RSS 8,121.1 MB (eager float32, 8 threads); `cpu-t3-noul` 82.5 %
+  (33/40), Brier 0.124, p95 3,295.8 ms, peak RSS 8,125.5 MB; `gpu-t3-noul-product` **95.0 % (38/40)**, Brier 0.054, p95 424.7 ms;
+  `gpu-t2-choice-product` 92.5 % (37/40), Brier 0.058, p95 69.2 ms. No CPU sample > 30 % (max 22 in these four) → no `-rep2`.
+- **(e) the report — `docs/studio/decisions/D3-mapika-report.md`** (builder #3, 09:34–09:42): facts (a-facts.md), venv recipe (b-venv.md),
+  worker + host + protocol, every run (GPU headline, T1 note + D-r2 table, T2 packed, the cut T3 packed attempt, CPU note, product-shaped note)
+  naming its kit file, the bar one row per term (**3 PASS — T2 acc, off-list, warm p95; 4 FAIL — T3 acc, T2 Brier, T3 Brier, peak RSS**),
+  the verdict FAIL (rung empty, not RSS-only), §8 the framing (T3's accuracy FAIL depends on D1's framing; no framing passes every term), §9
+  "How D4 (g) productises it" (the app's `pytorch` runtime = `2026.09.1` cu126 / cpu zips, Python 3.11.15, torch 2.14.0+cu126; decider-ai /
+  flash-linear-attention / fla-core absent from `requirements.cu126.lock`; transformers 5.16.1 vs the checkpoint's 5.17.0 untested; v11
+  file list with sizes + sha256 from `raw-hub\api-decider-2b-v11.json`; the one-row-per-forward finding; memory). Committed with this HANDOFF.
 
 ## Verified
 
@@ -160,6 +174,18 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
   (09:17:19–09:27:12) → T3, T1, T2-packed lines as in the table; then **my own `timeout 590` fired during t3-noul-packed** (rc 124): the
   worker was killed mid-request, the host threw "worker not running" at `stats()`, so NO t3-packed answer / run file was written and t1-packed
   never started. After: `Get-Process python*` → `python_processes=none`; nvidia-smi 387 MiB used (09:27:39). `node d-run.cjs --summary-only` → ok.
+- (builder #3) guard before the runs (09:32:45): C: 25.11 GB free, commit free 50.38 GB, RAM free 33.11 / 63.70 GB, CPU 6 %, no python process,
+  nvidia-smi 387 MiB / 6144 MiB. `node --check d-run.cjs` → ok. From K3 (run_in_background, no timeout wrapper):
+  `node d-run.cjs --runs t2:choice:cpu:per-request,t3:noul:cpu:per-request,t3:noul:cuda:product,t2:choice:cuda:product --no-repeat >
+  logs/d-run-builder3.log` (09:32:54–09:39:22) → rc 0; output lines: "cpu-t2-choice: acc 95.0 % (40 q, answered 40), Brier 0.050, ECE 0.102 ·
+  cold 18404.2 ms · warm/request p50 3872.3 p95 4043.3 ms · peak RSS 8121.1 MB steady 8056.1 MB · CPU 13.7/7/9 % · errors 0"; "cpu-t3-noul: acc
+  82.5 %, Brier 0.124, ECE 0.150 · cold 16796.5 ms · p50 2595 p95 3295.8 ms · peak RSS 8125.5 MB · CPU 12/5.9/16 % · errors 0";
+  "gpu-t3-noul-product: acc 95.0 %, Brier 0.054, ECE 0.142 · cold 13836 ms · p50 54.1 p95 424.7 ms · peak RSS 4482.9 MB steady 1709.8 MB · CPU
+  9.4/22/8 % · errors 0"; "gpu-t2-choice-product: acc 92.5 %, Brier 0.058, ECE 0.150 · cold 14371.3 ms · p50 64.7 p95 69.2 ms · peak RSS 4483 MB ·
+  CPU 7.1/7.5/9 % · errors 0". (`--no-repeat` was passed so a CPU run's own threads could not trigger `-rep2`; the top-process lists in
+  `d-summary.md` show no external process above 7.3 % of all cores, max sample 22 % → no repeat was due.) After (09:39): `Get-Process python*` →
+  none; nvidia-smi 387 MiB, 0 %. Unrounded Brier from the score `.json`: gpu-t2 0.05313, gpu-t3 0.12214, cpu-t2 0.05032, cpu-t3 0.12373,
+  t3-product 0.05429, t2-product 0.05783.
 
 ## Next step
 
@@ -170,12 +196,9 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
 > framing — it never replaces the headline. Then step (e). The orchestrator re-scored the two headline files with `K1\score.cjs` and got the
 > same numbers (T2 95.0 % / Brier 0.053; T3 82.5 % / Brier 0.122).
 
-Finish (d), each as its own background command with NO `timeout` wrapper shorter than the job (`run_in_background: true`, then wait for the
-notification), from K3: (1) `node d-run.cjs --runs t3:noul:cuda:packed` (expect ~4–5 min: the T2 packed call spilled past the 6 GB card —
-see Open problems); (2) `node d-run.cjs --runs t2:choice:cpu:per-request,t3:noul:cpu:per-request` (the CPU note; fp32 eager ≈ 8 GB RAM; check
-the guard); (3) T1 packed (17 of D1's hosted requests, ~14 rows × 21 options each) — first estimate it from (1)'s time per question; if it would
-exceed ~20 min, record "not run: VRAM spill makes one packed request take minutes" as the note instead of running it. Then step (e) (the report),
-reading `K3\reports\d-summary.md` + the score / run files.
+(builder #3, 09:42) **D3 is DONE — orchestrator: re-check `docs/studio/decisions/D3-mapika-report.md` against `K3\reports\` (verdict FAIL →
+the local rung stays empty per E-d; D4 proceeds without step (g)), and rule on Open problem "framing and the hosted adapters" before D4's
+`system-one` adapter fixes its request shape.** (The D-r15 items above are done: CPU note + product-shaped note run; T3 / T1 packed not run.)
 
 ## Open problems
 
@@ -203,7 +226,15 @@ reading `K3\reports\d-summary.md` + the score / run files.
   temperature is 1.624 (v11 config). Whether v12's fitted map would do better is outside D3 (D-r14).
 - `d-summary.md` prints "undefined" in the per-question / transport cells of a run with no warm request (the packed runs) — cosmetic; fix
   the `?.toFixed` guards in `d-run.cjs` `summary()` if it matters for (e).
-- `ORCHESTRATOR.md` showed ` M` in the worktree at 09:21 — not a D3 builder edit; left unstaged (explicit-path commits only).
+- `ORCHESTRATOR.md` showed ` M` in the worktree at 09:21 — not a D3 builder edit; left unstaged (explicit-path commits only). Still ` M` at
+  09:42 (builder #3) — left unstaged again.
+- **(builder #3) Framing and the hosted adapters — for the orchestrator, not a BLOCK.** The product-shaped note moved Mapika's T3 from 33 to
+  38 / 40 (caption rows 60.0 → 90.0 %) and T2 from 38 to 37 / 40 (`d-summary.md`). D1 measured Jev / MSD1 only in D1's framing (task rule as
+  state, the row inside the question); D2 §10.1–10.2's product calls are closer to the product shape, and §15.1's gated LIVE test sends D1's
+  fixtures through the product adapter. Whether the hosted 40 / 40 holds in the product shape is unmeasured; which shape the adapter sends
+  decides what the test compares against. It does not change D2's design (the rung that fails stays empty) — report §8, §10.1.
+- **(builder #3) CPU as a default:** decider-2b on CPU = 2.6–3.9 s p50 per request, ~8.1 GB steady RSS, ~11.4 GB private commit (report §5.2) —
+  D2 §5.3's "CPU by default, GPU as a setting" would not fit the bar for this model; moot while the rung is empty.
 
 ## Do-not-redo
 
@@ -215,6 +246,9 @@ reading `K3\reports\d-summary.md` + the score / run files.
 - (c) is done: `K3\mapika_worker.py`, `K3\mapika-host.cjs`, `K3\d1-questions.cjs` work (smoke `reports\c-host-smoke-cuda.json`) — reuse, don't rewrite.
 - (d) GPU per-request T2 / T3 / T1 and GPU T2 packed are done (answers + `d-run-*` + `score-*` in K3) — do not re-run them (a re-run is only
   for the > 30 % CPU rule, which none of them hit).
+- (builder #3) The CPU note (`cpu-t2-choice`, `cpu-t3-noul`) and the product-shaped note (`gpu-t3-noul-product`, `gpu-t2-choice-product`) are
+  done — none hit the > 30 % rule; do not re-run. T3 / T1 packed are NOT run (D-r15). The report `D3-mapika-report.md` is written — edit, don't
+  rewrite.
 
 ## Agents so far
 
@@ -224,3 +258,7 @@ reading `K3\reports\d-summary.md` + the score / run files.
 - 2026-10-31 09:12–09:29 · builder #2 · ~40 tool calls · read the HANDOFF, ORCHESTRATOR session 2 + D-r2 / D-r8 / D-r10, `K1\hosted-run.cjs`,
   `b-tasksets.md` §4–§5, `score.cjs`, the `Decider` constructor / `system_one` and `systemone.assemble` (~700 lines); step (c) worker + host +
   smoke (commit `15b00d8`); step (d) runner + GPU T2 / T3 / T1 / T2-packed; handed off with T3 / T1 packed and the CPU note left (budget).
+- 2026-10-31 09:31–09:43 · builder #3 · ~37 tool calls · read the HANDOFF, ORCHESTRATOR session 2 + D-r2 / D-r8 / D-r10, DRIVING.md, D2 §5.3 /
+  §6 / §15.1, `d1-questions.cjs`, `d-run.cjs` (part), the kit reports (a-facts, b-venv, score / summary files), the app's ai-runtime catalogue /
+  python-models registry + service / python-runner (greps) (~900 lines); (d) the `product` framing + CPU note + product-shaped note; (e) the
+  report; status DONE.
