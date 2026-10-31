@@ -445,7 +445,7 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D3 — the Mapika spike (no product code) | **DONE — verdict FAIL: the local rung stays empty** (a note, no STOP; D4 (g) not built) | 3 | orchestrator re-check 09:30 (headline re-scored equal) + 09:44 (report) | docs `b5a3d3e` `17b3348` `15b00d8` `048c8a7` `2082918` | GPU headline T2 38 / 40 Brier 0.053, T3 33 / 40 Brier 0.122, off-list 0, warm p95 92.5 / 227.2 ms, peak RSS 4,483.7 MB → 3 PASS / 4 FAIL; `D3-mapika-report.md` 264 lines | 2026-10-31 08:53 / 09:43 |
-| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) `c7ad6da`, (b) `ed79420`, (c) `b7b1648` + `d9ec730`, (d) `feb5e69` DONE; (e) next | 5 | (a) 10:02, (b) 10:19, (c1) 10:36, (c2) 10:48, (d) 11:23 | code `c7ad6da` `ed79420` `b7b1648` `d9ec730` `feb5e69` | 188 + 38 tests (d); tsc 25 / 10 | 2026-10-31 09:46 / — |
+| D4 — the build (D2 §14 (a) → (h), (g) dropped by D3's FAIL) | BUILDING — (a) `c7ad6da`, (b) `ed79420`, (c) `b7b1648` + `d9ec730`, (d) `feb5e69`, (e) `5605c48` DONE; (f) next | 6 | (a) 10:02, (b) 10:19, (c1) 10:36, (c2) 10:48, (d) 11:23, (e) 11:43 | code `c7ad6da` `ed79420` `b7b1648` `d9ec730` `feb5e69` `5605c48` | replay = c-hosted §2 (4 rows); decisions + engine 179 + 2 skipped; tsc 25 / 10 | 2026-10-31 09:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 2 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-2.md, verbatim)
@@ -592,6 +592,20 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   measured wording); (7) `check_matches_request.itemKind` (item / template / caption / clip → D1's header); (8) the nodes are not marked
   priced (< $0.0001 a call) and need no capability. **For D5's §15.3 3:** the two-node flow wires both required inputs (`item`, `request`) of
   `check_matches_request`.
+- **D-r23 (orchestrator, 11:43) — D4 builder #6's (e) decisions, accepted (1 and 7 shape how §15.1's live bar and §15.3 5 are read — the
+  verifier gets this ruling).** (1) **The live bar's latency terms with one request per task:** "p95 per 40-question request" = each request's
+  own time; Jev T2 and T3 each ≤ 2,000 ms; **MSD1's "first call excluded" = its T2 request** (sent first, as D1's cold 2,983 ms call was) → MSD1
+  T3 ≤ 4,000 ms; no warm-up request (it would break the 4-request cap). (2) Latency = the wall time of the product's `engine.decide` call (engine
+  overhead included — stricter than the bare HTTP round trip). (3) A hard 4-request cap inside the live test (the adapter's one 429 / 5xx retry
+  could otherwise make a fifth). (4) The live requests use the built-ins' own framing functions, packed 40 per request; the dry run pins both
+  bodies equal to D1's dry-run bodies (D-r16 (c)). (5) No duplicate calibration-table test (part (a)'s pins D-r17's six rows). (6) The stub URLs
+  are resolved once, at the first decisions use → **the D-r21 variables must be in the app's launch environment**. (7) **`noulCriteriaRequired`
+  on `DecisionProviderConfig`** (+6 lines in part (b)'s engine): the adapter detects OpenRouter by host, so a loopback stub URL would drop
+  OpenRouter's required noul criteria; main sets the flag only for a STUBBED `openrouter-decisions` rung, so §15.3 5's stub sees the real
+  OpenRouter shape; real URLs behave as before. **The verifier runs the live test with** `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D4/live-test.sh`
+  (read by the orchestrator 11:41: it sources the two `.env` files exactly as `hosted-live.sh` does, echoes nothing, `exec`s vitest on
+  `src/main/services/decisions/benchmark/live.test.ts` with `VIDTSX_DECISIONS_LIVE=1`; ≤ 4 requests; result JSON of numbers under
+  `…\vidtsx-e2e\decisions\D5\`).
 
 ## Stops (session 2)
 
@@ -717,4 +731,16 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   the flow runner's `mapOutputs`; related suites 49 / 365; tsc 25 / 10. Nine decisions (→ D-r22).
 - 11:18–11:23 · **Orchestrator re-check:** HEAD `28f6d7f`; the four test files → **38 passed** (23 s — the registry import graph); tsc **web 25 /
   node 10** (finished in the background at ~11:23); `decide-outcome.ts` read in full (band = D-r18; texts = D2 §10.1; error sentences
-  number-free) → ruling **D-r22**. D4 builder #6 (part (e) + the D-r21 stub hook) to spawn.
+  number-free) → ruling **D-r22**. D4 builder #6 (part (e) + the D-r21 stub hook) to spawn. (Commit `48a5944`, 11:23:50.)
+- 11:24 · D4 builder #6 spawned (HEAD `48a5944`; part (e) — benchmark fixtures + scorer + the replay test = `c-hosted.md` §2, the gated live test
+  (not run) + the kit launcher `.vidtsx-temp\decisions\D4\live-test.sh` (not executed), the D-r21 stub hook).
+- 11:39 · D4 builder #6 HANDOFF (~70 calls, ~16 min; code `5605c48`, docs `ea4b236`): **part (e) DONE** — `benchmark/fixtures/hosted-{jev,openrouter-msd1}-
+  t{2-choice,3-noul}.json` (scrubbed; key scan exit 1 = nothing), `benchmark/{types,measures,score,live-requests,live-run,live-bar}.ts`, tests
+  `score.test.ts` (the replay), `measures.test.ts`, `live-dry-run.test.ts`, `live.test.ts` (gated), `decision-init-stub.test.ts`; `decision-init.ts`
+  `resolveDecisionStubURLs`; `noulCriteriaRequired` (+6 lines in the engine); red 5 files / 11 tests → green 4 + 1 skipped files, 38 + 2 skipped tests;
+  related suites 86 + 1 skipped files / 703 + 2 skipped tests; tsc 25 / 10; the kit launcher `D4\live-test.sh` (`bash -n` OK, its env block = `hosted-live.sh`
+  :4-11, not executed). Seven decisions (→ D-r23).
+- 11:41–11:43 · **Orchestrator re-check:** HEAD `ea4b236`; `c-hosted.md` §2 read — **the replay table equals it on all four T2 / T3 rows** (accuracy,
+  Arabic, Brier with multiclass, ECE, selective ≥ 0.5 / 0.7 / 0.9 with coverage, off-list); `live-test.sh` read (no value, nothing echoed); key
+  scan over `benchmark/fixtures/` → nothing; vitest `src/main/services/decisions` + `src/decision-engine` → **17 passed + 1 skipped files, 179
+  passed + 2 skipped tests** (the 2 = the gated live cases); tsc **web 25 / node 10** → ruling **D-r23**. D4 builder #7 (part (f), the UI) to spawn.
