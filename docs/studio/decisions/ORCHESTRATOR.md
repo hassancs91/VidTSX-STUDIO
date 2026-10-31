@@ -782,8 +782,8 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   (session 2)), all still stamped 11:47–11:49 — unchanged since the pause. Resources 17:11: C: 42.99 GB free; memory commit headroom
   63.29 GB (36.41 of 99.70 GB committed); RAM 31.98 GB free → the guard holds (≥ 3 GB / ≥ 6 GB).
 - The model is Opus 5.5 → commits end `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- **Caps ledger (E-g, whole run):** hosted **4 / 60** requests, **$0.001298388** / $0.50 (all four = D5's one gated live test, 18:28; D5 ≤ 20 /
-  ≤ $0.05 held); keyless claude-subscription **2 / 10** (D4 builder #10's §15.3 4 agent run 17:58; D5's, result file written 18:39:35).
+- **Caps ledger (E-g, whole run):** hosted **44 / 60** requests, **$0.002000040** / $0.50 (4 = D5's one gated live test, 18:28, $0.001298388;
+  40 = D6's product-shape run, 19:25, $0.000701652; D5 ≤ 20 / ≤ $0.05 held); keyless claude-subscription **2 / 10** (D4 builder #10's §15.3 4 agent run 17:58; D5's, result file written 18:39:35).
 - Folders / ports as session 2: D4 builders CDP **9302**, profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile`
   (not yet created); the verifier CDP **9305**, profile `…\profiles\decisions-D5-verify\profile`; both copied from `profiles\source\profile`
   WITHOUT `settings\settings.db*`. Kits `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\` and `\D5\`; scratch
@@ -948,7 +948,13 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   "CPU by default" to be amended when a local rung is next designed; D2 itself not edited by the orchestrator); (3) D-r27 (a): explained back
   (`ladder.ts` `planDecisionLadder` orders `['local', ...enabled, ...disabled, 'llm']` and `skippedBefore` lists only rungs AHEAD of the one
   that answered, so a switched-off rung never appears; the only place `skipped` is shown is the dev-preview tester's "Skipped:" line,
-  `DecisionsTester.tsx:74`) — awaiting his call.
+  `DecisionsTester.tsx:74`) — awaiting his call. **Then Hasan said "yes"** (to "plan and run it, and on which provider(s)?") → D6 opened
+  with the stated default scope (T3 × Jev only; MSD1 if he asks), ruling D-r29.
+- 2026-10-31 19:29 · **D6 DONE — the product shape HOLDS for Jev on T3** (reported to Hasan): 40 / 40, Brier 0.0042, 0 errors, p95 256.8 ms
+  per request (bar ≥ 38 / ≤ 0.05 / 0 / ≤ 2,000 ms); at 0.9 act-right 36 / act-wrong 0 / escalate 4 (t3-07, t3-12, t3-27, t3-37 — each answered
+  right); 40 requests, $0.000701652. Confound stated (framing + packing changed together; one run). Offered: MSD1 the same way (≤ 40 more
+  requests) and / or the D1-framed one-row-per-request control (40 more) — 16 requests remain under E-g's 60, so only one fits. Hasan said: —
+  (awaiting).
 
 ## Log (session 3)
 
@@ -1035,3 +1041,16 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 - 18:53 · **Orchestrator re-check:** HEAD `3557641`, tree clean; `6f23b95..HEAD` = Status.md (+/− 91), TESTING.md (131), D4 LOG (1);
   `0.001298388` in Status.md ×2 / TESTING.md ×3; "20.4 ms (D4) / 19 ms (D5)" at Status.md:68; the added lines' `sk-` / `Bearer` hits are
   descriptions of the scans, no key. **STOP (E-h)** — Stops (session 3).
+- ~19:1x · Hasan answered the stop's questions ("1. yes 2. no 3. what do you mean?"), then "yes" to running the measurement → D6 + D-r29
+  (commits `66ac2ad`, `da51e0c` 19:18:15).
+- 19:18 · D6 builder spawned (HEAD `da51e0c`).
+- 19:28 · D6 builder DONE (~39 tool calls, ~10 min; docs `0466e0b`): kit `D6\product-shape{.ts,.test.ts}`, `rescore.test.ts`, `vitest.config.mts`
+  (no `src/` change); dry run 40 bodies byte-identical to D3's `productShaped('t3', …)`; launcher lines 1–15 = `D4\live-test.sh` (diff / cmp exit
+  0), `bash -n` OK, no-echo scan empty — logged BEFORE the run; the live run ONCE 19:25:05 → 19:25:15: **HOLDS** — 40 / 40, Brier 0.0042, 0
+  errors, p95 256.8 ms (p50 220.5, first 446.8); act-right 36 / act-wrong 0 / escalate 4; ECE 0.056; per kind / Arabic 100 %; vs D1's answers no
+  side changed, mean |Δp| 0.0182, max 0.07; input tokens 16,706 (2.74× the packed 6,087).
+- 19:28–19:29 · **Orchestrator re-check:** HEAD `0466e0b`, tree clean (HANDOFF + LOG only); D1's `score.cjs` re-run by the orchestrator on
+  `…\D6\answers-hosted-jev-product-t3-noul-2026-10-31T17-25-15-113Z.json` (output in the session scratchpad, K1 untouched) → ALL 40 / 40, Brier
+  0.0042375, ECE 0.05625, sel ≥ 0.9 36 acted / 100 %; template 16 / caption 10 / clip 14 / Arabic 7 all 100 % — equal to the builder's; the
+  result JSON: `http` reached 40 / attempts 40 / cap 40, not stopped early, model `jev-1.14.0`, calibrated true, 0 cached, 0 errors, act-wrong 0,
+  escalate t3-07 / t3-12 / t3-27 / t3-37, Σ cost $0.000701652; 0 `sk-…` / `Bearer ` in the D6 outputs. **D6 → DONE (HOLDS).**
