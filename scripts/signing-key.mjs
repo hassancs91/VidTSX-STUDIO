@@ -139,7 +139,7 @@ export async function readSigningKey(flags, trust, ask = askHidden) {
   return { pem, ...signingIdentity(pem, requested, trust) };
 }
 
-/** "vidtsx-2 (VidTSX, trusted)" or "acme-1 (not in publishers.ts: …)" — what a packer prints after signing. */
+/** "vidtsx-3 (VidTSX, trusted)" or "acme-1 (not in publishers.ts: …)" — what a packer prints after signing. */
 export function describeSigner(key) {
   return key.publisher
     ? `${key.keyId} (${key.publisher.name}, trusted)`

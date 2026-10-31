@@ -22,14 +22,17 @@ export interface AgentPublisher {
 }
 
 /**
- * VidTSX's own keys. `vidtsx-2` (2026-10-17) is the signing key: its private
- * half is Hasan's, at `%USERPROFILE%\.vidtsx\keys\vidtsx-2.pem` (named by the
- * user env var `VIDTSX_AGENT_SIGNING_KEY`) with a copy in his password manager —
- * never in a repo or a session. The packers name a signature from this list
- * (scripts/signing-key.mjs), so no `--key-id` is needed. `vidtsx-1`
- * (2026-09-08) is RETIRED and no longer listed: its private half was lost on
- * 2026-10-17 and every built-in is re-signed with vidtsx-2. A package signed
- * with it now reads "Signed, unverified publisher" (it still installs).
+ * VidTSX's own keys. `vidtsx-3` (2026-10-31) is the signing key: its private
+ * half is Hasan's, at `%USERPROFILE%\.vidtsx\keys\vidtsx-3.pem` (named by the
+ * user env var `VIDTSX_AGENT_SIGNING_KEY`), ENCRYPTED with a passphrase, both
+ * kept in his password manager — never in a repo or a session; signing asks
+ * for the passphrase at the terminal. The packers name a signature from this
+ * list (scripts/signing-key.mjs), so no `--key-id` is needed. Retired and no
+ * longer listed: `vidtsx-1` (2026-09-08; private half lost 2026-10-17) and
+ * `vidtsx-2` (2026-10-17; a plain key file any program could read, replaced
+ * by the encrypted vidtsx-3 on 2026-10-31). Every built-in is re-signed with
+ * vidtsx-3; a package signed with a retired key reads "Signed, unverified
+ * publisher" (it still installs).
  *
  * Adding a key here is a claim about identity, so the bar for a new entry is
  * the same as the bar for shipping code: it says the app vouches for whatever
@@ -39,9 +42,9 @@ export interface AgentPublisher {
  */
 export const AGENT_PUBLISHERS: readonly AgentPublisher[] = [
   {
-    keyId: 'vidtsx-2',
+    keyId: 'vidtsx-3',
     name: 'VidTSX',
-    publicKey: 'MCowBQYDK2VwAyEATxMhi+HWSXCl4Q0zL3Idj7dMUyWdog+hUu71yGZVtSs=',
+    publicKey: 'MCowBQYDK2VwAyEA+SVykJhqaoKCOvnWi2Csx58zy9M6JUX6Ck2eMKDdFLI=',
   },
 ];
 

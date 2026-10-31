@@ -3,8 +3,9 @@
 // publishers.ts signs under ITS name, any other key needs a name no trusted
 // key uses, and `--genkey` writes a new key straight to a file and never prints
 // it. The name rules are unit-tested against a fake publisher list; `--genkey`
-// runs the REAL agent-pack.mjs in a child process. Since vidtsx-3 the key file
-// is encrypted and signing asks a person for the passphrase: the unlock is
+// runs the REAL agent-pack.mjs in a child process. Since vidtsx-3 (2026-10-31,
+// replacing vidtsx-2) the key file is encrypted and signing asks a person for
+// the passphrase: the unlock is
 // tested with an injected `ask`, the hidden prompt with a fake terminal.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

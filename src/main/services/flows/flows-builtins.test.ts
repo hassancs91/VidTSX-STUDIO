@@ -110,9 +110,9 @@ describe('built-in flow fixtures', () => {
     expect(flow!.manifest.author.name).toBe('VidTSX');
     expect(flow!.manifest.minAppVersion).toBe('1.1.0');
     expect(flow!.manifest.files).toEqual([]);
-    // Every built-in is signed (the first five as vidtsx-1, 38e067e): an edited
+    // Every built-in is signed, all six as vidtsx-3 (2026-10-31): an edited
     // flow.json must be re-signed in the same commit, or the store skips the
-    // folder (null above). interior-staging stays red here until Hasan signs it.
+    // folder (null above).
     expect(flow!.signature).toBe('verified');
     // `requires` is what the packer writes: the graph's tools, and the gates those tools carry.
     const doc = flowDocOf(flow!.manifest);

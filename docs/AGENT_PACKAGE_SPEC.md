@@ -353,8 +353,9 @@ The name a package is signed under (`keyId`) comes from the key: a key listed
 in `publishers.ts` always signs under its own entry's name, so `--key-id` is
 not needed (and a different one is refused). Any other key must be named with
 `--key-id`, and not with a name a listed key already uses. A lost key gets a
-new name (`vidtsx-1` was lost on 2026-10-17 and replaced by `vidtsx-2`); a
-name is never reused for a different key.
+new name (`vidtsx-1` was lost on 2026-10-17 and replaced by `vidtsx-2`, which
+gave way to the encrypted `vidtsx-3` on 2026-10-31); a name is never reused
+for a different key.
 
 The signature covers the canonical JSON of `agent.json`, which already hashes
 every other file — so signing the manifest signs the package. It lands in the
