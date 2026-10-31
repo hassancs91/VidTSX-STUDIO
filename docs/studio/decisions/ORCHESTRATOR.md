@@ -790,8 +790,8 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 
 | Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | BUILDING — steps 1–4 DONE (`cc754fa` `8f6ff6f`); step 5 (build + stills) next | 1 (#8) | re-check 17:25 (482 tests, tsc 25 / 10) → D-r24 | code `cc754fa` `8f6ff6f` | — | 2026-10-31 17:13 / — |
-| D4 (h) — the exit check | TODO | — | — | — | — | — |
+| D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | **DONE** (step 5 at `3f50e63` / docs `f86221c`) | 2 (#8, #9) | re-check 17:25 → D-r24; 17:54 (stills looked at) | code `cc754fa` `8f6ff6f` `3f50e63` | related 482 tests + 58; tsc 25 / 10; stills `B4\f5-{settings-decisions-row,providers-decisions}.png` | 2026-10-31 17:13 / 17:46 |
+| D4 (h) — the exit check | BUILDING — stub checks §15.3 2 / 1 / 3 PASS (`8b24e81`); §15.3 4 / 5 next, then the gate half | 1 (#9) | re-check 17:54 → D-r26 | — | max IPC gap 20.4 ms (20 concurrent); flow act / act / escalate, p in run.json | 2026-10-31 17:46 / — |
 | D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
 
 ## Answers in force (session 3 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-3.md, verbatim)
@@ -858,6 +858,30 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   stub log names which URL was hit; mode `off` → `decisionsDecide` answers `no-provider` with ZERO new stub hits; then mode `auto` with `jev`
   removed from `decisionsHostedOrder` (a FAKE OpenRouter key saved) → the OpenRouter-shaped port is hit and its body carries the noul criteria
   (`noulCriteriaRequired`, D-r23 (7)). The fake OpenRouter key is saved AFTER check 4 (so it cannot change the agent run's LLM path).
+- **D-r26 (orchestrator, 17:54) — D4 builder #9's decisions, accepted (2, 3 and the evidence rule below go into the D5 brief).** (1) The stub
+  (`D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\stub-server.mjs`) serves D1's raw recorded answer objects matched by the exact T3 question /
+  T2 request text, HTTP 422 for an unmatched question — D-r25 (1) as built. (2) **§15.3 2's "a call with the fake key yields `provider-error`
+  whose message holds neither the key nor the state" is read on the STUB's 401** (no hosted call with a fake key); the stub's ECHO mode (the
+  bearer token + the state's start in its error text) is the strict form — the wire message must come back withheld / redacted. (3) **The
+  engine's 15-min in-memory cache (D2 §9) turns a repeated identical request into a cache hit with no HTTP call and no usage row**: a verifier
+  that runs §15.3 1 on T3 rows and then §15.3 3 on the same rows restarts the app between them (or uses other rows) — not a defect. (4) The
+  stub's `usage.input_tokens` = the engine's own estimate formula per request; §15.3 4's cost term (`costUsd` = `inputTokens` × 0.042 / 1e6) is
+  checked on whatever count the stub sends. (5) Every still is looked at (a minimised window can return a STALE frame without hanging). (6)
+  **The §15.3 4 evidence rule (orchestrator):** the app does not store a tool's result text (`src/main/services/agents/tool-call-log.ts`
+  `ToolCallRecord` = callId / tool / at / args / isError / artifactIds — no result), and `~/.claude` is never read; so "the tool's text passes the
+  no-claim test" is evidenced by ALL of: the session's `calls.json` record of the `decide` call (args = the T2 framing, no `isError`); the stub
+  hit matched to that T2 row (the served numbers); the tool text the agent quotes word for word; and that quote EQUAL to the text the tree's
+  `decisionText` (`decide-outcome.ts` → `src/shared/decisions-outcome.ts`) produces from the served numbers (computed by a small script or test
+  in the kit, not in `src/`). The whole-word no-claim test (D-r22 (1)) is applied to the tool text, not to the agent's own prose. Re-check
+  17:52–17:54: HEAD `8b24e81`, tree clean, 0 `electron.exe`, nothing on 9302 / 18471 / 18472; `6febcb1..HEAD -- src` = `DecisionsRow.tsx`,
+  `decisions-view{,.test}.ts` (+32 / −1); vitest `src/shared/decisions-{view,client,tester-form}.test.ts` + `src/features/ai-models` → **7 / 58
+  passed**; tsc **web 25 / node 10** (`B4\tsc-{web,node}-orch-h1.log`); the three stills looked at (`f5-providers-decisions.png`: Decisions
+  section with TypeSafe row — Test greyed — + OpenRouter listed; `f5-settings-decisions-row.png`: mode, 1 Jev no key / 2 OpenRouter no key /
+  Local none available, OpenRouter model; `h3-flow-canvas.png`: two Text inputs → Check Matches Request showing "escalate", two output
+  handles); `h1-concurrency.json` 20 / 20 ok, calibrated, 0 cached, max gap 20.4 ms (2,431 pings in 550 ms), slowest call 549 ms;
+  `h3-flow-runs-2.json` act / yes / 0.96, act / no / 0.98, escalate / yes / 0.88, and `p` read straight from two `run.json` files on disk
+  (`…\profiles\decisions-D4\profile\flows-runs\01M69AA9S8FS1CNNWXAZ84XW9S\{1dec8639…,caee4cef…}\run.json` → node `n-check` outputs);
+  `stub-log.jsonl` 28 lines, 0 hits for `authorization` / `bearer` / the fake key.
 
 ## Stops (session 3)
 
@@ -889,3 +913,15 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   (Commit `e1f075c`, 17:27:25 — its "17:31" / "17:28–17:31" stamps were estimates, corrected to the measured clock in the next commit.)
 - 17:28 · D4 builder #9 to spawn (HEAD = the correction commit; step 5 of (f), then (h)'s stub live checks §15.3 1 / 2 / 3 / 4 / 5 per D-r25).
   0 `electron.exe`, nothing on 5173 / 9222 / 9302 at 17:27.
+- 17:28 · D4 builder #9 spawned (HEAD `6febcb1`).
+- 17:52 · D4 builder #9 HANDOFF (~98 tool calls incl. one Explore agent, ~24 min; code `3f50e63`, docs `f86221c` `8b24e81`): **part (f) DONE** — build
+  rc 0, profile `decisions-D4` (from `source`, 0 `settings.db*`), launched on 9302 with both D-r21 URLs (main logged both `dev stub URL in use`
+  lines), Studio root set first; two stills; one wording fix red first (`rungLineText`, "no key · no key" → once; 8 files / 68 tests; tsc 25 / 10);
+  the tester absent in the production build as D-r24 (3) says. **Part (h) stub checks:** §15.3 2 PASS (fake key typed + saved via the UI → `hasKey`
+  true + Test enabled; the stub's 401 in echo mode → `provider-error` "[message withheld: it echoed the request]"; fake key 0× in app.log / the stub
+  log; removal flips back; bundle 0 key / 0 `sk-…` / 0 "Bearer"); §15.3 1 PASS (max gap 20.4 ms); §15.3 3 PASS (t3-01 / t3-09 / t3-27 → act / act /
+  escalate after an app restart — the first pass hit §15.3 1's cache). §15.3 4 / 5 NOT run; 0 hosted, 0 / 3 keyless used. App + stub stopped.
+  Six decisions / notes (→ D-r26).
+- 17:52–17:54 · **Orchestrator re-check** (details in D-r26) → ruling **D-r26** (incl. the §15.3 4 evidence rule: the app stores no tool result
+  text, so calls.json + the stub hit + the agent's word-for-word quote = the tree's `decisionText` on the served numbers). D4 builder #10 (§15.3 4
+  then 5) to spawn.
