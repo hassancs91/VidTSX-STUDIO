@@ -957,6 +957,14 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   (~19:45, just before commit `e9e8586` at 19:45:56): "enough, what is next ?"** → no MSD1 run, no control; D6 closed. Told him what is left: his in-app key test (§15.3 1's 5 real calls,
   §15.3 6), question 3 (`skipped`), and the landing — `decision-models` is STACKED (it contains all of `end-to-end-p0` and `end-to-end-p0-e`
   and `library-search` up to `efa5e0b`; `library-search` has 28 later commits it lacks; `main` has 9 it lacks), so it cannot land alone.
+- 2026-10-31 19:48–19:50 · **Hasan: "can you run the app, and tell me … the steps to finish and close this"** → the branch build (wt/out, built
+  18:31 by D5, `src` = `3f50e63`, unchanged since) launched for HIS real-key test on a FRESH profile
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-hasan\profile` (robocopy from `source`, 2,325 files, 0 `settings.db*`), CDP 9306,
+  NO stub variables (real preset URLs; app.log has no "dev stub URL" line); kit `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\hasan-test\`
+  (`launch.sh`, `cdp.mjs`, `restore.ps1`, `set-root.js`, `make-flow.cjs` → `create-flow.js`); Studio root → `…\vidtsx-e2e\decisions\hasan-test\
+  studio-root`; flow "Decisions check — real key" (`01M69H9X498WS5G0TNJ1SN9HQH`, t3-01 preset, NOT run) created; status: mode auto, order jev →
+  openrouter-decisions, `jev.hasKey` false; window on AI → Providers. This profile will hold Hasan's REAL key once he saves it — delete it after
+  his test (never copy or read its `settings.db`).
 
 ## Log (session 3)
 
