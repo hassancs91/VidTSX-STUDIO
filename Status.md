@@ -113,12 +113,23 @@
      T3 cards were left `proposed`.
   2. **Landing `library-search`** after `end-to-end-p0-e` — his call; not pushed, not merged; the track-E exit waits for it.
 - **Notes (not FAILs):**
-  - **M22 — the `timelineCuts` IPC / renderer wiring has no test:** deleting
-    `...(data.timelineCuts ? { timelineCuts: data.timelineCuts } : {})` in `src/main/ipc/studio-handlers.ts` leaves all 1,165 tests of
-    the slice's set green (`mut\M22.log`,
-    `mut\summary.json`); the renderer side (`useStudioAgent.ts`, `EditorShell.tsx`) has none either. §8.1 3 pins the line's text and its
-    place in `buildAgentSystemPrompt`, not the pass-through (tsc only — accepted at builder #2's re-check). The turn records do not hold
-    the system prompt, so the live turns do not show the line either; each turn called `get_timeline` instead.
+  - **M22 — the `timelineCuts` IPC pass-through: COVERED since T4 (2026-10-31, `3d26cea`).** At T3, deleting
+    `...(data.timelineCuts ? { timelineCuts: data.timelineCuts } : {})` in `src/main/ipc/studio-handlers.ts` left all 1,165 tests of
+    the slice's set green (`mut\M22.log`, `mut\summary.json`). Now `src/main/ipc/studio-handlers-agent-send.test.ts` runs
+    `handleStudioAgentSend` itself, with `studioAgent` mocked, then captures the prompt-builder callback and calls it (the real
+    `buildAgentSystemPrompt`). The mock also cuts the handler's only path to `stream/promises`, so no extraction was needed. `:59` checks
+    that the request's `{ trackName: 'V1', clipCount: 2, gapCount: 0, cuts: [3] }` gives
+    `- V1 (master track): 2 clips · 1 cut — cut 1 at 0:03.00.` right after `- Timeline: 0:06 long.`. `:67` checks that without the
+    field there is no cuts line. **The red run:** with the M22 line removed, `:59` fails (`Expected: "- V1 (master track): 2 clips · 1
+    cut — cut 1 at 0:03.00."`, `Received: "- Captions: none set."`; 1 failed / 1 passed). The line was then restored (sha256 identical
+    before and after; `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T4\m22-red.log`, `m22-mutation.diff`). The file sits under
+    the slice set's `src/main/ipc/studio-handlers` filter, so the T3 mutation command now catches M22. T4's gates: the new test +
+    `studio-agent-prompt-timeline` + `studio-agent-prompt` 3 files / 32 tests green; tsc web 25 / node 10. The full worktree run
+    (try 1, default workers, the counted run, `T4\vitest-full.log`) gave 28 failed / 519 passed / 6 skipped (553) and 9 failed / 5,436
+    passed tests. Its failed set is exactly the 25 LS-r1c suites + the 3 E-d2a suites, with the same 9 tests as T3's counted run, and
+    no timeouts. No `src/` code changed, so `wt/out` was not rebuilt. Still untested: the renderer side (`useStudioAgent.ts`,
+    `EditorShell.tsx`). The turn records do not hold the system prompt, so the live turns do not show the line; each turn called
+    `get_timeline` instead.
   - **5000 ms timeouts in runs that did not count (AT-r2):** T3 try 1 `agent-memory.test.ts:108` — alone 1 file, 15 / 15
     (`gates\agent-memory-alone.log`), green in the counted run. T2 (`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\`, per
     the ORCHESTRATOR Log): run #1 `shot-module-resolver.test.ts:151` (DRIVING's named load test), the `--maxWorkers=4` run #3 the same
