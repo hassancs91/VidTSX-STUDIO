@@ -978,6 +978,16 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   the 4 `electron.exe` of the `decisions-hasan` profile stopped (0 left, 9306 free); the profile `…\profiles\decisions-hasan` (it held his key)
   DELETED 19:53 after a look (created 19:48:37, 2,198 files) — never read or copied. **§15.3 has no DEFERRED item left.** Left to close: question 3
   (`skipped`), the Status.md / TESTING.md §20 note of this test, and the landing (his go).
+- 2026-10-31 ~19:55 · **Hasan: "leave it" / "go".** (1) Question 3 / D-r27 (a): LEAVE IT — `skipped` keeps listing only the rungs ahead of the
+  one that answered; the switched-off state stays visible in `decisions:status` / Settings. Closed, no code change. (2) **"go" = land the stack
+  into `main`** — his explicit instruction, overriding the session brief's "never merge" for this step (still: never push, never rebase).
+  Topology (measured 19:55): `end-to-end-p0` ⊂ `end-to-end-p0-e` ⊂ `library-search` (at `efa5e0b`) ⊂ `decision-models`; `library-search` has 28
+  later commits (assistant timeline read T1–T4, code: `get_timeline`, the cuts line, the `insert_asset` cut anchor) not in `decision-models`;
+  `main` has 9 commits none of them have (interior staging flow, Kling 3 / 4, `join_clips`, signing key rotation; 38 files). `main` is checked
+  out nowhere. Plan: a landing worktree on `main` (`.vidtsx-temp\landing\wt`); merge `--no-ff` in order `end-to-end-p0` → `end-to-end-p0-e` →
+  `library-search` → `decision-models`, the full vitest gate + tsc after each, conflicts resolved by keeping both sides (append-only lists, dated
+  Status rows); first the Status.md / TESTING.md §20 note of Hasan's test on `decision-models`. Resources 19:55: C: 38.42 GB, D: 55.06 GB,
+  headroom 53.00 GB, 0 `electron.exe`. A landing builder runs it; the orchestrator re-checks.
 
 ## Log (session 3)
 
