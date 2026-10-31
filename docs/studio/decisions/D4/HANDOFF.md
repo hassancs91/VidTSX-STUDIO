@@ -1,5 +1,13 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF (D4 builder #6, 2026-10-31 11:38) — **part (e) DONE at `5605c48`** (the committed benchmark: D1's 4 recorded answer files
+status: HANDOFF — **orchestrator 2026-10-31 17:03: D4 builder #7 (part (f)) was INTERRUPTED by the session's end (~11:50) and never handed back.
+Its work is UNCOMMITTED and UNVERIFIED in the tree** (modified: `src/features/flows/components/CustomNode.tsx`,
+`src/main/services/agents/tools/decide-outcome.ts`, `decide-run.ts`, `src/shared/types/flows.ts`; new: `src/features/ai-models/services/
+decision-providers{,.test}.ts`, `src/features/flows/services/port-visibility{,.test}.ts`, `src/main/services/agents/tools/decide-shared-pins.test.ts`,
+`src/shared/decisions-{outcome,tester-form,view}.ts` + `decisions-{tester-form,view}.test.ts`; written 11:47–11:49 — tests + helpers only, no UI
+component yet, no build, no profile). **The next builder's FIRST job:** `git diff` + read those files, run their tests and the suites they touch
+(`agents/tools/decide*`, `flows`) and tsc; keep what is green and fits D2 / the rulings (it looks like the band / text moved to `src/shared/` so the
+renderer can reuse it, and a record-only port hide for D-r22 (2)), fix or drop the rest, commit a green sub-checkpoint, THEN continue part (f)
+below. Previous status: HANDOFF (D4 builder #6, 2026-10-31 11:38) — **part (e) DONE at `5605c48`** (the committed benchmark: D1's 4 recorded answer files
 scrubbed + the tree's scorer + the replay = `c-hosted.md` §2 cell for cell; the gated live test (SKIPPED without `VIDTSX_DECISIONS_LIVE=1`,
 never run by a builder) + its dry run on the recorded bodies; the D-r21 dev stub hook; 5 test files = 38 passed + 2 skipped after a red run;
 related suites 86 files / 703 tests + 1 skipped file; tsc web 25 / node 10); the verifier's launcher

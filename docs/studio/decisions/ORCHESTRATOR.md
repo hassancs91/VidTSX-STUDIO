@@ -611,6 +611,18 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 
 (one line per stop: what was reported, what Hasan said)
 
+- 2026-10-31 17:03 · **PAUSE — the session ended mid-D4 (not a protocol stop).** The Claude Code process exited while D4 builder #7 (part (f))
+  ran; it never handed back. State found at 17:02: D3 DONE (verdict FAIL — the local rung stays empty); **D4 (a)–(e) DONE and committed**
+  (`c7ad6da` `ed79420` `b7b1648` `d9ec730` `feb5e69` `5605c48`; last commit `0fd72c6`); part (f) = builder #7's UNCOMMITTED, UNVERIFIED files
+  (written 11:47–11:49: modified `CustomNode.tsx`, `decide-outcome.ts`, `decide-run.ts`, `src/shared/types/flows.ts`; new
+  `src/features/ai-models/services/decision-providers{,.test}.ts`, `src/features/flows/services/port-visibility{,.test}.ts`,
+  `src/main/services/agents/tools/decide-shared-pins.test.ts`, `src/shared/decisions-{outcome,tester-form,view}.ts` + two tests) — no build, no
+  `decisions-D4` profile, no logs; left in the tree for session 3's first builder to judge (the orchestrator commits no code). (g) not built
+  (D3); (h) and D5 not started. Caps used: hosted 0 / 60, keyless 0 / 10. **Hasan's dev app is RUNNING at 17:02** (`electron .` from the main
+  checkout on his `%APPDATA%\VidTSX Studio` profile; Vite on 5173) — never touch it. **Hasan said (17:02):** "ok, lets continue in a new
+  sesssion, give me a prompt" → `docs/studio/decisions/NEXT-SESSION-3.md` (the session-3 paste-in: finish (f) → (h) → D5 → STOP; E-a … E-h
+  still binding; rulings D-r12 … D-r23 in force); `NEXT-SESSION-2.md` marked SPENT.
+
 ## Log (session 2)
 
 - 08:48 · start checks: main checkout's uncommitted work still there (14 ` M` + 6 `??`, `end-to-end-p0` @ `5d77600`); Hasan's dev app NOT
@@ -744,3 +756,12 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   Arabic, Brier with multiclass, ECE, selective ≥ 0.5 / 0.7 / 0.9 with coverage, off-list); `live-test.sh` read (no value, nothing echoed); key
   scan over `benchmark/fixtures/` → nothing; vitest `src/main/services/decisions` + `src/decision-engine` → **17 passed + 1 skipped files, 179
   passed + 2 skipped tests** (the 2 = the gated live cases); tsc **web 25 / node 10** → ruling **D-r23**. D4 builder #7 (part (f), the UI) to spawn.
+  (Commit `0fd72c6`, 11:42:34.)
+- 11:43 · D4 builder #7 spawned (HEAD `0fd72c6`; part (f) — the Settings row, the Providers "Decisions" section + the TypeSafe test button (saved key
+  only), the dev-preview tester, D-r22 (2)'s `p` handle, then a build + CDP screenshots on profile `decisions-D4`, CDP 9302, no key saved).
+- ~11:50 · **the session's process exited while D4 builder #7 ran** (no hand-back; its files are stamped 11:47–11:49, nothing later).
+- 17:02 · **orchestrator check after the pause:** HEAD `0fd72c6`, no commit since; `git status` = this file + builder #7's 4 modified / 10 new code
+  files (listed in Stops); no `out/` rebuild, no `decisions-D4` profile, no D4 log after `tsc-web-e.log` (11:36); 0 instances on 9302 / 9305;
+  **Hasan's dev app running** (5 `electron.exe` on `%APPDATA%\VidTSX Studio`, Vite 5173); C: 43.15 GB free. Hasan asked for a new-session prompt →
+  `NEXT-SESSION-3.md` written; D4 HANDOFF's status + Next step amended (assess builder #7's leftovers first); docs committed (explicit paths —
+  the code leftovers stay uncommitted).

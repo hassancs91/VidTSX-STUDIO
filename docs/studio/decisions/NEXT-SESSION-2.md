@@ -1,5 +1,9 @@
 # Next session — DECISION MODELS, session 2: the Mapika spike (the local rung), THE BUILD of the shared decision engine, its verifier (Hasan 2026-10-31: "lets build a shared decision engine like in images and videos and so on, so we can use anywhere, and we have a section in providers for them")
 
+> **SPENT (2026-10-31 17:03).** Session 2 ran this paste-in from 08:48: D3 DONE (verdict FAIL — the local rung stays empty), D4 (a)–(e)
+> DONE; it ended mid-part (f). **Session 3's paste-in is `docs/studio/decisions/NEXT-SESSION-3.md`** — its Decisions block repeats E-a … E-h
+> unchanged.
+
 > Written 2026-10-31 by the session-1 orchestrator after D1 DONE-WITH-STOPS and D2 (accepted with Hasan's six answers, amended the same day).
 > Paste everything inside the fence into a new Claude Code session at `D:\repos\VidTSX-STUDIO`. **The Decisions block = Hasan's answers of
 > 2026-10-31 — binding; edit it only if you change your mind.** Session 1's state: `docs/studio/decisions/ORCHESTRATOR.md` (Stops, rulings
