@@ -22,7 +22,7 @@
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | D1 — the spike (no product code) | **DONE-WITH-STOPS** (D-r11, 2026-10-31 08:05: STOP 1 + 2 fire on local AND hosted T1; STOP 3 = a different first user + hosted-first ladder); report update by builder #10 | 9 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
-| D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | DRAFT only — waits on Hasan's answer to D1's STOP | — | — | draft `99def5d` | §2 / §5.3 / §15 / §16 pending | 2026-10-30 17:02 / — |
+| D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | **DONE — for Hasan's review** (the direction = D-r11's recommendation, his to confirm) | — | — | draft `99def5d`; final = the commit after `f48ec2e` (this file's 08:26 line) | `docs/studio/DECISION_MODELS_DESIGN.md` 357 lines: contract, hosted-first ladder, first users = `decide` tool / node + verification gates (+ routing hint, slice 2), §15 bar on the recorded Jev / MSD1 T2 / T3 answers (replay = table equality; gated live ≥ 38 / 40; no-claim strings; 6 live checks) | 2026-10-30 17:02 / 2026-10-31 08:26 |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
 for a later build + verifier (D-h).
@@ -181,6 +181,11 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   .env"; (3) "I don't understand" (the 600-calls reading — explained in the reply, the small tasks run first, T1 noul held); (4) "yes you can"
   (the `pip install laya` reference check); (5) "not now" (d1-omni); (6) "what are these? I don't understand?" (the T2 / T3 labels —
   explained; no action, labels stand). → **the run RESUMES: D1's hosted leg** (rulings D-r8 … D-r10), then the STOPs re-judged, then D2.
+- 2026-10-31 08:26 · **STOP — D1 DONE-WITH-STOPS + D2 written (the protocol stop, D-h).** Reported: the hosted leg measured (Jev / MSD1 T2 100 %,
+  T3 100 %, T1 choice 85.0 / 73.8 %; $0.038; T1 noul held); Laya verified faithful (its numbers stand, far from the bar); STOP 1 + 2 fire on
+  local AND hosted T1; STOP 3 = a different first user (routing / verification, not the library pick) on a hosted-first ladder with an empty
+  local rung; `docs/studio/DECISION_MODELS_DESIGN.md` written on that direction with §15 THE ACCEPTANCE BAR; the questions for Hasan = design
+  §16 (direction; T1 noul / the 600 reading; Clef-flash; Mapika; an OpenAI key; the TypeSafe key row; a spend cap). Hasan said: (pending)
 
 ## Log
 
@@ -387,4 +392,15 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   `B\hosted-dryrun` and the docs → nothing; `hosted-live.sh` read (no value in it); 0 node / python processes; `c-hosted.md` §2–§8 and
   `c-laya.md` §9 read — the numbers above are the files'. → **ruling D-r11** (the STOPs re-judged; D1 DONE-WITH-STOPS; D2's direction).
   D1 builder #10 (the report's hosted rows + Laya's status + §11–§15 per D-r11) to spawn; the orchestrator writes D2 meanwhile and commits
-  after the builder hands back.
+  after the builder hands back. (D-r11's "08:05" is the ruling's own stamp; its commit `4feacfd` landed 08:04:04.)
+- 08:06 · D1 builder #10 spawned (HEAD `4feacfd`); the orchestrator wrote `docs/studio/DECISION_MODELS_DESIGN.md` (357 lines) in parallel.
+- 08:23 · **D1 builder #10 DONE** (61 calls; docs `f48ec2e` — the report, HANDOFF, LOG only): `D1-spike-report.md` 422 → 585 lines — §0 the
+  verdict first (DONE-WITH-STOPS, the three STOPs with D-r11's numbers), §2 what ran (Jev + MSD1 19 requests each, $0.038; T1 noul HELD; OpenAI
+  no key; Laya measured; d1-omni parked), §4 six hosted rows + Laya relabelled "verified = the official runtime on E1–E3", §5 the hosted rows at
+  every τ, §7 / §8 hosted latency + cost, §10 findings 9–12 (P24–P26, Laya faithful), §11 the rule with the hosted reference, §12 first judgement
+  + re-judged, §13 / §14 / §15 per the brief; final `status: DONE-WITH-STOPS` with the three STOPs one line each. No number re-scored or invented
+  (its check: every added number names `c-hosted.md` §N / `c-laya.md` §9 / a score file / ORCHESTRATOR D-r10 for the experiment's figures).
+- 08:25 · **Orchestrator re-check:** HEAD `f48ec2e`; `git status` = only the orchestrator's D2 file; `efa5e0b..HEAD -- src scripts package*.json`
+  empty; the report's §0 and its status line read (D-r11's numbers verbatim); "NOTE, unverified" survives once (the §12 first-judgement history);
+  no Jev / MSD1 row still reads DEFERRED; a key-pattern scan over every doc under `docs/studio/decisions/` and the design note → nothing;
+  0 `electron.exe`. → D2 committed with this file; **the run STOPS (D-h).**
