@@ -1,5 +1,5 @@
 # D3 — the Mapika spike: decider-2b as the local rung (no product code)
-status: BUILDING (2026-10-31 09:21 — builder #2: (c) worker + host DONE, round trip proven; (d) GPU runs in progress)
+status: HANDOFF (2026-10-31 09:28 — builder #2: (c) DONE; (d) GPU headline T2 + T3 + T1-note DONE, T2 packed DONE; left in (d): T3 + T1 packed, CPU T2 + T3)
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it unless absolute).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — section "Session 2": its "Answers in force" (Hasan's E-a … E-h,
@@ -123,6 +123,24 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
   trip, `workerMs` beside), run file `K3\reports\d-run-<name>.json`, D1's `score.cjs` run with `--out K3\reports\score-<name>` (never into
   K1); a run with any CPU sample > 30 % is repeated once (`-rep2`, both kept); `K3\reports\d-summary.md` regenerated after every call
   (`--summary-only` to rebuild it).
+- **(d) GPU runs DONE so far (builder #2, 09:16–09:27; numbers = `K3\reports\d-summary.md`, generated 07:27:40Z, from `d-run-<name>.json` +
+  `score-<name>.json|.md`; answers `K3\answers\<name>.json`; name = `mapika-decider-2b-v11-gpu-<task>-<mode>[-packed]`):**
+
+  | run (GPU, one row per request unless packed) | acc | Brier | ECE | sel ≥0.5 / ≥0.7 / ≥0.9 acc (cov) | Arabic | off-list | warm / request p50 · p95 ms | spawn → first answer | peak / steady RSS MB | peak private MB | VRAM max alloc MB | CPU before · mid · after |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | t2-choice (headline) | 95.0 % (38/40) | 0.053 | 0.061 | 95.0 (100) / 94.4 (90) / 100.0 (65) | 90.0 % (10) | 0 | 89.3 · 92.5 | 14.36 s | 4,483.7 / 1,673.9 | 6,702.6 | 3,647.5 | 5.9 · 7 · 8 % |
+  | t3-noul (headline) | 82.5 % (33/40) | 0.122 | 0.148 | 82.5 (100) / 90.0 (75) / 100.0 (20) | 85.7 % (7) | n/a (noul) | 54.7 · 227.2 | 14.27 s | 4,482.9 / 1,692.2 | 6,755.7 | 3,648.9 | 9.3 · 30 · 12 % |
+  | t1-choice (note) | 73.3 % (240) | 0.240 | 0.249 | 87.0 (45.0) / 90.2 (21.3) / — (0.0) | 80.0 % (10) | 0 | 595.3 · 598.4 | 16.11 s | 4,484.1 / 1,737.8 | 7,521.8 | 3,988.8 | 8 · 14 · 27 % |
+  | t2-choice-packed (note; 1 call of 40) | 95.0 % | 0.052 | 0.104 | same as headline | 90.0 % | 0 | — (one cold request 251,311.1 ms) | 268.85 s | 4,484.4 / 3,231.2 | 9,694.2 | **6,185** | 16 · — · 10.2 % |
+
+  T1 under D-r2 (`d-summary.md` "T1 under D-r2", ALL; D1's hosted rows read from `K1\reports\c-hosted-{jev,openrouter-msd1}-t1-choice.json`,
+  not re-scored): Mapika τ 0.5 R@1 88/187 = 47.1 %, wrong-confident 14/240 = 5.8 %; τ 0.7 43/187 = 23.0 %, wc 5/240 = 2.1 %; τ 0.9 0 picks
+  (R@1 0.0 %, wc 0.0 %, correct none 53/53). Jev τ 0.5 79.1 % / wc 9.6 %; MSD1 τ 0.5 66.8 % / wc 10.0 %. No run hit the > 30 % CPU repeat rule
+  (max sample 30 = T3's mid-run, not > 30), so no `-rep2` yet. Transport (host − worker) p50 0.44–0.84 ms. nvidia-smi: 528 MiB before →
+  4,313 MiB loaded → 528 MiB after for every per-request run.
+- **Preview of the bar (for (e) — the builder of (e) re-reads the files):** T2 38/40 meets "≥ 38" but Brier 0.053 > 0.05; T3 33/40 and Brier
+  0.122 fail; off-list 0; warm p95 per request 92.5 (T2) / 227.2 (T3) ms ≤ 300; peak RSS ≈ 4,483 MB > 2 GB (steady ≈ 1.7 GB). → several terms
+  fail, NOT "RSS only" → per (e) the rung stays empty (a note, not a STOP: the runtime runs, D2 already allows an empty rung).
 
 ## Verified
 
@@ -135,16 +153,22 @@ PASS. `K3` holds the worker, the host, the run scripts, answers and reports; not
   CPU load 6 % before / 13 % after, GPU 576 → 576 MiB): load 11.100 s, process start → first answer 15.896 s, first answer 981.3 ms, warm
   34.5–37.2 ms, RSS 900.1 MB after load / 1,668.1 MB at the end / peak 4,483.9 MB, VRAM max allocated 3,625.7 MB. No `python` process left
   after either run (`load-snapshot.ps1` "after" lines: `python_processes=none`).
+- (c) smoke: `node mapika-host.cjs --smoke --rows 3 --device cuda` (from K3) → rc 0, `reports\c-host-smoke-cuda.json` (numbers in Done (c)).
+- (d): `node d-run.cjs --runs t2:choice:cuda:per-request` (09:16:31–09:17:04) → rc 0, "acc 95.0 % (40 q, answered 40), Brier 0.053, ECE 0.061 ·
+  cold 14357 ms · warm/request p50 89.3 p95 92.5 ms · peak RSS 4483.7 MB steady 1673.9 MB · CPU 5.9/7/8 % · errors 0".
+  `timeout 590 node d-run.cjs --runs t3:noul:cuda:per-request,t1:choice:cuda:per-request,t2:choice:cuda:packed,t3:noul:cuda:packed,t1:choice:cuda:packed`
+  (09:17:19–09:27:12) → T3, T1, T2-packed lines as in the table; then **my own `timeout 590` fired during t3-noul-packed** (rc 124): the
+  worker was killed mid-request, the host threw "worker not running" at `stats()`, so NO t3-packed answer / run file was written and t1-packed
+  never started. After: `Get-Process python*` → `python_processes=none`; nvidia-smi 387 MiB used (09:27:39). `node d-run.cjs --summary-only` → ok.
 
 ## Next step
 
-Step (c): write the persistent worker `K3\mapika_worker.py` + the Node host `K3\mapika-host.cjs` per the Goal's (c) — first read D1's
-`K1\hosted-run.cjs:39-57` (the exact T1 / T2 / T3 question texts + criteria, D-r12), `K1\reports\b-tasksets.md` (the `vidtsx-d1-answers/1`
-answer format) and `K1\llama-run.cjs` / `laya-run.cjs` (how D1 recorded cold / warm / RSS / CPU load); reuse `K3\scripts\b-smoke.py`'s
-fixed `K32GetProcessMemoryInfo` reader for RSS and `load-snapshot.ps1` for the guard; the venv's python is
-`C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D3\py-scratch\mapika-venv\Scripts\python.exe` (spawn it with `TORCHDYNAMO_DISABLE=1` and
-`HF_HUB_OFFLINE=1`, weights from `D:\repos\ai-video-lab\tools\deciders\models\Mapika\decider-2b`); prove the host ↔ worker round trip on 2–3
-T2 rows, then step (d).
+Finish (d), each as its own background command with NO `timeout` wrapper shorter than the job (`run_in_background: true`, then wait for the
+notification), from K3: (1) `node d-run.cjs --runs t3:noul:cuda:packed` (expect ~4–5 min: the T2 packed call spilled past the 6 GB card —
+see Open problems); (2) `node d-run.cjs --runs t2:choice:cpu:per-request,t3:noul:cpu:per-request` (the CPU note; fp32 eager ≈ 8 GB RAM; check
+the guard); (3) T1 packed (17 of D1's hosted requests, ~14 rows × 21 options each) — first estimate it from (1)'s time per question; if it would
+exceed ~20 min, record "not run: VRAM spill makes one packed request take minutes" as the note instead of running it. Then step (e) (the report),
+reading `K3\reports\d-summary.md` + the score / run files.
 
 ## Open problems
 
@@ -163,6 +187,16 @@ T2 rows, then step (d).
   must pin `revision="v11"` and check sha256 `acaef222…817f` (the size cannot tell v11 from v12). Whether v12 with its fitted map would score
   better is outside D3 (no download into Hasan's folder; a v12 measurement would need the orchestrator's yes and a B3 download of 3.76 GB).
 - Not tested: the smoke without `TORCHDYNAMO_DISABLE=1`; the CPU path (planned in (d) as a note); `use_graphs=False` (eager) on CUDA.
+- **(builder #2) A packed System One call spills past the 6 GB GPU.** `d-run-…-gpu-t2-choice-packed.json`: one call of 40 questions
+  (`independent=True` → `Engine.score_shared`, the state's cache forked to 40 rows) reached torch max allocated 6,185 MB / reserved 6,746 MB on a
+  6,144 MiB card (nvidia-smi end 5,871 MiB, 100 %) and took 251,311.1 ms — vs 40 × ~89 ms one row per request. Windows' shared-memory fallback is
+  the likely reason (not proven). Answers are the same quality (95.0 %, Brier 0.052). For D4 / the design: the worker must send one row (or a
+  few) per forward on this class of GPU — a fact for the report's "How D4 (g) productises it"; the D-r12 headline is unaffected.
+- **T3 is the weak family:** 33/40, Brier 0.122, ECE 0.148, and only 20 % coverage at ≥ 0.9 (`score-…-gpu-t3-noul.md`). Mapika's noul
+  temperature is 1.624 (v11 config). Whether v12's fitted map would do better is outside D3 (D-r14).
+- `d-summary.md` prints "undefined" in the per-question / transport cells of a run with no warm request (the packed runs) — cosmetic; fix
+  the `?.toFixed` guards in `d-run.cjs` `summary()` if it matters for (e).
+- `ORCHESTRATOR.md` showed ` M` in the worktree at 09:21 — not a D3 builder edit; left unstaged (explicit-path commits only).
 
 ## Do-not-redo
 
@@ -171,9 +205,15 @@ T2 rows, then step (d).
 - (a) is done: `K3\reports\a-facts.md` + `raw-hub\` — do not re-fetch the Hub / PyPI facts unless a later step needs a NEW fact (e.g. D4's
   file list for revision v11 is already in `raw-hub\api-decider-2b-v11.json`).
 - (b) is done: the venv exists and works on CUDA — do not rebuild it; do not reinstall torch (the wheel came from pip's cache).
+- (c) is done: `K3\mapika_worker.py`, `K3\mapika-host.cjs`, `K3\d1-questions.cjs` work (smoke `reports\c-host-smoke-cuda.json`) — reuse, don't rewrite.
+- (d) GPU per-request T2 / T3 / T1 and GPU T2 packed are done (answers + `d-run-*` + `score-*` in K3) — do not re-run them (a re-run is only
+  for the > 30 % CPU rule, which none of them hit).
 
 ## Agents so far
 
 - 2026-10-31 08:53–09:08 · builder #1 · ~42 tool calls · read the brief docs + the Mapika card / config / `infer.py` / the deciders recipe +
   install.log + the experiment LOG's Mapika lines (~1,000 lines of source); step (a) facts (`a-facts.md`, `raw-hub\`), step (b) the venv +
   two GPU smokes (`b-venv.md`, `b-smoke-gpu-run{1,2}.json`); handed off before (c) (budget).
+- 2026-10-31 09:12–09:29 · builder #2 · ~40 tool calls · read the HANDOFF, ORCHESTRATOR session 2 + D-r2 / D-r8 / D-r10, `K1\hosted-run.cjs`,
+  `b-tasksets.md` §4–§5, `score.cjs`, the `Decider` constructor / `system_one` and `systemone.assemble` (~700 lines); step (c) worker + host +
+  smoke (commit `15b00d8`); step (d) runner + GPU T2 / T3 / T1 / T2-packed; handed off with T3 / T1 packed and the CPU note left (budget).
