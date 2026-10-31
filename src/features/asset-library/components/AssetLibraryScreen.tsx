@@ -29,6 +29,9 @@ import {
   type ChipFilter,
 } from '../services/asset-search';
 import type { AssetEntry } from '../types';
+import { useLibrarySearch } from '../hooks/useLibrarySearch';
+import { mergeSmartResults } from '../services/smart-search-merge';
+import { SmartSearchMarker } from './SmartSearchMarker';
 
 export function AssetLibraryScreen() {
   const { rootPath, currentPath, entries, nodes, loading, error, navigate, refresh } =
@@ -92,10 +95,15 @@ export function AssetLibraryScreen() {
   // Searching flattens the listed subtree — the breadcrumb is the scope,
   // so searching at the root searches the whole library.
   const searching = query.trim() !== '' || category !== 'all' || chip !== null;
-  const displayedEntries = useMemo(
-    () => (searching ? filterAssets(flattenAssetFiles(nodes), query, category, metaFor, chip) : entries),
-    [searching, nodes, query, category, chip, entries, metaFor]
-  );
+  // Smart (LIBRARY_SEARCH_DESIGN.md §8.3): the service's top 20 first, then today's filter matches.
+  const smart = useLibrarySearch(query, rootPath ? toLibraryRelPath(rootPath, currentPath) : '', category);
+  const displayedEntries = useMemo(() => {
+    if (!searching) return entries;
+    const flat = flattenAssetFiles(nodes);
+    const filtered = filterAssets(flat, query, category, metaFor, chip);
+    const relPathOf = (e: AssetEntry) => toLibraryRelPath(rootPath, e.node.path);
+    return mergeSmartResults({ flat, filtered, smart: smart.relPaths, relPathOf, category, chip, metaOf: metaFor });
+  }, [searching, nodes, query, category, chip, entries, metaFor, rootPath, smart.relPaths]);
 
   const subtitleFor = useCallback(
     (entry: AssetEntry): string | undefined => {
@@ -289,6 +297,8 @@ export function AssetLibraryScreen() {
           onCategory={setCategory}
           chip={chip}
           onClearChip={() => setChip(null)}
+          adornment={<SmartSearchMarker status={smart.status} result={smart.result} />}
+          onSubmit={smart.settle}
         />
         <AssetBreadcrumb rootPath={rootPath} currentPath={currentPath} onNavigate={navigate} />
       </header>

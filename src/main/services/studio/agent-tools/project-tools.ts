@@ -7,6 +7,8 @@ import { formatBrandSummary } from '../../library/brand-summary';
 import { getLibraryRoot } from '../../library/library-paths';
 import { loadIndex } from '../../library/library-store';
 import { formatLibraryListing } from './library-listing';
+import { formatLibrarySearchListing } from './library-search-listing';
+import { toolLibrarySearch } from './tool-library-search';
 import { resolveProjectBrand } from '../project-brand';
 import { LIBRARY_REF_PREFIX } from '../shot-asset-refs';
 import {
@@ -18,6 +20,9 @@ import {
   type StudioTool,
   type StudioToolContext,
 } from './types';
+
+/** At most this many rows answer a library query (design §8.2). */
+const LIBRARY_SEARCH_LIST_LIMIT = 20;
 
 export function buildProjectTools(ctx: StudioToolContext): StudioTool[] {
   const { req } = ctx;
@@ -31,7 +36,7 @@ export function buildProjectTools(ctx: StudioToolContext): StudioTool[] {
       query: z
         .string()
         .optional()
-        .describe('Case-insensitive. Project scope: a substring of the name or description. Library scope: EVERY word must appear in the path, description, tags or category ("soft whoosh")'),
+        .describe('Project scope: a case-insensitive substring of the name or description. Library scope: ranked by the library search (words + meaning when the local search model is on, else words only) — at most 20 refs that may fit, in search order (the order is not a ranking of fit); read the descriptions. Without a query the library scope lists everything (capped)'),
     },
     async (args) => {
       const scope = args.scope ?? 'project';
@@ -52,7 +57,14 @@ export function buildProjectTools(ctx: StudioToolContext): StudioTool[] {
       }
       try {
         const index = await loadIndex(getLibraryRoot());
-        return text(formatLibraryListing(index.entries, { kind: args.kind, query: q }, LIBRARY_REF_PREFIX));
+        const query = args.query?.trim() ?? '';
+        if (!query) return text(formatLibraryListing(index.entries, { kind: args.kind }, LIBRARY_REF_PREFIX));
+        // §8.2: a library query is ranked by the shared search (the raw query; `kind` → `kinds`), ≤ 20 rows.
+        const result = await toolLibrarySearch(
+          { query, ...(args.kind ? { kinds: [args.kind] } : {}), limit: LIBRARY_SEARCH_LIST_LIMIT },
+          index.entries,
+        );
+        return text(formatLibrarySearchListing(result, index.entries, query, args.kind, LIBRARY_REF_PREFIX));
       } catch (err) {
         return text(`Could not read the library: ${errorText(err)}`, true);
       }

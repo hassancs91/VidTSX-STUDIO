@@ -639,6 +639,14 @@ export interface ElectronAPI {
   agentJobUpdate: (data: import('../../shared/ipc/types').AgentJobUpdateRequest) => Promise<import('../../shared/ipc/types').AgentJobUpdateResponse>;
   agentMemoryProposalsGet: (data: import('../../shared/ipc/types').AgentMemoryProposalsGetRequest) => Promise<import('../../shared/ipc/types').AgentMemoryProposalsGetResponse>;
   agentMemoryProposalResolve: (data: import('../../shared/ipc/types').AgentMemoryProposalResolveRequest) => Promise<import('../../shared/ipc/types').AgentMemoryProposalResolveResponse>;
+  // Library search (LIBRARY_SEARCH_DESIGN.md §10) — preload `api/library-search.ts`
+  librarySearch: (data: import('../../shared/ipc/types').LibrarySearchQueryRequest) => Promise<import('../../shared/ipc/types').LibrarySearchResponse>;
+  librarySearchStatus: () => Promise<import('../../shared/ipc/types').LibrarySearchStatusResponse>;
+  librarySearchSettingsSet: (data: import('../../shared/ipc/types').LibrarySearchSettingsSetRequest) => Promise<import('../../shared/ipc/types').LibrarySearchSettingsSetResponse>;
+  onLibrarySearchEvent: (callback: (event: import('../../shared/ipc/types').LibrarySearchEvent) => void) => () => void;
+  // The embedding model download the Library search row reuses — preload `api/embedding.ts`
+  embeddingModelDownload: (data: import('../../shared/ipc/types').EmbeddingModelDownloadRequest) => Promise<import('../../shared/ipc/types').EmbeddingModelDownloadResponse>;
+  onEmbeddingDownloadProgress: (callback: (data: import('../../shared/ipc/types').EmbeddingDownloadProgressEvent) => void) => () => void;
 }
 
 declare global {

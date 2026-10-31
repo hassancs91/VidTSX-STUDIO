@@ -9,6 +9,7 @@
 // that play the asset (sourceIn/duration).
 
 import { masterLane } from '@shared/studio';
+import { mapSourceSpanToTimeline } from '@shared/studio/source-span-map';
 import type { CutQaItem, CutQaReport } from '@shared/types/studio-cut-plan';
 import type { StudioProposal, StudioProposalItem, StudioTimeline } from '../types';
 import { clipEndTime } from './timeline-ops';
@@ -39,31 +40,16 @@ export interface CutTimelineRegion {
 /**
  * Where a cut item lands on the CURRENT timeline: the intersection of its
  * source span with every clip that plays the same asset. A span outside all
- * clips (already trimmed away) yields no regions.
+ * clips (already trimmed away) yields no regions. The mapping itself is the
+ * shared `mapSourceSpanToTimeline` (the cut anchor checks against it too).
  */
 export function mapCutItemToTimeline(
   timeline: StudioTimeline,
   item: StudioProposalItem,
 ): CutTimelineRegion[] {
   if (!item.assetId || item.sourceStart === undefined || item.sourceEnd === undefined) return [];
-  const regions: CutTimelineRegion[] = [];
-  for (const track of timeline.tracks) {
-    for (const clip of track.clips) {
-      if (clip.assetId !== item.assetId) continue;
-      const sourceIn = clip.sourceIn ?? 0;
-      const from = Math.max(item.sourceStart, sourceIn);
-      const to = Math.min(item.sourceEnd, sourceIn + clip.duration);
-      if (to - from < 1e-6) continue;
-      regions.push({
-        itemId: item.id,
-        trackId: track.id,
-        clipId: clip.id,
-        start: clip.timelineStart + (from - sourceIn),
-        end: clip.timelineStart + (to - sourceIn),
-      });
-    }
-  }
-  return regions.sort((a, b) => a.start - b.start || a.trackId.localeCompare(b.trackId));
+  const span = { assetId: item.assetId, sourceStart: item.sourceStart, sourceEnd: item.sourceEnd };
+  return mapSourceSpanToTimeline(timeline, span).map((region) => ({ itemId: item.id, ...region }));
 }
 
 /** All regions of a proposal, flattened — the overlay layer's data. */

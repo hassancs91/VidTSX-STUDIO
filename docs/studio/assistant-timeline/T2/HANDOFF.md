@@ -1,0 +1,322 @@
+# T2 — build: `get_timeline`, the cuts line, the cut anchor
+status: DONE — design §9 steps 1 (`307f96f`), 2 (`99c35b1`), 3 (`cf4fb0c` characterization + `021a2d6`) and 4 DONE: `wt/out` built +
+the §8.3 1 smoke (builder #4, at `8b1c2e5`); the §8.2 gates run and green at `123ffed` (builder #5, 16:47–16:58; `src/` = `021a2d6`'s).
+T3 (the independent verifier) next.
+
+## Goal (the paste-in's T2 row verbatim + the exit)
+
+"T2 — BUILD, red-first, hand-off-sized: (1) then (2) then (3) with unit tests first; rebuild wt/out; the builder's own CDP smoke on an
+isolated profile (open the 2-clip project, one get_timeline call through the real handler, NO model turn); the full gates. No Status.md
+/ TESTING.md records in T2."
+
+Exit: design `docs/studio/ASSISTANT_TIMELINE_DESIGN.md` §9 steps 1–4 done — every §8.1 test in the tree and green (new behaviour shown
+red first; the `insert_asset` number / word characterization tests green on the UNCHANGED code first), the §8.3 1 smoke done, the §8.2
+gates run and recorded.
+
+## Plan context
+
+- The design note (all of it; §8 is the bar the T3 verifier holds). Why: `docs/studio/assistant-timeline/NEXT-SESSION.md` "Why".
+- Code: `src/main/services/studio/studio-agent-prompt.ts` (+ `studio-agent-prompt-tools.ts`), `agent-tools/{insert-tools,project-tools,
+  index,types,cut-run-line,flow-range}.ts`, `timeline-insert.ts`, `src/shared/studio/{caption-words,cut-learn-joins}.ts`,
+  `src/shared/types/studio.ts` (StudioClip :153, StudioTrack :184, StudioTimeline :205), `src/shared/ipc/types/studio.ts`
+  (StudioAgentSendRequest :471), `src/main/ipc/studio-handlers.ts:535-558`, `src/features/studio/components/EditorShell.tsx:487`,
+  `src/features/studio/hooks/useStudioAgent.ts:59,250`, `src/features/studio/services/{cut-proposal.ts:44-67,apply-insert-proposal.ts,
+  apply-shot-proposal.ts:32-40}`.
+- The worktree recipe and the vitest gate rules: `docs/studio/end-to-end/DRIVING.md` "Track E" (no node_modules here; E-d2a; E-d13) and
+  `docs/studio/search/ORCHESTRATOR.md` rulings LS-r1 / LS-r1b / LS-r1c (the 25 `<wt>\stream` suites + the fresh-worktree proof).
+- Real-handler harness pattern (app stopped): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\S4\r1\tools.s4.test.ts` + `vitest.s4.config.ts`
+  (read-only; copy into `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\`).
+
+## Done
+
+- **§9 step 1 (§8.1 1, 2, 6's get_timeline half) — commit `307f96f`** (as of `307f96f`):
+  - `src/shared/studio/timeline-cuts.ts` (130 lines): `JOIN_EPS` :18, `isThroughEdit` :66, `masterTimelineModel` :78 (master =
+    `masterLane`; clips in `timelineStart` order; joins / cuts numbered over the whole timeline / gaps incl. the leading one),
+    `summarizeMasterCuts` :106 (→ `MasterCutsSummary` :55 `{ trackName, clipCount, gapCount, cuts }`, undefined without a master),
+    `timelineLength` :118 (delegates to `time-math.ts` `timelineDuration` — same rule, no duplicate), `formatTimelineTc` :125. Exported
+    through `src/shared/studio/index.ts:31-39`. Test `timeline-cuts.test.ts` (17 tests).
+  - `src/main/services/studio/agent-tools/timeline-listing.ts` (165 lines): `formatTimelineListing` :141 (the §3 text; caps
+    `MASTER_ROW_CAP` 40 :17 / `OTHER_ROW_CAP` 20 :18; `CUT_FOOTER` :23). Test `timeline-listing.test.ts` (the 2-clip answer exact;
+    the synthetic 60-clip / 25-shot / 2-audio / muted+locked timeline page 1 + page 2 (`fromSec: 80.5`, starts at `#41 … ← cut 39`) +
+    a `toSec` window; bad window; empty; no-master; labels (missing asset, image, shot in / not in the pool, caption ± label, speed,
+    gain); a transition suffix; a through-edit row; flags).
+  - `src/main/services/studio/agent-tools/timeline-tools.ts` (49 lines): `GET_TIMELINE_DESCRIPTION` :13 (the design's text exactly),
+    `buildTimelineTools` :21 (`loadProject(req.projectId)`; failure → `Could not read the timeline: <message>`; chip `get_timeline`
+    with a window detail when windowed; no review-open check — read-only). Test `timeline-tools.test.ts` (real handler, `loadProject`
+    mocked: 2-clip answer exact with `reviewOpen: true`, load failure, window + bad window, description exact incl. `{ cut` + caps).
+  - `agent-tools/index.ts`: `'get_timeline'` appended LAST :70 (after `'read_note'`), import :24, group :104.
+  - `studio-agent-prompt-tools.ts:20`: the §7 get_timeline line, immediately before the `insert_asset` line (:21).
+  - Prompt pins in a NEW file `src/main/services/studio/studio-agent-prompt-timeline.test.ts` (the existing
+    `studio-agent-prompt.test.ts` untouched): the line exact + right before `insert_asset`'s; `STUDIO_TOOL_IDS` = the 29 of `0df9e9c`
+    + `'get_timeline'`.
+- **§9 step 2 (§8.1 3) + ruling AT-r1 — commit `99c35b1`** (as of `99c35b1`; 8 files, +157 / −8):
+  - AT-r1: `timeline-listing.ts` `masterRows` prints the gap row (:105-111) BEFORE the cap check (:112), so page 1 ends `  gap …` then
+    `  … +N more — …` and page 2 (starting at the gap's end) does not repeat it. Test `timeline-listing.test.ts:136` (`synthetic(40)`:
+    the gap right before #41; page 1 lines 41–44 exact, 40 rows; page 2 starts `#41` with no cut suffix, `#42 … ← cut 40`, no gap row).
+    `synthetic()` gained a `gapAt = 10` parameter (default = the old fixture; no existing assertion edited).
+  - The cuts line: `formatMasterCutsLine(summary?)` `timeline-listing.ts:177` (`CUTS_LINE_SHOWN` 5 :173) — §4's text; undefined for
+    absent / 0 clips. `StudioAgentTimelineCuts` `src/shared/ipc/types/studio.ts:474` (same shape as `MasterCutsSummary`, an independent
+    interface — tsc checks the two agree at `EditorShell.tsx:489`) + `StudioAgentSendRequest.timelineCuts?` :509.
+    `BuildAgentPromptInput.timelineCuts?` `studio-agent-prompt.ts:64`; the line pushed right after `- Timeline: …` :96-97 (import :13).
+    `studio-handlers.ts:552` passes it; `useStudioAgent.ts:62` option + :256 spread; `EditorShell.tsx:489` `timelineCuts:
+    summarizeMasterCuts(tl.timeline)` (import :14). Growth of the pre-existing over-300 files: `EditorShell.tsx` +2 (1674 → 1676),
+    `useStudioAgent.ts` +4 (336 → 340), `src/shared/ipc/types/studio.ts` +14 (972 → 986), `studio-handlers.ts` +1 (672 → 673). New /
+    touched under-300: `timeline-listing.ts` 188, `studio-agent-prompt.ts` 170.
+  - Tests in `studio-agent-prompt-timeline.test.ts` :44 (absent / 0 clips → none; 1 clip 0 cuts; 2 clips 1 cut via `summarizeMasterCuts`
+    of the 2-clip timeline; exactly 5; 6 → `+1 more (get_timeline lists them)`; 1 and 2 gaps) and :94 (`buildAgentSystemPrompt`: the
+    line right after `- Timeline: 0:06 long.`; absent / 0 clips → `- Captions: none set.` follows).
+- **§9 step 3 (§8.1 4, 5, 6's insert_asset half, 7) — commits `cf4fb0c` (characterization, alone) then `021a2d6`** (as of `021a2d6`;
+  `git diff --stat cf4fb0c 021a2d6` → 13 files, +752 / −36):
+  - `cf4fb0c` = ONLY `agent-tools/insert-tools-anchor.test.ts` (219 lines, 7 tests, real `insert_asset` handler; mocks
+    `../asset-transcriber`, `../agent-actions`, `../project-store`, `./library-import`): the number path (item, headline `at 0:03.0`,
+    answer, chip `audio at 3s`; gain / note / asked duration clipped; a negative time → `timelineStart` 0 with the existing
+    `-1:59.0` label), the `{ word, take }` path (item `{ assetId, sourceStart 4.2, sourceEnd 4.2 + 0.7 }`, headline `where the footage
+    reaches 0:04.2 (source)`, chip `audio at "hello"`; take default 1 + explicit footage id), the four word errors, the three guards.
+    GREEN on the unchanged `insert-tools.ts`; not edited since.
+  - `src/shared/studio/source-span-map.ts` (48 lines): `mapSourceSpanToTimeline` :30 (the moved core); exported `index.ts:40-41`.
+    `features/studio/services/cut-proposal.ts:44-53` `mapCutItemToTimeline` = the guard + the shared call + `itemId` (import :12);
+    `cut-proposal.test.ts` untouched and green. Test `source-span-map.test.ts` (4 tests).
+  - `agent-tools/cut-anchor.ts` (104 lines): `cutAnchorLabel` :37, `resolveCutAnchor` :68 (`MAP_EPS` 0.001 :29; footage kinds
+    video / audio / sfx :31; §5's three exact errors; the candidate kept only when `mapSourceSpanToTimeline(...)[0].start` is within
+    0.001 of `t`). Test `cut-anchor.test.ts` (16 tests: cut 1 / −0.25 / 0.5 / −3 exact; global numbering over a through edit + gap;
+    TSX / image / speed-2 offset 0.5 / same-source-earlier → fixed; cut 2 "1 cut", plural, 1-clip + empty "(0 cuts)", offset past
+    after + before; labels; the trim survival: item `{ e3v, 4, 4.7 }` maps 3 → 2 after the trim).
+  - `timeline-insert.ts`: `atLabel?` :84 (used :143), `insertClipLength` :97 (the clipping rule, now the one `buildInsertProposal`
+    uses — behaviour unchanged). Tests appended to `timeline-insert.test.ts` (new describe at the end; no existing line changed).
+  - `insert-tools.ts` (138 → 172 lines): the `{ cut, offset? }` union member :34-37 (the design's two describes), `atChip` :43,
+    `resolveCutAt` :50 (`loadProject` :11; failure → `Could not read the timeline to find cut <n>: <message>`), the branch :100-106,
+    `atLabel` passed :141; the description's clause. Test `insert-tools-cut.test.ts` (10 tests, real handler, `loadProject` mocked).
+  - `studio-agent-prompt-tools.ts:21` the §7 `insert_asset` `at` sentence; pin in `studio-agent-prompt-timeline.test.ts` (new describe
+    `prompt pins — insert_asset`: the line exact + right after the get_timeline line).
+  - Renderer test `features/studio/services/apply-insert-proposal-cut.test.ts` (2 tests, item written by hand, no `src/main` import):
+    `insertItemPlacement` 3 on the 2-clip timeline, 2 after the trim; `applyInsertProposal` puts the whoosh at 2 on A1.
+
+- **§9 step 4, part 1 — `wt/out` + the §8.3 1 smoke (builder #4; no `src/` change, so no code commit; as of `8b1c2e5`, whose
+  `src/` = `021a2d6`'s).** Kit (outside the repo) `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\`: `build.sh`, `prep.cjs` (the
+  pristine copy + clip, asset path rewritten), `make-profile.ps1` (robocopy `/XF settings.db* DevToolsActivePort`), `launch.sh` (CDP
+  9296), `restore.ps1`, `smoke-open.mjs` (root FIRST, open the project, read the editor), `vitest.t2.config.ts` + `tools.t2.test.ts`
+  (the real `get_timeline` handler, adapted from S4's harness: `electron` + `settings-db` mocked so `project-store` resolves MY root;
+  nothing else mocked), `inspect-project.cjs`, `ed2a-graph.cjs` (S4's, header line only changed), `gate.sh`. Scratch (outside the repo)
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\`: `pristine\` (copy of `S4\r1\p2\pristine\`), `media\e3v-clip.mp4` (842,353 B,
+  = the source), `root\projects\e3v-whoosh\`, logs. Profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\timeline-T\profile`
+  (copy of `search-S4-verify\profile` without `settings\settings.db*`: 2,252 files, 421.3 MB; its `settings\` was empty before launch).
+  Deviation (behaviour-keeping): only the pristine `project.json` went into the project folder (`index.json` = the S4 library index and
+  `project.orig.json` = S4's pre-clean copy stay in `T2\pristine\`); the asset's cached derivatives (thumbs / proxies / waveforms) were
+  not copied — the editor opened without them and logged no error.
+- **§9 step 4, part 2 — the §8.2 gates (builder #5; no `src/` change, so no code commit; as of `123ffed`, whose `src/` = `021a2d6`'s:
+  `git diff --stat 021a2d6 123ffed -- src scripts package.json package-lock.json electron.vite.config.ts vitest.config.ts` empty).** All
+  gates green — see Verified "Step 4 part 2". Kit additions (outside the repo): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\gate-rerun.sh`
+  (guard + named files ALONE + full run `<n>` with optional flags + a FAIL → error map `failed-with-error-<n>.tsv`). Logs:
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\`.
+
+## Verified
+
+Step 4 part 2 — the §8.2 gates (builder #5), 2026-10-30 16:47–16:58, worktree root, HEAD `123ffed` (src / scripts / package clean
+throughout; HANDOFF.md alone edited during the runs). App stopped: 0 `electron.exe` at every guard. Logs in
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\gates\` (`summary.txt` = `gate-all.sh`'s one-page record):
+
+- Guard 16:47:07 (`guard.log`): C: 27.04 GB free, D: 39.15 GB, commit limit 99.70 / committed 66.43 → headroom 33.27 GB → no
+  `--maxWorkers` / exclusion flags; CPU top 8 over 5 s (% of all 16 cores): `code` 6.6, `wmiprvse` 3.7, `vmmemwsl` 2.5, the rest ≤ 1.8.
+  Before runs 2 / 3 / 4: headroom 29.89 / 29.13 / 32.49 GB, C: 26.66 / 26.50 / 26.81 GB (`guard-2/3/4.log`; the 2 and 3 CPU samples
+  partly failed with Get-Counter's "data … not valid" — run 4's: `node` 7.6, `wmiprvse` 5.7, the rest ≤ 2.4).
+- `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/gate-all.sh` (background) → exit 0, `end 2026-10-30 16:50:14`.
+- **The worktree full run — DRIVING's load rule, the COUNTED run = run 4** (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run`,
+  default flags, the third default try):
+  - Run 1 16:47:16 (`vitest-full-1.log`, default): `Test Files  29 failed | 517 passed | 6 skipped (552)` · `Tests  10 failed | 5433 passed
+    | 37 skipped (5480)`, 55.65 s = the 28 + `shot-module-resolver.test.ts > … a changed transpiler fingerprint misses every tier`
+    `Test timed out in 5000ms` at `:151:3` (DRIVING's named load timeout).
+  - Alone 16:51:27 (`alone-2.log`): `… vitest.mjs run src/main/services/studio/shot-module-resolver.test.ts` → `1 passed (1)` · `Tests  10
+    passed (10)`.
+  - Run 2 16:51:32 (`vitest-full-2.log`, default; `bash …\T2\gate-rerun.sh 2 <the file>`): `33 failed | 513 passed | 6 skipped (552)` ·
+    `Tests  16 failed | 5427 passed`, 121.10 s = the 28 + five `Test timed out in 5000ms` in files NOT on DRIVING's list:
+    `packs-through-tools.test.ts:125`, `agent-memory.test.ts:108`, `snapshot-store.test.ts:189`, `tsx-builder/build-check.test.ts:41`,
+    `tsx-builder/tsx-builder.test.ts:416` + `:450` (shot-module-resolver green this time). None of the five is in `0df9e9c..HEAD`
+    (`diff-0df9e9c-HEAD.txt`, 30 paths); all green alone and in runs 1, 3 and 4 — see Open problems.
+  - Alone 16:54:21 (`alone-3.log`): those five + `shot-module-resolver.test.ts` → `Test Files  6 passed (6)` · `Tests  57 passed (57)`.
+  - Run 3 16:54:28 (`vitest-full-3.log`, `--maxWorkers=4`): `29 failed | 517 passed | 6 skipped (552)` · `Tests  10 failed | 5433 passed`,
+    114.63 s = the 28 + the same `:151` test, this time `Error: never written: …\shot-module-cache-…\intro\v1.json` from the test's own
+    `waitForFile` (`shot-module-resolver.test.ts:45-56`: 100 polls × 10 ms for a background write, called at :158) — the same named
+    load-sensitive test.
+  - Alone 16:56:59 (`alone-4.log`): `shot-module-resolver.test.ts` → `1 passed (1)` · `Tests  10 passed (10)`.
+  - **Run 4 16:57:01 (`vitest-full-4.log`, default — COUNTED): `Test Files  28 failed | 518 passed | 6 skipped (552)` · `Tests  9 failed |
+    5434 passed | 37 skipped (5480)`, 61.35 s, rc 1.** The failed set (`failed-with-error-4.tsv`, each FAIL mapped to the next error line)
+    `diff`s EMPTY against `expected-28.txt` (S3's `ls-r1b-files.txt` 25 + the 3 E-d2a). Errors: 15 × `Cannot find module '<wt>\stream'`
+    + 10 × `'<wt>\stream\promises'` (the 25 LS-r1c, nothing else); E-d2a `builder-libraries.test.ts` (stderr `Error: @remotion/paths
+    (builder-libraries.ts) is not installed`), `shot-bundle.test.ts` (`Could not resolve "roughjs"` / `"@remotion/shapes"` /
+    `"@react-three/fiber"` / `"chroma-js"` / `"@remotion/google-fonts/SpaceGrotesk"`), `shot-bundle-in-place.test.ts` (`Could not resolve
+    "chroma-js" (v1.tsx:1)` inside the assertion) — package resolution only.
+  - (`gate-all.sh`'s own `failed.tsv` / "failed files: 7" line in `summary.txt` UNDERCOUNTS — its awk keeps only the first file of a
+    vitest group that shares one error; the per-file map `failed-with-error.tsv` (run 1: 29 files) is the correct one.)
+- **LS-r1c proof at `123ffed`:** this worktree `… vitest.mjs run <the 25>` 16:48:13 (`ls-r1c-this-wt.log`) → `Test Files  25 failed (25)`
+  · `Tests  no tests`, each FAIL mapped to `Cannot find module '<wt>\stream'` (15) / `'<wt>\stream\promises'` (10), no other error; fresh
+  `git worktree add --detach D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/f-head-wt HEAD` (16:48:23, `HEAD is now at 123ffed`) →
+  `cd …\f-head-wt && … vitest.mjs run <the 25>` (`ls-r1c-fresh-wt.log`) → `Test Files  25 passed (25)` · `Tests  239 passed (239)`, rc 0;
+  `git worktree remove --force …\f-head-wt` rc 0, `git worktree list` after: no `f-head-wt` (`fresh-wt.log`).
+- **E-d2a independence:** `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/ed2a-graph.cjs <wt> …\gates\diff-0df9e9c-HEAD.txt`
+  (esbuild metafile walk, platform node, packages external, vitest aliases, `vi.mock` targets followed) → `builder-libraries.test.ts: 2
+  src inputs; range files in graph: NONE` · `shot-bundle.test.ts: 9 … NONE` · `shot-bundle-in-place.test.ts: 302 … NONE` (`e-d2a-graph.log`;
+  the range = `git diff --name-only 0df9e9c..HEAD`, 30 paths).
+- **tsc:** `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` → 25 `error TS`; `-p
+  tsconfig.node.check.json` → 10 (`tsc-web.log` / `tsc-node.log`; baseline 25 / 10).
+- **Matcher:** `git diff 7967c6f -- src/main/services/library/sound-match.ts src/main/services/library/sound-match-words.ts
+  src/main/services/library/sound-match-vocab.ts` → 0 bytes (3 / 3 files present).
+- **Library search §9.1:** `… vitest.mjs run src/main/services/library-search src/library-search-engine
+  src/main/services/studio/agent-tools/audio-tools-no-claim.test.ts src/main/services/studio/agent-tools/list-assets-library.test.ts`
+  (`ls91.log`) → `Test Files  17 passed | 1 skipped (18)` · `Tests  159 passed | 2 skipped (161)`, rc 0 (the skip = the gated live test).
+- **House rules over `0df9e9c..HEAD` (`house.log`):** 14 created `src/` files, the largest 248 lines (`timeline-listing.test.ts`; the
+  largest source file `timeline-listing.ts` 188); the pre-existing over-300 files' growth: `EditorShell.tsx` 1674 → 1676,
+  `useStudioAgent.ts` 336 → 340, `studio-handlers.ts` 672 → 673, `src/shared/ipc/types/studio.ts` 972 → 986; added lines matching
+  `\bany\b`: 3, all the English word in the empty-timeline string / test title (`no clips on any lane`) — 0 `any` types;
+  `package.json` / `package-lock.json` diff 0 bytes (Remotion pins untouched); renderer → `src/main` imports 0, main → `src/features`
+  imports 0; `agent-tools/index.ts` diff: 0 removed lines (`STUDIO_TOOL_IDS` append-only: `'get_timeline'` added last).
+- §8.1 in the tree (green in the counted run): `timeline-cuts.test.ts` (1), `timeline-listing.test.ts` (2), `studio-agent-prompt-timeline.test.ts`
+  (3, 6), `cut-anchor.test.ts` + `apply-insert-proposal-cut.test.ts` (4), `insert-tools-cut.test.ts` + `insert-tools-anchor.test.ts` (5),
+  `timeline-tools.test.ts` (6), `source-span-map.test.ts` + the untouched `cut-proposal.test.ts` (7).
+
+Step 4 part 1 (builder #4), 2026-10-30 16:33–16:42, worktree root, HEAD `8b1c2e5`, tree clean:
+
+- Guard 16:33:20: C: 28.58 GB free, D: 39.3 GB, commit headroom 32.06 GB (limit 99.70, committed 67.64); no `electron.exe` running
+  (Hasan's dev app NOT running; nothing on 9222 / 5173). Re-checked 16:40:09 before the launch: C: 27.36, D: 39.15, headroom 33.60 GB;
+  one other session's instance had appeared (`electron.exe .` port 9341, profile under another session's `…\scratchpad\part2\profile`,
+  started 16:38:38 — not Hasan's, not 9300–9309, no ffmpeg / remotion process running) → launched; never touched (it was gone by 16:41).
+- Build 16:33:40–16:38:12: `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/build.sh` (= DRIVING's recipe step 1) → `rc 0`,
+  `✓ built in 4m 3s`, the only warnings the 3 "use client" lines (`build.log`). `out/main/index.js` holds `get_timeline` and the footer
+  string.
+- Types at `8b1c2e5` (16:37–16:39): `tsc -p tsconfig.web.check.json --noEmit` → 25 `error TS` (`tsc-web-step4.log`); `-p
+  tsconfig.node.check.json` → 10 (`tsc-node-step4.log`).
+- App (launch 16:40:2x, `bash …\T2\launch.sh` in the background): `node smoke-open.mjs` → Studio root set FIRST (`{"set":{"success":true},
+  "got":{"root":"C:\\Users\\hasan\\AppData\\Local\\vidtsx-e2e\\timeline\\T2\\root"}}`), visible project cards `["e3v-whoosh"]`, editor up:
+  `v1Options 1`, tracks `V1 video [["e3v-c1",0,3,0],["e3v-c2",3,3,4]]` + `A1 audio []`, rendered clip ids `["e3v-c1","e3v-c2"]`
+  (`smoke-open.json`); screenshot `smoke-editor.png` (V1: two `e3v-clip.m…` clips, A1 empty, `00:00.00 / 00:06.00`, "Saved"). The app
+  saved `project.json` at 16:40:35 (timeline identical to the pristine one). Logs: `app.log` 25 lines, 0 matching
+  `error|fail|exception|uncaught|warn`; the profile's `logs\vidtsx-2026-10-30.log` 22 lines, 0 such lines. Stopped 16:41:24 (my 5
+  `electron.exe` by profile path + Name; 0 left; the launcher's exit 127 = the killed `exec`, expected).
+- Real handler, app stopped, 16:41:30: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config
+  D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/vitest.t2.config.ts` (from the worktree root) → `Test Files  1 passed (1)` · `Tests  1
+  passed (1)`, rc 0 (`smoke-get-timeline.log`); record `smoke-get-timeline.json`: `"equal": true` (the answer = design §3's six lines
+  exactly), `isError false`, emitted chip `{ kind: "tool", tool: "get_timeline" }`, `project.json` sha1 `72005dba…` before = after (the
+  read wrote nothing). No model call anywhere.
+
+All from the worktree root `D:\repos\VidTSX-STUDIO\.vidtsx-temp\search\wt`, 2026-10-30 ~16:00–16:08 (C: 29.12 GB free, D: 39.58 GB, commit
+headroom 39.15 GB):
+
+- RED (tests written, no code): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/shared/studio/timeline-cuts.test.ts
+  src/main/services/studio/agent-tools/timeline-listing.test.ts src/main/services/studio/agent-tools/timeline-tools.test.ts
+  src/main/services/studio/studio-agent-prompt-timeline.test.ts` → `Test Files  4 failed (4)` · `Tests  2 failed (2)`: three files
+  `Cannot find module './timeline-cuts'` / `'./timeline-listing'` / `'…/agent-tools/timeline-tools'`; the prompt pins `expected -1 to be
+  greater than 0` and `expected [ 'get_transcript', …(28) ] to deeply equal [ 'get_transcript', …(29) ]`.
+- GREEN (after the code): the same four + `src/main/services/studio/studio-agent-prompt.test.ts` → `Test Files  5 passed (5)` ·
+  `Tests  50 passed (50)`.
+- Types: `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` → 25 `error TS` lines;
+  `-p tsconfig.node.check.json` → 10 (baseline 25 / 10; none in a new or touched file).
+
+Step 2 (builder #2), same root, 2026-10-30 16:13–16:16 (C: 29.04 GB free, D: 40 GB, commit headroom 34.87 GB):
+
+- RED 16:13:19 (tests written, no code): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/main/services/studio/agent-tools/timeline-listing.test.ts src/main/services/studio/studio-agent-prompt-timeline.test.ts` →
+  `Test Files  2 failed (2)` · `Tests  8 failed | 11 passed (19)`: six `TypeError: formatMasterCutsLine is not a function`; the prompt
+  test `expected '- Captions: none set.' to be '- V1 (master track): 2 clips · 1 cut …'`; AT-r1 `expected [ …(3) ] to deeply equal
+  [ …(3) ]` (page 1 had no gap row before `+20 more`). (The "absent → Captions follows" prompt test passes on the old code by design.)
+- GREEN 16:14:33: `… vitest.mjs run src/shared/studio/timeline-cuts.test.ts src/main/services/studio/agent-tools/timeline-listing.test.ts
+  src/main/services/studio/agent-tools/timeline-tools.test.ts src/main/services/studio/studio-agent-prompt-timeline.test.ts
+  src/main/services/studio/studio-agent-prompt.test.ts` → `Test Files  5 passed (5)` · `Tests  59 passed (59)`.
+- Types (after the code, before `99c35b1`; the tree then = `99c35b1`): web 25 `error TS`, node 10.
+- `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/stream-chain.mjs src/main/services/studio/studio-agent-prompt.ts` → `direct stream
+  importers: []` (its new import of `agent-tools/timeline-listing` adds no stream suite).
+
+Step 3 (builder #3), same root, 2026-10-30 16:21–16:29 (no build / launch / full run in step 3, so no resource guard was needed; logs
+in `C:\Users\hasan\AppData\Local\vidtsx-e2e\timeline\T2\`):
+
+- Tracer before: `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/stream-chain.mjs src/main/services/studio/agent-tools/insert-tools.ts`
+  → `direct stream importers: []`.
+- CHARACTERIZATION 16:21:35, on the UNCHANGED `insert-tools.ts` (`git diff HEAD -- …/insert-tools.ts` empty): `node
+  D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/studio/agent-tools/insert-tools-anchor.test.ts` →
+  `Test Files  1 passed (1)` · `Tests  7 passed (7)`; committed alone as `cf4fb0c`.
+- RED 16:24:52 (tests written, no code; `step3-red.log`): `… vitest.mjs run src/shared/studio/source-span-map.test.ts
+  src/main/services/studio/agent-tools/cut-anchor.test.ts src/features/studio/services/apply-insert-proposal-cut.test.ts
+  src/main/services/studio/agent-tools/insert-tools-cut.test.ts src/main/services/studio/timeline-insert.test.ts
+  src/main/services/studio/studio-agent-prompt-timeline.test.ts src/main/services/studio/agent-tools/insert-tools-anchor.test.ts` →
+  `Test Files  5 failed | 2 passed (7)` · `Tests  12 failed | 25 passed (37)`: `Cannot find module './source-span-map'` (and via
+  `cut-anchor.test.ts`); the insert_asset line `expected -1 to be greater than 0`; `atLabel` headline `as audio whe…` vs `as audio 0.2…`;
+  `insertClipLength is not a function`; the 10 `{ cut }` handler tests (the word path's `No transcribed footage …`, no `{ cut` in the
+  description, no cut form in the schema). The 2 passing files = the characterization file and the renderer placement file
+  (`apply-insert-proposal-cut.test.ts` pins EXISTING renderer behaviour — green by design, a guard for the move).
+- GREEN 16:26:52 (`step3-green.log`): the same 7 + `cut-proposal.test.ts`, `cut-proposal-qa.test.ts`, `apply-insert-proposal.test.ts`,
+  `apply-shot-proposal.test.ts`, `studio-agent-prompt.test.ts`, `timeline-tools.test.ts`, `timeline-listing.test.ts`,
+  `timeline-cuts.test.ts`, `audio-tools.test.ts`, `audio-tools-no-claim.test.ts`, `audio-tools-reuse.test.ts`, `library-import.test.ts`,
+  `flow-tools.test.ts` → `Test Files  20 passed (20)` · `Tests  178 passed (178)`.
+- Types 16:27–16:29 (tree = `021a2d6`'s content): `tsc -p tsconfig.web.check.json --noEmit` → 25 `error TS`; `-p tsconfig.node.check.json`
+  → 10 (none in a new or touched file; `tsc-web-step3.log` / `tsc-node-step3.log`). Tracer after: `insert-tools.ts` and `cut-anchor.ts`
+  → `direct stream importers: []`.
+- Existing test files: `git diff -U0` of `timeline-insert.test.ts` / `cut-proposal.test.ts` shows no removed line; 0 `any` in the new files.
+
+## Next step
+
+None in T2 — the exit is met (design §9 steps 1–4; §8.1 in the tree and green, the §8.3 1 smoke, the §8.2 gates recorded above). The
+orchestrator spawns T3, the independent verifier, on design §8 (the verifier repeats the smoke and the gates at its own HEAD; the kit
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\timeline\T2\` and the profile `timeline-T` stay in place for reuse or copying).
+
+## Open problems
+
+- (none blocking) Ruling AT-r1 is DONE in `99c35b1` (see Done).
+- **For the orchestrator / T3 — run 2's five extra timeouts (a NOTE, not counted):** the second default full run (121 s vs 55–61 s for
+  runs 1 / 4, the machine otherwise quiet by the guard samples) timed out at 5000 ms in five suites NOT on DRIVING's named load list
+  (`agents/tools/packs-through-tools.test.ts:125`, `studio/agent-memory.test.ts:108`, `studio/snapshot-store.test.ts:189`,
+  `tsx-builder/build-check.test.ts:41`, `tsx-builder/tsx-builder.test.ts:416,450`). None is in `0df9e9c..HEAD`; all six (with
+  shot-module-resolver) green alone (`alone-3.log`, 57 tests) and green in runs 1, 3 and 4. The counted run is run 4 (DRIVING's rule
+  (b): a default full run green within 3 tries); run 2 is recorded, not hidden. Same pattern as MEMORY's "full run flakes with 5000 ms
+  timeouts in disk-heavy suites (different set each run)".
+- `shot-module-resolver.test.ts:151` failed in run 3 through its own `waitForFile` (~1 s of polling), not the 5000 ms timeout — DRIVING
+  names the test by its line; recorded so a verifier is not surprised by the different message.
+- `gate-all.sh`'s `failed.tsv` parse undercounts (see Verified); `gate-rerun.sh`'s map is the one to trust — a T3 copy of the kit
+  should take the `gate-rerun.sh` awk.
+- **LS-r1c trap for any new test that imports `agent-tools/index.ts`:** `index.ts`'s graph reaches `stream/promises` ONLY through
+  `./flow-tools` (→ `agents/tools/run-flow` → … → `packages/zip-reader.ts` and `studio/project-package-zip.ts`); in this worktree that
+  fails as `Cannot find module '<wt>\stream\promises'` = a 26th stream suite = a REAL gate failure. `studio-agent-prompt-timeline.test.ts`
+  therefore `vi.mock('./agent-tools/flow-tools', () => ({ buildFlowTools: () => [] }))` before importing `STUDIO_TOOL_IDS` (the first red
+  run, before that mock, showed exactly that error). Tracer (static esbuild metafile walk, `?raw` imports external):
+  `node D:/repos/VidTSX-STUDIO/.vidtsx-temp/timeline/T2/stream-chain.mjs src/main/services/studio/agent-tools/index.ts` → `DIRECT reaches
+  stream: src/main/services/studio/agent-tools/flow-tools.ts` (the only one). Step 3's handler test must import `insert-tools.ts`
+  directly (not `index.ts`) — check it with the tracer first.
+- Small choices the design leaves open (behaviour-keeping; for the orchestrator to see): an empty track's one line carries no flags (the
+  design's literal `<name> (<kind>): empty`); a track whose window holds only a gap prints its header + `  (nothing in this window)` (no
+  gap row); (superseded by AT-r1 in `99c35b1`: the gap right before the first unlisted master clip now ends page 1); a clip with no
+  `assetId` and no `tsx` (no op makes one) labels as `<kind> clip`; the bad-window error prints the numbers with `String()` (`got 4–2`);
+  `speed` / `gain` print with `String()` (`at 1.5×`, `gain 0.3`).
+- Step 2 choices (behaviour-keeping): `formatMasterCutsLine` lives in `timeline-listing.ts` (design §6 puts "the §4 line" there);
+  `StudioAgentTimelineCuts` is its own interface in the IPC types (not an alias of `MasterCutsSummary`, so the IPC types import nothing
+  from `shared/studio`); the hook spreads `timelineCuts` only when defined (as its other optional fields). No handler test: the
+  pass-through at `studio-handlers.ts:552` is one spread (tsc-checked); the §8.3 smoke does not exercise it (no model turn).
+- Step 3 choices (behaviour-keeping): the description keeps the word sentence byte-identical and drops its leading "or" so the cut
+  clause reads "`at` is timeline seconds, { word, take } … survives cuts), or { cut, offset? } …"; the chip for a positive offset is
+  `audio at cut 1 +0.5s` (the design shows only `-0.25s`; offset 0 → no suffix); the clipping rule is extracted as
+  `insertClipLength` in `timeline-insert.ts` (the design's "the `buildInsertProposal` clipping rule"); the anchor result carries
+  `atLabel` so the handler passes it straight through; `source-span-map` is also exported through `src/shared/studio/index.ts`
+  (main imports it by relative path, like `timeline-cuts`, so `index.ts`'s React exports never reach main); a cut anchor on a side
+  that joins with an overlap / a ≤ 2 ms gap whose mapped start differs from `t` by > 0.001 s falls back to the fixed time (total by
+  design); the renderer test is a GUARD (green before the move), not red-first — the behaviour already existed.
+- Not a test: zod's `int().min(1)` on `cut` is not exercised through `.handler` (the SDK validates before the handler; the direct
+  handler calls bypass zod) — `resolveCutAnchor` treats any `cut` not among the cuts (incl. < 1) as "does not exist".
+
+## Do-not-redo
+
+- §9 step 1 entirely (`307f96f`): the model, the listing, the tool, the id, the `TOOL_LINES` line, their tests (red run recorded above).
+- §9 step 2 entirely (`99c35b1`): the cuts line, the request field and its plumbing, ruling AT-r1, their tests (red run recorded above).
+- §9 step 3 entirely (`cf4fb0c` + `021a2d6`): the characterization file (never edit it), source-span-map + the wrapper, cut-anchor,
+  `atLabel` / `insertClipLength`, the `{ cut }` path, the prompt line and description, their tests (red run recorded above).
+- The stream tracer (`.vidtsx-temp/timeline/T2/stream-chain.mjs`) — reuse it, don't rewrite it.
+- §9 step 4 part 1 (`424eb18`): the `wt/out` build, the scratch project / clip / profile `timeline-T`, the app smoke and the real-handler
+  `get_timeline` call — all recorded under Verified; no `src/` changed since, so no rebuild or re-smoke unless `src/` changes.
+- §9 step 4 part 2 (the gates, at `123ffed`): runs 1–4, the alone runs, the LS-r1c fresh-worktree proof, E-d2a walk, tsc, matcher,
+  §9.1, house — all recorded under Verified; rerun only if `src/` changes.
+
+## Agents so far
+
+- Builder #1 (2026-10-30 15:58–16:10): §9 step 1 → `307f96f`; handed off at the end of a numbered step.
+- Builder #2 (2026-10-30 16:12–16:17): ruling AT-r1 + §9 step 2 → `99c35b1`; handed off at the end of a numbered step.
+- Builder #3 (2026-10-30 16:19–16:31): §9 step 3 → `cf4fb0c` (characterization, alone) + `021a2d6`; handed off at the end of a
+  numbered step.
+- Builder #4 (2026-10-30 16:32–16:45): §9 step 4 part 1 — `wt/out` built, the §8.3 1 smoke done → records `424eb18`; wrote the gate
+  kit (`gate-all.sh`, `guard.ps1`); handed off at the ~40-call limit before the gates.
+- Builder #5 (2026-10-30 16:46–17:00): §9 step 4 part 2 — the §8.2 gates at `123ffed` (`gate-all.sh` + `gate-rerun.sh` runs 2–4;
+  counted = run 4, default, exactly the 28); T2 DONE.

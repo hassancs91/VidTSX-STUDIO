@@ -3,6 +3,7 @@ import {
   DEFAULT_INSERT_IMAGE_DURATION,
   buildInsertProposal,
   defaultInsertDuration,
+  insertClipLength,
   resolveWordAnchor,
 } from './timeline-insert';
 
@@ -82,5 +83,35 @@ describe('buildInsertProposal', () => {
       insert: { assetId: 'img', kind: 'image', lane: 'overlay', gain: 0.5 },
     });
     expect(proposal.items[0].timelineStart).toBeUndefined();
+  });
+});
+
+// ASSISTANT_TIMELINE_DESIGN §5: the cut anchor names the cut in the headline.
+describe('buildInsertProposal — atLabel', () => {
+  const whoosh = { id: 'w', name: 'whoosh-soft.mp3', kind: 'audio' as const, durationSeconds: 0.7 };
+
+  it('replaces the placement label, anchored or fixed; the clip length still follows', () => {
+    const anchored = buildInsertProposal({
+      asset: whoosh,
+      lane: 'audio',
+      at: { anchorAssetId: 'footage', sourceStart: 2.75 },
+      atLabel: '0.25 s before cut 1 (0:02.75 on the timeline)',
+    });
+    expect(anchored.agentNote).toBe('Insert "whoosh-soft.mp3" as audio 0.25 s before cut 1 (0:02.75 on the timeline) · 0.7 s');
+    expect(anchored.items[0]).toMatchObject({ assetId: 'footage', sourceStart: 2.75, sourceEnd: 2.75 + 0.7, duration: 0.7 });
+
+    const fixed = buildInsertProposal({ asset: whoosh, lane: 'audio', at: { timelineStart: 3 }, atLabel: 'at cut 1 (0:03.00 on the timeline)' });
+    expect(fixed.agentNote).toBe('Insert "whoosh-soft.mp3" as audio at cut 1 (0:03.00 on the timeline) · 0.7 s');
+    expect(fixed.items[0].timelineStart).toBe(3);
+  });
+
+  it('insertClipLength is the clipping rule buildInsertProposal applies', () => {
+    expect(insertClipLength(whoosh)).toBe(0.7);
+    expect(insertClipLength(whoosh, 2)).toBe(0.7);
+    expect(insertClipLength(whoosh, 0.3)).toBe(0.3);
+    expect(insertClipLength(whoosh, 0)).toBe(0.1);
+    expect(insertClipLength({ id: 'i', name: 'logo.png', kind: 'image', durationSeconds: 1 }, 8)).toBe(8);
+    expect(insertClipLength({ id: 'i', name: 'logo.png', kind: 'image' })).toBe(DEFAULT_INSERT_IMAGE_DURATION);
+    expect(insertClipLength({ id: 'v', name: 'x.mp4', kind: 'video' })).toBe(DEFAULT_INSERT_IMAGE_DURATION);
   });
 });

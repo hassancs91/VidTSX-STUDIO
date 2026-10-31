@@ -38,6 +38,7 @@ export { videoApi } from './video';
 export { sttApi } from './stt';
 export { updaterApi } from './updater';
 export { libraryApi } from './library';
+export { librarySearchApi } from './library-search';
 export { memoryApi } from './memory';
 export { studioNotesApi } from './studio-notes';
 export { studioBrandFontsApi } from './studio-brand-fonts';

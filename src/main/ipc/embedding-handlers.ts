@@ -24,6 +24,7 @@ import {
   isEmbeddingModelDownloaded,
   deleteEmbeddingModel,
 } from '../services/embedding-models';
+import { notifyEmbeddingModelChanged, runBeforeEmbeddingModelDelete } from '../services/embedding-model-events';
 import { enqueueDownload } from '../services/download-manager';
 import { embeddingEngine } from '../../embedding-engine';
 import { logEngine } from '../../logging/log-engine';
@@ -161,6 +162,7 @@ export async function handleEmbeddingModelDownload(
     }
 
     log.info('Embedding model download complete', { modelId: data.modelId });
+    notifyEmbeddingModelChanged({ modelId: data.modelId, change: 'downloaded' });
     return { success: true };
   } catch (err) {
     log.error('Embedding model download failed', err, { modelId: data.modelId });
@@ -176,9 +178,14 @@ export async function handleEmbeddingModelDelete(
   data: EmbeddingModelDeleteRequest,
 ): Promise<EmbeddingModelDeleteResponse> {
   try {
+    // Users holding the model (the library-search engine child) let go of it before its files are deleted (LS-r3).
+    await runBeforeEmbeddingModelDelete(data.modelId);
     await deleteEmbeddingModel(data.modelId);
+    notifyEmbeddingModelChanged({ modelId: data.modelId, change: 'deleted' });
     return { success: true };
   } catch (err) {
+    // The hooks ran (they never throw): tell their owners the files are still there (LS-r5).
+    notifyEmbeddingModelChanged({ modelId: data.modelId, change: 'delete-failed' });
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Delete failed',

@@ -7,8 +7,10 @@
 import type {
   StudioAgentAssetInfo,
   StudioAgentOpenProposal,
+  StudioAgentTimelineCuts,
 } from '../../../shared/ipc/types/studio';
 import type { StudioShot } from '../../../shared/types/studio';
+import { formatMasterCutsLine } from './agent-tools/timeline-listing';
 import { scriptHead } from './project-script';
 import { MEMORY_LINES, TOOL_LINES, WORKFLOW_LINES } from './studio-agent-prompt-tools';
 
@@ -58,6 +60,8 @@ export interface BuildAgentPromptInput {
   openProposal?: StudioAgentOpenProposal;
   captions?: { templateId: string; enabled: boolean };
   timelineDurationSeconds?: number;
+  /** The master track's cuts — the line right after "- Timeline: …". */
+  timelineCuts?: StudioAgentTimelineCuts;
   /** W4: the project script; its opening is injected, the rest is on demand. */
   script?: string;
 }
@@ -89,6 +93,8 @@ function stateLines(input: BuildAgentPromptInput): string[] {
       ? `- Timeline: ${formatTc(input.timelineDurationSeconds)} long.`
       : '- Timeline: empty.',
   );
+  const cutsLine = formatMasterCutsLine(input.timelineCuts);
+  if (cutsLine) lines.push(cutsLine);
   lines.push(
     input.captions
       ? `- Captions: ${input.captions.enabled ? 'on' : 'off'} (template ${input.captions.templateId}).`

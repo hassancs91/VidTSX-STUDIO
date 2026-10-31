@@ -1,14 +1,21 @@
-// E3 — reuse before generate in the Studio generate_sfx / generate_music tools:
-// the REAL matcher runs over a mocked library index; matches answer BEFORE the
-// provider check (no provider call, no engine, no import); `force` generates.
-// Split out of audio-tools.test.ts (fix round 1) — same mocks.
+// Reuse before generate in the Studio generate_sfx / generate_music tools, on the shared library search
+// (LIBRARY_SEARCH_DESIGN.md §6 / §8.1; E3's tests rewritten to the new answer): the REAL `searchLibrary` runs over
+// a mocked index behind a mocked `search-app` runtime; the answer comes BEFORE the provider check (no provider
+// call, no engine, no import), claims nothing (a neutral header, E2's rows in the search's order, the place / force
+// lines), and `force` generates without looking.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { LibraryIndexEntry } from '../../../../shared/types/asset-library';
+import type { LibrarySearchRequest, LibrarySearchResult } from '../../../../shared/types/library-search';
+import { searchLibrary } from '../../library-search/library-search';
+import type { LibrarySearchDeps } from '../../library-search/types';
 import type { StudioToolContext } from './types';
 
 const hasAudioProvider = vi.fn();
 const generateAudioAsset = vi.fn();
 const importLibraryFile = vi.fn();
 const loadIndex = vi.fn();
+const search = vi.fn();
+const getRuntime = vi.fn();
 
 vi.mock('../../library/generate-audio-asset', () => ({
   NO_AUDIO_PROVIDER_MESSAGE:
@@ -24,32 +31,31 @@ vi.mock('../project-store', () => ({
 }));
 vi.mock('../../library/library-store', () => ({ loadIndex: (root: string) => loadIndex(root) }));
 vi.mock('../../library/library-paths', () => ({ getLibraryRoot: () => 'C:/lib' }));
+vi.mock('../../library-search/search-app', () => ({ getLibrarySearchRuntime: () => getRuntime() }));
 
 const { buildAudioTools } = await import('./audio-tools');
 
 interface ToolLike {
   name: string;
+  description: string;
+  inputSchema: Record<string, { description?: string }>;
   handler: (args: Record<string, unknown>, extra: unknown) => Promise<{ content: Array<{ text: string }>; isError?: boolean }>;
 }
 
-function makeCtx(): { ctx: StudioToolContext } {
+function toolsByName(): Record<string, ToolLike> {
   const ctx = {
     req: { projectId: 'p1', assets: [], reviewOpen: false },
     signal: new AbortController().signal,
     emit: () => undefined,
     state: { proposalId: null, generatedShots: new Map(), importedAssets: new Map() },
   } as unknown as StudioToolContext;
-  return { ctx };
-}
-
-function toolsByName(ctx: StudioToolContext): Record<string, ToolLike> {
   const out: Record<string, ToolLike> = {};
   for (const t of buildAudioTools(ctx) as unknown as ToolLike[]) out[t.name] = t;
   return out;
 }
 
 const AT = '2026-10-28T12:00:00.000Z';
-const LIB = [
+const LIB: LibraryIndexEntry[] = [
   {
     relPath: 'sfx/whoosh-soft.mp3', kind: 'audio', origin: 'imported', addedAt: AT,
     description: 'A short, soft air whoosh for a scene transition. Quick and clean, no metallic ring, no music.',
@@ -73,13 +79,21 @@ const LIB = [
     description: 'A warm, cozy lo-fi downtempo bed.', probe: { duration: 57.05, hasAudio: true },
     tags: ['lofi', 'warm', 'bed'], audio: { category: 'lofi' },
   },
-];
+] as LibraryIndexEntry[];
+
+const basicDeps = (): LibrarySearchDeps => ({
+  loadEntries: async () => (await loadIndex('C:/lib')).entries,
+  settings: () => ({ choice: 'basic', modelId: 'multilingual-e5-small', modelDownloaded: true }),
+});
+
+/** LS-r6: the header names what ran — "(words only)" for Basic (every search here but the Smart test's). */
+const HEADER = (prompt: string, how: 'words only' | 'words + meaning' = 'words only'): string =>
+  `Library sounds that may fit "${prompt}" — found by search (${how}), NOT checked; nothing was generated (no cost). Read each description and pick by plain meaning: a clip fits only if it IS the sound asked for — a loosely related or merely similar clip is not a fit.`;
+const PLACE = (tool: string): string =>
+  `If one fits, place it with insert_asset(assetId: "library:<path>", lane: "audio", at: …). If none fits, call ${tool} again with force: true.`;
 
 beforeEach(() => {
-  hasAudioProvider.mockReset();
-  generateAudioAsset.mockReset();
-  importLibraryFile.mockReset();
-  loadIndex.mockReset();
+  for (const f of [hasAudioProvider, generateAudioAsset, importLibraryFile, loadIndex, search, getRuntime]) f.mockReset();
   hasAudioProvider.mockResolvedValue(true);
   generateAudioAsset.mockImplementation(async (req: { kind: string }) => ({
     relPath: `generated/${req.kind}-x.mp3`, kind: req.kind, durationSeconds: 2.973, description: 'x',
@@ -87,62 +101,92 @@ beforeEach(() => {
   }));
   importLibraryFile.mockResolvedValue({ id: 'asset-9', kind: 'audio', path: 'C:/lib/generated/x.mp3' });
   loadIndex.mockResolvedValue({ version: 1, rev: 2, entries: LIB, tombstones: [] });
+  search.mockImplementation((req: LibrarySearchRequest) => searchLibrary(req, basicDeps()));
+  getRuntime.mockReturnValue({ search: (req: LibrarySearchRequest) => search(req) });
 });
 
-describe('Studio audio tools — reuse before generate (E3)', () => {
-  it('generate_sfx answers the top library matches BEFORE the provider check — no provider call, no engine, no import', async () => {
+describe('Studio audio tools — reuse before generate, on the library search (§8.1)', () => {
+  it('generate_sfx answers the search BEFORE the provider check — the neutral header, E2 rows in order, the place / force line', async () => {
     hasAudioProvider.mockResolvedValue(false);
-    const { ctx } = makeCtx();
-    const res = await toolsByName(ctx).generate_sfx.handler({ prompt: 'a soft airy whoosh for a transition' }, {});
+    const res = await toolsByName().generate_sfx.handler({ prompt: 'a soft airy whoosh for a transition' }, {});
     expect(res.isError).toBeUndefined();
     const lines = res.content[0].text.split('\n');
-    // Fix round 4 (E-d16): whoosh-wind is a head-rule (weak) match under 0.5 — the old answer counted it as a
-    // match — then the closest other candidate fills the three ("soft" in its description).
-    expect(lines[0]).toBe(
-      'The library already has 1 sound matching "a soft airy whoosh for a transition" — nothing was generated (no cost, no provider needed). 3 shown: 1 matched, 1 weak match, 1 closest:',
-    );
+    expect(lines[0]).toBe(HEADER('a soft airy whoosh for a transition'));
     expect(lines[1]).toBe(
-      '- [matched] library:sfx/whoosh-soft.mp3 (audio, 0.68 s, imported) — "A short, soft air whoosh for a scene transition. Quick and clean, no metallic ring, no music." · category: motion · tags: whoosh, transition, cutaway, air, swipe, motion · −20.0 LUFS · used in: video-1, proj-e3',
+      '- library:sfx/whoosh-soft.mp3 (audio, 0.68 s, imported) — "A short, soft air whoosh for a scene transition. Quick and clean, no metallic ring, no music." · category: motion · tags: whoosh, transition, cutaway, air, swipe, motion · −20.0 LUFS · used in: video-1, proj-e3',
     );
-    expect(lines[2]).toMatch(/^- \[weak match\] library:sfx\/whoosh-wind\.mp3 \(audio, 2\.20 s, imported\)/);
-    expect(lines[3]).toMatch(/^- \[closest\] library:sfx\/clock-tick-soft\.mp3 \(audio, 3\.00 s, imported\)/);
-    expect(lines[4]).toContain('insert_asset(assetId: "library:sfx/whoosh-soft.mp3", lane: "audio"');
-    expect(lines[4]).toContain('call generate_sfx again with force: true');
+    expect(lines[2]).toMatch(/^- library:sfx\/whoosh-wind\.mp3 \(audio, 2\.20 s, imported\) — "/);
+    expect(lines[3]).toMatch(/^- library:sfx\/clock-tick-soft\.mp3 \(audio, 3\.00 s, imported\) — "/);
+    expect(lines[4]).toBe(PLACE('generate_sfx'));
     expect(lines).toHaveLength(5);
+    expect(search).toHaveBeenCalledWith({ query: 'a soft airy whoosh for a transition', kinds: ['audio'], soundClass: 'sfx', limit: 20 });
     expect(loadIndex).toHaveBeenCalledWith('C:/lib');
     expect(hasAudioProvider).not.toHaveBeenCalled();
     expect(generateAudioAsset).not.toHaveBeenCalled();
     expect(importLibraryFile).not.toHaveBeenCalled();
   });
 
-  it('generate_sfx force: true generates even though the library has matches (and skips the lookup)', async () => {
-    const { ctx } = makeCtx();
-    const res = await toolsByName(ctx).generate_sfx.handler({ prompt: 'soft whoosh', force: true }, {});
+  it('LS-r6: the header says "(words + meaning)" only when Smart ran', async () => {
+    search.mockImplementation((req: LibrarySearchRequest) => searchLibrary(req, {
+      ...basicDeps(),
+      settings: () => ({ choice: 'smart', modelId: 'multilingual-e5-small', modelDownloaded: true }),
+      semantic: { rank: async (_q, items) => ({ ranked: items.map((it, i) => ({ relPath: it.relPath, cosine: 0.9 - i / 100 })), vectors: { ready: items.length, total: items.length } }) },
+    }));
+    const lines = (await toolsByName().generate_sfx.handler({ prompt: 'soft whoosh' }, {})).content[0].text.split('\n');
+    expect(await search.mock.results[0].value).toMatchObject({ ran: 'smart' });
+    expect(lines[0]).toBe(HEADER('soft whoosh', 'words + meaning'));
+    expect(lines[1]).toMatch(/^- library:/);
+  });
+
+  it('a degraded search adds one line under the header: "Searched by words only: <reason>"', async () => {
+    search.mockImplementation(async (req: LibrarySearchRequest): Promise<LibrarySearchResult> => ({ ...(await searchLibrary(req, basicDeps())), degraded: 'model loading' }));
+    const lines = (await toolsByName().generate_sfx.handler({ prompt: 'soft whoosh' }, {})).content[0].text.split('\n');
+    expect(lines[0]).toBe(HEADER('soft whoosh'));
+    expect(lines[1]).toBe('Searched by words only: model loading');
+    expect(lines[2]).toMatch(/^- library:sfx\/whoosh-/);
+  });
+
+  it('the runtime failing → Basic over the index the tool read, said in the degraded line (never a generation)', async () => {
+    getRuntime.mockImplementation(() => { throw new Error('settings store not ready'); });
+    const text = (await toolsByName().generate_sfx.handler({ prompt: 'soft whoosh' }, {})).content[0].text;
+    expect(text.split('\n')[1]).toBe('Searched by words only: search engine unavailable');
+    expect(text).toContain('library:sfx/whoosh-soft.mp3');
+    expect(generateAudioAsset).not.toHaveBeenCalled();
+  });
+
+  it('generate_sfx force: true generates and never searches', async () => {
+    const res = await toolsByName().generate_sfx.handler({ prompt: 'soft whoosh', force: true }, {});
+    expect(search).not.toHaveBeenCalled();
     expect(loadIndex).not.toHaveBeenCalled();
     expect(generateAudioAsset).toHaveBeenCalledWith(expect.objectContaining({ kind: 'sfx', prompt: 'soft whoosh' }));
     expect(res.content[0].text).toContain('project asset id "asset-9"');
   });
 
-  it('generate_music force: true generates even though a library bed matches (and skips the lookup)', async () => {
-    const { ctx } = makeCtx();
-    const tools = toolsByName(ctx);
-    // Control: the same ask without force is answered from the library.
-    expect((await tools.generate_music.handler({ prompt: 'warm lo-fi bed' }, {})).content[0].text).toContain('library:music/lofi-warm.mp3');
-    loadIndex.mockClear();
-    const res = await tools.generate_music.handler({ prompt: 'warm lo-fi bed', force: true }, {});
-    expect(loadIndex).not.toHaveBeenCalled();
+  it('generate_music: a bed is offered (music class, the length rule); force generates; a plan never searches', async () => {
+    const tools = toolsByName();
+    const reuse = (await tools.generate_music.handler({ prompt: 'warm lo-fi bed' }, {})).content[0].text;
+    expect(reuse.split('\n')[0]).toBe(HEADER('warm lo-fi bed'));
+    expect(reuse).toContain('- library:music/lofi-warm.mp3 (audio, 57.05 s, imported)');
+    expect(reuse.endsWith(PLACE('generate_music'))).toBe(true);
+    expect(reuse).not.toContain('whoosh');
+    expect(search).toHaveBeenLastCalledWith({ query: 'warm lo-fi bed', kinds: ['audio'], soundClass: 'music', limit: 20 });
+    expect(generateAudioAsset).not.toHaveBeenCalled();
+
+    await tools.generate_music.handler({ prompt: 'warm lo-fi bed', durationSeconds: 90 }, {});
+    expect(search).toHaveBeenLastCalledWith(expect.objectContaining({ minDurationSec: 90 }));
     expect(generateAudioAsset).toHaveBeenCalledTimes(1);
-    expect(generateAudioAsset).toHaveBeenCalledWith(expect.objectContaining({ kind: 'music', prompt: 'warm lo-fi bed' }));
-    expect(res.content[0].text).toContain('project asset id "asset-9"');
-    expect(res.content[0].text).not.toContain('The library already has');
+
+    search.mockClear();
+    await tools.generate_music.handler({ prompt: 'warm lo-fi bed', force: true }, {});
+    await tools.generate_music.handler({ compositionPlan: { sections: [{ name: 'a', durationSec: 10 }] } }, {});
+    expect(search).not.toHaveBeenCalled();
+    expect(generateAudioAsset).toHaveBeenCalledTimes(3);
   });
 
-  it('a TRUE miss (no word of the prompt in any clip) generates as before — or, with no provider, says so; a near miss is audio-tools-miss.test.ts', async () => {
-    const { ctx } = makeCtx();
-    const tools = toolsByName(ctx);
+  it('a Basic TRUE miss (no word of the prompt in any clip) generates — or, with no provider, says so', async () => {
+    const tools = toolsByName();
     await tools.generate_sfx.handler({ prompt: 'a dog bark' }, {});
     expect(generateAudioAsset).toHaveBeenCalledTimes(1);
-
     hasAudioProvider.mockResolvedValue(false);
     const none = await tools.generate_sfx.handler({ prompt: 'a dog bark' }, {});
     expect(none.isError).toBe(true);
@@ -152,26 +196,23 @@ describe('Studio audio tools — reuse before generate (E3)', () => {
 
   it('an unreadable library index never blocks a generation', async () => {
     loadIndex.mockRejectedValue(new Error('EACCES'));
-    const { ctx } = makeCtx();
-    await toolsByName(ctx).generate_sfx.handler({ prompt: 'soft whoosh' }, {});
+    await toolsByName().generate_sfx.handler({ prompt: 'soft whoosh' }, {});
     expect(generateAudioAsset).toHaveBeenCalledTimes(1);
   });
 
-  it('generate_music: a matching bed is offered; one shorter than the asked length is not; a composition plan never looks', async () => {
-    const { ctx } = makeCtx();
-    const tools = toolsByName(ctx);
-    const reuse = await tools.generate_music.handler({ prompt: 'warm lo-fi bed' }, {});
-    expect(reuse.content[0].text).toContain('- [matched] library:music/lofi-warm.mp3 (audio, 57.05 s, imported)');
-    expect(reuse.content[0].text).toContain('call generate_music again with force: true');
-    expect(reuse.content[0].text).not.toContain('whoosh');
-    expect(generateAudioAsset).not.toHaveBeenCalled();
-
-    await tools.generate_music.handler({ prompt: 'warm lo-fi bed', durationSeconds: 90 }, {});
-    expect(generateAudioAsset).toHaveBeenCalledTimes(1);
-
-    loadIndex.mockClear();
-    await tools.generate_music.handler({ compositionPlan: { sections: [{ name: 'a', durationSec: 10 }] } }, {});
-    expect(loadIndex).not.toHaveBeenCalled();
-    expect(generateAudioAsset).toHaveBeenCalledTimes(2);
+  it('REUSE_NOTE / FORCE_HINT (both tools) say the same as the answer — and claim nothing', () => {
+    for (const t of Object.values(toolsByName())) {
+      expect(t.description).toContain(
+        'It FIRST searches the asset library (words + meaning; no cost, no provider needed): whenever the library has sounds of that kind it returns up to 20 library:<path> refs that may fit (duration, category, tags, loudness, where used, description) INSTEAD of generating — found by search, NOT checked, in search order (the order is not a ranking of fit). Read each description and pick by plain meaning: a clip fits only if it IS the sound asked for. Place one with insert_asset, or call again with force: true if none fits. It generates without force only when the library has no sound of that kind (or, searching by words only, no clip shares a word with the prompt).',
+      );
+      const force = t.inputSchema.force.description ?? '';
+      expect(force).toBe(
+        'Generate a new one instead of the library sounds this tool answered — only after it returned library sounds that may fit and none of them IS the sound asked for. Without force the tool answers library sounds whenever the library has sounds of that kind.',
+      );
+      for (const claim of ['already has', 'matching', 'may have', 'weak match', '[matched]', '[closest]', 'up to three']) {
+        expect(t.description).not.toContain(claim);
+        expect(force).not.toContain(claim);
+      }
+    }
   });
 });

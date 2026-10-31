@@ -34,3 +34,4 @@ export { registerRembgIpc } from './rembg';
 export { registerSd3dIpc } from './sd3d';
 export { registerThreedStudioIpc } from './threed-studio';
 export { registerAgentsIpc } from './agents';
+export { registerLibrarySearchIpc } from './library-search';

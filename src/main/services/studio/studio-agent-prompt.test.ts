@@ -101,7 +101,8 @@ describe('buildAgentSystemPrompt — reuse before generate: search the library b
 
   it('generate_sfx / generate_music say they check the library first and that `force` is the way past it', () => {
     expect(prompt).toContain('`generate_sfx(prompt, durationSeconds?, loop?, promptInfluence?, force?)`');
-    expect(prompt).toContain('It checks the library FIRST: when sounds there match the prompt it returns up to three `library:<path>` refs instead of generating');
+    expect(prompt).toContain('It searches the library FIRST (words + meaning; no cost, no provider needed): whenever the library has sounds of that kind it returns up to 20 `library:<path>` refs that may fit instead of generating — found by search, NOT checked, in search order (the order is not a ranking of fit).');
+    expect(prompt).toContain('Read each description and pick by plain meaning: a clip fits only if it IS the sound asked for — a loosely related or merely similar clip is not a fit.');
     expect(prompt).toContain('pass `force: true` only when none of them fits');
     expect(prompt).toContain('The same library check as generate_sfx (a bed shorter than the length you ask is not offered)');
   });
@@ -121,14 +122,18 @@ describe('buildAgentSystemPrompt — reuse before generate: search the library b
 
   it('the miss rule (E-d15, fix round 3): a miss answers the closest library sounds; `force: true` is the only way to generate while the library scores', () => {
     expect(prompt).toContain('Even a sound the library lacks starts there: on a miss generate_sfx / generate_music answer the closest library sounds before anything is generated.');
-    expect(prompt).toContain('When nothing matches well it STILL generates nothing: it answers the three closest library sounds — place one that fits, or call again with `force: true` to generate; it generates without `force` only when nothing in the library scores at all.');
-    expect(prompt).toContain('and the same miss rule — the closest library beds instead of a new track, `force: true` to generate');
+    expect(prompt).toContain('It generates without `force` only when the library has no sound of that kind (or, searching by words only, no clip shares a word with the prompt).');
+    expect(prompt).toContain('and the same rule — library beds that may fit instead of a new track whenever the library has beds that long, read each description, `force: true` to generate; a composition plan always generates');
     expect(prompt).toContain('A miss answers the closest library sounds, not a new file — call again with `force: true` only when none of them fits either.');
     expect(prompt).toContain('on a miss either tool answers the closest library sounds instead of generating — `force: true` generates when none fits');
   });
 
-  it('the recall fill (E-d16, fix round 4): up to three labelled library sounds; only weak matches → the library "may have" it', () => {
-    expect(prompt).toContain('— the matches first, then the closest other library sounds, each row labelled `matched`, `weak match` or `closest` (only weak matches: the library "may have" the sound); place the one that fits');
+  it('library search (LIBRARY_SEARCH_DESIGN.md §8.1): the generate_sfx / generate_music lines claim nothing — no labels, no "already has" / "matching" / "may have"', () => {
+    const lines = prompt.split('\n').filter((l) => l.startsWith('- `generate_sfx(') || l.startsWith('- `generate_music('));
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      for (const claim of ['already has', 'matching', 'may have', 'weak match', '`matched`', '`closest`', 'up to three']) expect(line).not.toContain(claim);
+    }
   });
 });
 

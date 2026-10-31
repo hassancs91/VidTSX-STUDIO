@@ -12,6 +12,7 @@ export type AiFeatureSource =
   | 'agent'
   | 'library-describe'
   | 'library-organize'
+  | 'library-search-rerank'
   | 'provider-test'
   | 'transcription'
   | 'other';

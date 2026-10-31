@@ -41,6 +41,7 @@ import { registerMemoryIpc } from './registrations/memory';
 import { registerNewsIpc } from './registrations/news';
 import { registerUpdaterIpc } from './registrations/updater';
 import { registerLibraryIpc } from './registrations/library';
+import { registerLibrarySearchIpc } from './registrations/library-search';
 import { registerAgentsIpc } from './registrations/agents';
 import { registerHomeIpc } from './registrations/home';
 import { logEngine } from '../../logging/log-engine';
@@ -92,6 +93,7 @@ export function registerAllIPC(): void {
   registerNewsIpc();
   registerUpdaterIpc();
   registerLibraryIpc();
+  registerLibrarySearchIpc();
   registerAgentsIpc();
   registerHomeIpc();
 

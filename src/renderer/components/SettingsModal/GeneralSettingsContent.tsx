@@ -12,6 +12,7 @@ import type { RenderQualityLevel, ResolutionPresetId } from '@shared/render-pres
 import { CrashReportingRow } from './rows/CrashReportingRow';
 import { ProxyGpuEncoderRow } from './rows/ProxyGpuEncoderRow';
 import { NewsRow } from './rows/NewsRow';
+import { LibrarySearchRow } from './rows/LibrarySearchRow';
 import { UpdateSection } from './UpdateSection';
 
 export function GeneralSettingsContent({
@@ -125,6 +126,9 @@ export function GeneralSettingsContent({
       </div>
 
       {/* Image models folder controls moved to the dedicated "AI Models" screen. */}
+
+      <SectionHeader>Library</SectionHeader>
+      <LibrarySearchRow />
 
       <SectionHeader>Privacy</SectionHeader>
       <div className="flex flex-col gap-2">

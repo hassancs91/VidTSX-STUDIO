@@ -79,6 +79,9 @@ export interface BuildInsertProposalInput {
   note?: string;
   /** Review header. */
   summary?: string;
+  /** Replaces the placement label in the headline (the cut anchor's
+   *  "at cut 1 (0:03.00 on the timeline)"). */
+  atLabel?: string;
   createdAt?: string;
 }
 
@@ -86,6 +89,16 @@ export interface BuildInsertProposalInput {
 export function defaultInsertDuration(asset: BuildInsertProposalInput['asset']): number {
   if (asset.kind === 'image') return DEFAULT_INSERT_IMAGE_DURATION;
   return Math.max(0.1, asset.durationSeconds ?? DEFAULT_INSERT_IMAGE_DURATION);
+}
+
+/** The inserted clip's final length: the asked (or default) length, never
+ *  under 0.1 s, and a media clip never outlasts its source (images have no
+ *  source length). The cut anchor maps exactly this span. */
+export function insertClipLength(asset: BuildInsertProposalInput['asset'], duration?: number): number {
+  const asked = Math.max(0.1, duration ?? defaultInsertDuration(asset));
+  return asset.kind !== 'image' && asset.durationSeconds !== undefined
+    ? Math.min(asked, Math.max(0.1, asset.durationSeconds))
+    : asked;
 }
 
 /** Where the item lands, for the summary line. */
@@ -102,12 +115,7 @@ function formatTc(seconds: number): string {
 
 /** One insert-plan proposal with one accepted item. */
 export function buildInsertProposal(input: BuildInsertProposalInput): StudioProposal {
-  const duration = Math.max(0.1, input.duration ?? defaultInsertDuration(input.asset));
-  // A media clip cannot outlast its source (images have no source length).
-  const clipped =
-    input.asset.kind !== 'image' && input.asset.durationSeconds !== undefined
-      ? Math.min(duration, Math.max(0.1, input.asset.durationSeconds))
-      : duration;
+  const clipped = insertClipLength(input.asset, input.duration);
   const placement =
     'timelineStart' in input.at
       ? { timelineStart: Math.max(0, input.at.timelineStart) }
@@ -132,7 +140,7 @@ export function buildInsertProposal(input: BuildInsertProposalInput): StudioProp
   const laneLabel = input.lane === 'broll' ? 'b-roll' : input.lane;
   const headline =
     input.summary ??
-    `Insert "${input.asset.name}" as ${laneLabel} ${placementLabel(input)} · ${clipped.toFixed(1)} s`;
+    `Insert "${input.asset.name}" as ${laneLabel} ${input.atLabel ?? placementLabel(input)} · ${clipped.toFixed(1)} s`;
   return {
     id: makeProposalId(),
     kind: 'insert-plan',

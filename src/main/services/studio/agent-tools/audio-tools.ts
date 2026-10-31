@@ -58,10 +58,10 @@ const CATEGORY_HINT_SFX =
 const CATEGORY_HINT_MUSIC = 'Music category, one word: bed / sting / intro / outro / loop / transition';
 const TAGS_HINT = 'Search tags for the library (lower-cased, deduplicated, at most 20): "whoosh", "air", "fast"';
 const FORCE_HINT =
-  'Generate even though the library has matching sounds — only after this tool returned library sounds (matched, weak match or closest) and none of them fits. The same on a miss: the tool answers the closest library sounds instead of generating, and force: true is the only way to generate while anything in the library scores.';
-/** E3: what both descriptions say about the library check that runs first. */
+  'Generate a new one instead of the library sounds this tool answered — only after it returned library sounds that may fit and none of them IS the sound asked for. Without force the tool answers library sounds whenever the library has sounds of that kind.';
+/** What both descriptions say about the library search that runs first (LIBRARY_SEARCH_DESIGN.md §8.1 — never a claim). */
 const REUSE_NOTE =
-  'It FIRST searches the asset library: when sounds there match the prompt it returns up to three library:<path> refs (duration, category, tags, loudness, where used) INSTEAD of generating — the matches first, then the closest other library sounds, each row labelled [matched], [weak match] or [closest] (only weak matches: the library "may have" the sound); no cost, no provider needed; place one with insert_asset, or call again with force: true if none fits. On a miss it answers the three closest library sounds instead of generating; only when nothing in the library scores does it generate without force.';
+  'It FIRST searches the asset library (words + meaning; no cost, no provider needed): whenever the library has sounds of that kind it returns up to 20 library:<path> refs that may fit (duration, category, tags, loudness, where used, description) INSTEAD of generating — found by search, NOT checked, in search order (the order is not a ranking of fit). Read each description and pick by plain meaning: a clip fits only if it IS the sound asked for. Place one with insert_asset, or call again with force: true if none fits. It generates without force only when the library has no sound of that kind (or, searching by words only, no clip shares a word with the prompt).';
 
 /** What the clip measures (E2): the loudness line, or the honest "kept raw" line. */
 function describeLevel(filed: GeneratedAudioAsset): string {
@@ -128,8 +128,8 @@ export function buildAudioTools(ctx: StudioToolContext): StudioTool[] {
     },
     async (args) => {
       emitTool(ctx, 'generate_sfx', args.prompt.slice(0, 60));
-      // E3: reuse before generate — BEFORE the provider check, so it works with no key. A match or a
-      // near miss (E-d15) answers from the library and generates nothing; only a true miss generates.
+      // E3 + library search (§6 / §8.1): search BEFORE the provider check, so it works with no key. Any
+      // candidate answers from the library and generates nothing; only an empty pool / Basic's true miss generates.
       if (!args.force) {
         const reuse = await libraryReuseAnswer('generate_sfx', args.prompt, { soundClass: 'sfx' });
         if (reuse) return text(reuse.text);

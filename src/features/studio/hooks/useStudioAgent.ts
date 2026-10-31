@@ -13,6 +13,7 @@ import type {
   StudioAgentAction,
   StudioAgentChatMessage,
   StudioAgentOpenProposal,
+  StudioAgentTimelineCuts,
 } from '@shared/ipc/types';
 import type { ThinkingLevel } from '@shared/tsx-engine/types';
 import type { StudioMediaAsset, StudioProposal, StudioShot, StudioTimeline } from '../types';
@@ -57,6 +58,8 @@ export interface UseStudioAgentOptions {
   sttModelId?: string | undefined;
   captions?: { templateId: string; enabled: boolean } | undefined;
   timelineDurationSeconds?: number | undefined;
+  /** The master track's cuts (`summarizeMasterCuts`) — the prompt's cuts line. */
+  timelineCuts?: StudioAgentTimelineCuts | undefined;
   /** B7: the live timeline — each asset's `sourceKeeps` (what `run_auto_cut` plans over). */
   timeline?: StudioTimeline | undefined;
   /** W4: the project script as the editor holds it. */
@@ -250,6 +253,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
           ...(opts.timelineDurationSeconds !== undefined
             ? { timelineDurationSeconds: opts.timelineDurationSeconds }
             : {}),
+          ...(opts.timelineCuts ? { timelineCuts: opts.timelineCuts } : {}),
           ...(opts.script ? { script: opts.script } : {}),
           ...(opts.providerId ? { providerId: opts.providerId } : {}),
           ...(opts.model ? { model: opts.model } : {}),
