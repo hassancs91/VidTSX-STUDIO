@@ -1,8 +1,9 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF (D4 builder #3, 2026-10-31 10:34) — **part (c) IN PROGRESS: sub-checkpoint (c1) committed at `b7b1648`** (main's decision
-services + the `typesafe` registry entry + the `'decision'` capability + the wire types; 5 files / 32 tests green after a red run; tsc web 25 /
-node 10); **(c2) is next** (IPC channels + handlers + registration + preload + `electron.d.ts` + the key-save hook + the preload-surface test).
-Part (b) DONE at `ed79420`; part (a) DONE at `c7ad6da`. Earlier: orchestrator 09:44 —
+status: HANDOFF (D4 builder #4, 2026-10-31 10:47) — **part (c) DONE: (c1) `b7b1648` + (c2) `d9ec730`** ((c2) = the four `decisions:*`
+channels, the handlers, the lazy registration, `src/preload/api/decisions.ts` + its wiring, `electron.d.ts`, the key-save hook; 4 new test files
+/ 41 tests green after a red run; related suites 117 / 118 files green — the 1 = the known `builder-libraries` worktree-only suite; tsc web 25 /
+node 10); **part (d) is next** (the `decide` tool / node + the two built-ins). Part (b) DONE at `ed79420`; part (a) DONE at `c7ad6da`.
+Earlier: D4 builder #3 10:34 — (c1); orchestrator 09:44 —
 D3 judged **FAIL, the local rung stays empty → part (g) is NOT built**; rulings **D-r16** (binds (b), (d), (e)) and **D-r17** (builder #1's
 four contract decisions, accepted 10:02).
 
@@ -44,7 +45,7 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 |---|---|---|---|
 | (a) | `src/decision-engine/` types + validate / ladder / calibration-table / cache, tests first; `src/shared/types/decisions.ts` (§3) | **DONE** | `c7ad6da` |
 | (b) | `providers/system-one-provider.ts` (injected `fetch`) + contract tests on D1's recorded responses (scrubbed fixtures) + dry-run bodies; `decision-engine.ts` + `presets.ts` + `index.ts`; the LLM-fallback provider (§5.4) | **DONE** | `ed79420` |
-| (c) | `src/main/services/decisions/` (decision-init from credentials like `image-init.ts`, decision-usage, decision-settings, decision-runtime); registry `typesafe` + `'decision'` capability + label; `openrouter` gains `'decision'`; IPC (§12) + preload + status; the preload-surface test | **IN PROGRESS** — (c1) services + registry + wire types **DONE**; (c2) IPC + preload + key-save hook TODO | (c1) `b7b1648` |
+| (c) | `src/main/services/decisions/` (decision-init from credentials like `image-init.ts`, decision-usage, decision-settings, decision-runtime); registry `typesafe` + `'decision'` capability + label; `openrouter` gains `'decision'`; IPC (§12) + preload + status; the preload-surface test | **DONE** — (c1) services + registry + wire types; (c2) IPC + preload + key-save hook + the preload-surface test | (c1) `b7b1648`, (c2) `d9ec730` |
 | (d) | `src/main/services/agents/tools/decide.ts` (tool + flow node via `ports`) + `check_matches_request` + `route_request`; T2 / T3 unit tests through an injected provider; the no-claim test | TODO | — |
 | (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`) | TODO | — |
 | (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | TODO | — |
@@ -268,6 +269,55 @@ ProviderKeyRow.tsx`; `src/main/services/agents/tools/{registry-core,generate-tex
    `decisionsKeysChanged()` is a no-op until then (first use reads the keys).
 6. Status `why` precedence: mode off (`Decisions are off in Settings`) → `no key` → `switched off in Settings` → `not registered`.
 
+**Part (c), sub-checkpoint (c2) — `d9ec730` (2026-10-31 10:43), 15 paths, all as of `d9ec730`:**
+- `src/shared/ipc/channels.ts` (**654 → 660** lines) — `DECISIONS_DECIDE: 'decisions:decide'` :612, `DECISIONS_STATUS`, `DECISIONS_SETTINGS_SET`,
+  `DECISIONS_EVENT` (push) right after `LIBRARY_SEARCH_EVENT`. `src/shared/ipc/types/index.ts` (58 → 59) — `export * from './decisions'`.
+- `src/main/ipc/decisions-handlers.ts` (110) — `handleDecisionsDecide` :67 (envelope not an object → `invalid-request`; **`'test' in envelope`
+  → only `test === 'jev'` is read → `getDecisionRuntime().testKey()` with no argument**, any request / key riding along ignored (D-r19 (1)); a
+  free-form `request` must carry `featureSource` ∈ `RENDERER_FEATURE_SOURCES` :24 = `decision-test` | `decision-flow`, else `invalid-request`
+  with no call; then `runtime.decide(request)` — the engine validates on its own clean copy), `handleDecisionsStatus` :88 (`return await`; a
+  failure → `unavailableStatus` :40 = mode `auto`, the default order, both hosted rungs `hasKey: false` / `available: false` / `why` = the
+  error, `local: { state: 'none' }`, `llm.available: false`, `error`), `handleDecisionsSettingsSet` :96 (a refused patch → the unchanged status
+  + `error`; if the status fails too → `unavailableStatus`); `wireError` :29 = `toDecisionsWireError` then `scrubDecisionText(message, [])`
+  (masks `Bearer …` / `sk-…` — defence in depth over the engine's own scrub; the status `error` is masked the same way).
+- `src/main/ipc/registrations/decisions.ts` (31) — `registerDecisionsIpc` :21: the three request channels `lazily(startDecisionsQuietly, …)`
+  (:11 — wraps `ensureDecisions` and SWALLOWS a failed start, because `lazily` would otherwise reject the invoke before the handler's try/catch;
+  the handler's own runtime call retries `start()` inside its try/catch and answers typed) + `onDecisionsEvent` → `contents.send(
+  IPC.DECISIONS_EVENT, event)` to every non-destroyed `webContents`. Exported from `registrations/index.ts` (37 → 38); called in
+  `src/main/ipc/register.ts` :98 right after `registerLibrarySearchIpc()` (101 → 103 lines).
+- `src/preload/api/decisions.ts` (29) — `decisionsApi` :17 = exactly `decisionsDecide` / `decisionsStatus` / `decisionsSettingsSet` /
+  `onDecisionsEvent`; `decideEnvelope` :13 rebuilds `{ test }` or `{ request }` from the known fields only (a smuggled key never crosses).
+  `src/preload/api/index.ts` (47 → 48) re-exports it; `src/preload/preload.ts` (108 → 110) imports it :45 and spreads `...decisionsApi` :97.
+- `src/renderer/types/electron.d.ts` (**656 → 661** lines) — the comment + the four declarations from :648, right after `onLibrarySearchEvent`.
+- `src/main/ipc/provider-keys-handlers.ts` (83 → 91) — `await decisionsKeysChanged()` :73 after `initSttEngine()`, in its own try/catch (a
+  decisions failure logs a fixed warning — no message, so no key — and never fails the save: the keys ARE saved).
+- Tests (red first): `src/preload/api/decisions.test.ts` (108 — the four names; the IPC table's `DECISIONS_*` / `decisions:*` entries are exactly
+  the four; the key test sends only `{ test: 'jev' }` and an extra envelope field with a fake key is dropped; status / settings:set channels;
+  the event subscribe / unsubscribe; `preload.ts` spreads it, `api/index.ts` re-exports it; `electron.d.ts` declares exactly the four; only
+  `api/decisions.ts` uses a `DECISIONS_` channel in the preload; no key-carrying field name in `shared/ipc/types/decisions.ts` or the preload
+  module), `src/main/ipc/decisions-handlers.test.ts` (167 — test mode, other rung id, the free-form path per feature source, malformed
+  envelopes, DecisionError code kept, plain throw → `provider-error`, an unbuildable runtime, status failure, settings refused / both failing,
+  a fake key never comes back), `src/main/ipc/registrations/decisions.test.ts` (74 — exactly three handles and nothing built at registration;
+  first call starts; a failed start still answers typed; the push reaches live windows only), `src/main/ipc/provider-keys-handlers.test.ts`
+  (78 — save / removal both reach `decisionsKeysChanged` AFTER image / video / audio / llm / stt; its failure keeps `success: true`, no key
+  logged).
+
+**Decisions builder #4 made (the orchestrator may overrule any):**
+1. **The renderer's free-form `decisions:decide` accepts only `featureSource` `decision-test` (the dev tester) or `decision-flow` (the canvas
+   preview)**; `decision-agent` / `decision-routing` / any other source / none → `invalid-request` with no call. Why: §12 names exactly those two
+   renderer callers, and the usage log's `featureSource` column (§9, §15.3 4) must not be claimable from the window. **The verifier's §15.3 1
+   stub run (20 concurrent `decisionsDecide`) must send `featureSource: 'decision-test'`.**
+2. **A failed first-use start never rejects the invoke** — `startDecisionsQuietly` swallows it and the handler answers typed (library search's
+   registration would reject here; the house rule "every handler … returns typed errors" wins).
+3. **The preload rebuilds the decide envelope** from `test` / `request` (an extra envelope field never crosses); `decisionsSettingsSet` passes
+   its patch through (main's `setDecisionSettings` validates the whole patch). The `request` object itself is passed as given — the engine's
+   `validateDecisionRequest` works on a clean copy, so an extra field inside it never reaches a provider.
+4. **A decisions re-register failure in the key save is logged and swallowed** (the keys are saved; image / video / llm init failures still fail
+   the save as before — unchanged).
+5. Wire / status error messages pass `scrubDecisionText(…, [])` (bearer + `sk-…` masks) in the handler — the engine already scrubs with the
+   real key; this covers non-engine throws (settings DB, credential store). A key of another shape in such a throw is not masked (none is known
+   to carry one).
+
 ## Verified
 
 All from the worktree root, as of `c7ad6da` (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
@@ -322,24 +372,45 @@ Part (c1), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vid
   features; no `any`, no `export default`; longest source `decision-runtime.ts` 226, longest test 177. Key scan over the new files: only
   `sk-test-FAKE-…` / `sk-or-v1-FAKE-…`. No hosted call, no app launch.
 
+Part (c2), all from the worktree root (logs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
+- RED (10:40, the 4 test files written, no (c2) source): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/preload/api/decisions.test.ts src/main/ipc/decisions-handlers.test.ts src/main/ipc/registrations/decisions.test.ts
+  src/main/ipc/provider-keys-handlers.test.ts` → `Test Files 4 failed (4)`, `Tests 2 failed | 1 passed (3)`; 3 files fail only on "Cannot find
+  module '/src/preload/api/decisions' | '/src/main/ipc/decisions-handlers' | '/src/main/ipc/registrations/decisions'", the provider-keys file
+  on its two `decisionsKeysChanged` assertions (`c2-red.log`).
+- GREEN (10:42): the same command → `Test Files 4 passed (4)`, `Tests 41 passed (41)` (`c2-green-1.log`).
+- Related suites (10:42–10:43): `… vitest.mjs run src/main/ipc src/preload src/main/services/decisions src/decision-engine src/shared` →
+  `Test Files 1 failed | 117 passed (118)`, `Tests 1 failed | 1103 passed (1104)`; the 1 red = `src/shared/tsx-engine/builder-libraries.test.ts`
+  ("@remotion/paths (builder-libraries.ts) is not installed" — the known E-d2a worktree-only package-resolution suite, DRIVING.md:186; it
+  touches no file of this part) (`c2-green-2.log`). No LS-r1b `stream` failure appeared in these directories.
+- tsc (10:43): `… tsc -p tsconfig.web.check.json --noEmit` → **25** (`tsc-web-c2.log`); `-p tsconfig.node.check.json --noEmit` → **10**
+  (`tsc-node-c2.log`); `--listFilesOnly` (node) lists all 7 new files + `provider-keys-handlers.ts`; (web) lists `src/renderer/types/
+  electron.d.ts` + `shared/ipc/types/decisions.ts`.
+- House rules (10:44): imports of the 3 new sources = `electron`, `@shared/ipc/channels` / `../../shared/ipc/channels`, `shared/ipc/types`
+  (+ `/decisions`), `shared/types/{decisions,ai-usage}`, `decision-engine` (+ `/ladder`, `/scrub`), `services/decisions/decision-runtime`,
+  `../decisions-handlers`, `./lazy` — none from studio / asset-library / renderer / features; no `any`, no `export default`; longest new source
+  `decisions-handlers.ts` 110, longest new test 167; big pre-existing files grew only by the channel lines (channels.ts 654 → 660,
+  electron.d.ts 656 → 661). Key scan over the 7 new files: only `sk-test-FAKE-handlers-0011` / `-keys-0021` / `-preload-0007`. No hosted
+  call, no app launch, no package.json / lock change.
+
 ## Next step
 
-Part (c2) — red first, then commit and mark (c) DONE: (1) a red `src/preload/api/decisions.test.ts` (mock `electron`'s `ipcRenderer`;
-`Object.keys(decisionsApi)` is EXACTLY `decisionsDecide`, `decisionsStatus`, `decisionsSettingsSet`, `onDecisionsEvent`, each on its channel;
-`src/preload/preload.ts`'s source spreads `...decisionsApi`; the text of `src/shared/ipc/types/decisions.ts` names no key field) and a red
-`src/main/ipc/decisions-handlers.test.ts` (the library-search-handlers.test.ts shape: mock `../services/decisions/decision-runtime`;
-`{ test: 'jev' }` → `runtime.testKey()`; a `request` whose `featureSource` is not `decision-test` / `decision-flow` → `invalid-request` with no
-decide; a throwing runtime → `{ ok: false, error }` never a rejected invoke; status failure → every rung unavailable + `error`; settings
-failure → the unchanged status + `error`; a fake key in a thrown message never comes back); (2) then: channels `DECISIONS_DECIDE:
-'decisions:decide'`, `DECISIONS_STATUS: 'decisions:status'`, `DECISIONS_SETTINGS_SET: 'decisions:settings:set'`, `DECISIONS_EVENT:
-'decisions:event'` beside `LIBRARY_SEARCH_*` in `src/shared/ipc/channels.ts` (654 lines → record after); `export * from './decisions'` in
-`src/shared/ipc/types/index.ts`; `src/main/ipc/decisions-handlers.ts` (handlers over `getDecisionRuntime()`, wire errors via
-`toDecisionsWireError`); `src/main/ipc/registrations/decisions.ts` (`lazily(ensureDecisions, …)` ×3 + `onDecisionsEvent` broadcast to every
-`webContents` — copy `registrations/library-search.ts`), exported from `registrations/index.ts` and called in `register.ts` after
-`registerLibrarySearchIpc()`; `src/preload/api/decisions.ts` (`decisionsApi`, copy `api/library-search.ts`) + `api/index.ts` + `...decisionsApi`
-in `src/preload/preload.ts`; the four lines in `src/renderer/types/electron.d.ts` beside `librarySearch*` (656 lines → record after);
-`await decisionsKeysChanged()` in `handleProviderKeysSave` after `initSttEngine()` (`src/main/ipc/provider-keys-handlers.ts:68`). D2 §12 names
-the preload `src/preload/api/decisions.ts` — that IS where this codebase's preload modules live (not `src/shared/ipc/preload.ts`, a 2-line stub).
+Part (d), in a FRESH builder context — red first: write `src/main/services/agents/tools/decide.test.ts` (+ the two built-ins' tests) BEFORE
+any source, then `src/main/services/agents/tools/decide.ts` — the `decide` agent tool that is also a flow node (one `registerTool` with
+`ports`, D2 §11) plus the two built-ins `check_matches_request` and `route_request` (D2 §10.1–10.2), every call through
+`getDecisionRuntime().decide(…)` (`src/main/services/decisions/decision-runtime.ts:100`; tests inject a fake runtime / provider — no hosted
+call). Bind: D-r16 (b) + (c) — the built-ins' request bodies EQUAL D1's (`check_matches_request`: `state` = D1's T3 rule verbatim, ONE `noul`
+whose `instructions` carry the item + request as D1's T3 rows' `question`, D1's T3 criteria `NOUL_T3`; `route_request`: `state` = the routing
+rule — D1's T2 rule in the test — and ONE `choice` "Which ONE … must act on this request? Request: <JSON>" with the caller's options as
+criteria), asserted over every row of `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\fixtures\t2-routing.json` / `t3-verify.json` (copy into
+the tree only what the tests need; (e) owns `src/main/services/decisions/benchmark/fixtures/`, so put (d)'s copies there or share them with (e));
+D-r18 (1) — `band = act` iff the TOP probability (choice: `probabilities[choice]`; noul: `max(p, 1 − p)`) ≥ `threshold` AND `calibrated`, else
+`escalate`; the tool's text = answer + band only and passes §15.1's no-claim test (no `%`, `match`, `matches`, `sure`, `confident`,
+`definitely`, `certain`, `probability`) over every T2 / T3 row and both bands; the run record keeps `p` (§15.3 3); `featureSource`
+`decision-agent` for the tool, `decision-flow` for the node; `family` set by the built-ins (`verify` / `routing`). Read first: D2 §10.1, §10.2,
+§11, §15.1 (no-claim + calibration), ORCHESTRATOR D-r16 + D-r18; `src/main/services/agents/tools/{registry-core,generate-text}.ts` (a tool with
+`ports` is also a flow node); `K1\hosted-run.cjs:45-57` in D1's kit (the request shape + `NOUL_T3`); `decision-runtime.ts`'s public API only
+(`getDecisionRuntime`, `decide`, `toDecisionsWireError`). Do not touch (c)'s IPC — the agent tool runs in main and never crosses IPC.
 
 ## Open problems
 
@@ -359,7 +430,13 @@ the preload `src/preload/api/decisions.ts` — that IS where this codebase's pre
    `decisions:decide { test: 'jev' }` (no 5th preload function, no key on any decisions request); (f) must save first. Also #1's gap: the llm
    rung's usage row has provider `llm` and outputTokens 0.
 7. `docs/studio/decisions/ORCHESTRATOR.md` is still modified in the working tree (not this builder's edit) — left unstaged in `b7b1648` and the
-   docs commit.
+   docs commit; likewise left unstaged in `d9ec730` and (c2)'s docs commit.
+8. **For the orchestrator (builder #4's decisions 1–5, (c2)):** the one that shapes §15.3 is #1 — the renderer's free-form `decisions:decide`
+   accepts only `featureSource` `decision-test` / `decision-flow`, so the verifier's §15.3 1 stub run (20 concurrent calls) must send
+   `featureSource: 'decision-test'` (the brief to D5 should say so). #2 (a failed first-use start answers typed instead of rejecting) differs
+   from library search's registration on purpose.
+9. (f) wires the TypeSafe row's Test button to `window.api.decisionsDecide({ test: 'jev' })` (D-r19 (3): disabled until a key is SAVED) and
+   gates the free-form tester behind the dev-preview flag (D2 §12 / D-r19 (2)) — main does not gate either.
 
 ## Do-not-redo
 
@@ -373,6 +450,9 @@ the preload `src/preload/api/decisions.ts` — that IS where this codebase's pre
   capability / label, the ai-usage unions, `src/shared/ipc/types/decisions.ts`. (c2) builds ON them (the handlers call `getDecisionRuntime()`;
   `ensureDecisions` / `onDecisionsEvent` / `decisionsKeysChanged` / `toDecisionsWireError` already exist) — do not rewrite them.
 - The text engine does not log usage (scanned, test in `decision-usage.test.ts`) — do not add a skip for the `llm` rung.
+- **Part (c) is DONE** — (c2) at `d9ec730`: the four channels, `decisions-handlers.ts`, `registrations/decisions.ts` (lazy, quiet start),
+  `src/preload/api/decisions.ts` + `api/index.ts` + the `preload.ts` spread, the four `electron.d.ts` lines, `decisionsKeysChanged()` in the
+  key save, and their 4 test files. Do not re-wire them; (f) only CALLS `window.api.decisions*`.
 
 ## Agents so far
 
@@ -382,3 +462,5 @@ the preload `src/preload/api/decisions.ts` — that IS where this codebase's pre
   HANDOFF + LOG.
 - 2026-10-31 10:20–10:35 · D4 builder #3 · ~50 tool calls · part (c) sub-checkpoint (c1): 4 service tests + registry edits red → services +
   registry + wire types green → `b7b1648`; HANDOFF + LOG → (c2).
+- 2026-10-31 10:37–10:48 · D4 builder #4 · ~35 tool calls · part (c) sub-checkpoint (c2): 4 test files red → channels + handlers + lazy
+  registration + preload + `electron.d.ts` + the key-save hook green → `d9ec730`; part (c) DONE; HANDOFF + LOG → part (d).
