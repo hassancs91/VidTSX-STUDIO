@@ -17,7 +17,9 @@ passes the evaluable terms), STOP 2 (no measured decision model beats the baseli
 local leg** — D1 waited on Hasan (the report's §13–§14); **RESUMED 2026-10-31 on his answers (D-r8 … D-r10): THE HOSTED LEG DONE (builder #9,
 07:45–07:47) — Jev + Microsoft-Decision-1 via OpenRouter LIVE, 38 requests / ≈ $0.038, T2 100.0 % and T3 100.0 % on both, T1 choice Jev 85.0 %
 (D-r2 τ 0.5 R@1 79.1 % at wrong-confident 9.6 %) / MSD1 73.8 % (66.8 % / 10.0 %) → STOP 1 and STOP 2 STAND (`K\reports\c-hosted.md`); T1 noul
-HELD (D-r9); the Laya official-runtime check (D-r10 b) follows**
+HELD (D-r9); **D-r10 (b) DONE (builder #9, 07:58): the OFFICIAL Laya runtime (`laya` 0.4.18, torch 2.15.0+cpu, cached checkpoint) reproduces
+the community export to four decimals on E1 / E2 / E3 — E2 answers `sales` 0.5811 on BOTH → the card's printed `billing` is stale, the export
+is faithful, P19 ANSWERED; Laya's §8 NOTE numbers are what the official runtime gives (`K\reports\c-laya.md` §9)**
 
 > Branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt` (paths below are relative to it).
 > The orchestrator's state: `docs/studio/decisions/ORCHESTRATOR.md` — its "Answers in force" (Hasan's D-a…D-h, verbatim) and its
@@ -348,6 +350,20 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
   own `usage.cost` Σ $0.017588; ≈ $0.038 in all; T1 choice ≈ $0.07–0.08 per 1,000 decisions, T2 / T3 < $0.012. Shapes: both return the full
   `probabilities` map (Σp = 1.0000) + `confidence`; **Jev rounds every probability to hundredths** (P24). D-r10 sanity: Jev T2 100 % on 6 families,
   499 ms for 40 questions, vs the experiment's 90.0 % / p50 793 ms per 7-question email — the same direction, not a replication.
+- **D-r10 (b) — the Laya official-runtime reference check: DONE** (builder #9, 2026-10-31 07:48–07:58; recorded in the commit that adds this
+  line). Venv `B\py-scratch\laya-venv` (system Python 3.13.2, outside every repo; 912 MB): `pip install torch --index-url
+  https://download.pytorch.org/whl/cpu` → the `torch-2.15.0+cpu` wheel **126.6 MB** (no GPU torch); `pip install --dry-run laya` first ("Would
+  install" 26 packages, torch NOT among them), then `pip install laya` → `laya 0.4.18`, `transformers 5.22.1` (13.1 MB), `huggingface_hub 2.4.0`,
+  `hf-xet 1.8.0` (3.9 MB), `tokenizers 0.23.3` (2.9 MB), `numpy 2.5.4`, `safetensors 0.8.0` (logs `B\py-scratch\pip-setup.log`, `pip-laya.log`; C:
+  31 GB free after). Script **`K\laya-official-check.py`** (E1 / E2 / E3 copied from `laya-run.cjs` `EXAMPLES`; `HF_HUB_DISABLE_XET=1`, `USE_TF=0`,
+  **`HF_HUB_OFFLINE=1`** — the cached checkpoint, no download happened), run with the venv's python `-I` → `B\logs\laya-official-check.log`:
+  `laya.load("convaiinnovations/laya", subfolder="multilingual", device="cpu")` loaded in 7,695 ms (8 torch threads), E1 353 ms, E2 190 ms, E3 99
+  ms. **Result: identical to the community export (c-laya.md §4) to four decimals** — E1 `billing` 0.9929 (technical 0.0015, sales 0.0018, other
+  0.0037; `confidence` 0.9645, `answer_confidence` 0.9929), urgency score 1.7431 (0.0274 / 0.2022 / 0.7704), churn_risk noul 0.0070,
+  refund_requested 0.9936; **E2 `sales` 0.5811 · billing 0.4167 · technical 0.0022** (confidence 0.3687), refund_requested 0.9597; E3 `other`
+  0.3047 · billing 0.2535 · sales 0.2453 · technical 0.1965; each question alone = the same. **P19 answered: the export is faithful; the card's
+  printed `# billing` for E2 (and the README's "confidence: 0.86" for E1) are stale for the current weights** — so the §8 NOTE runs are what the
+  official runtime produces on these weights, and the gate failure is the card's, not the port's. → `K\reports\c-laya.md` §9.
 
 ### Step 3 so far (builder #3)
 
@@ -496,14 +512,14 @@ D-r1 reads it; and the STOP judgement — or `status: BLOCKED` naming which STOP
 
 ## Next step (ONE concrete instruction)
 
-**Builder #9, 2026-10-31 (after the hosted leg) — the ONE next instruction: D-r10 (b), the Laya official-runtime reference check** (in progress
-by builder #9 when this line was written; if it is not marked DONE above, continue it): venv `B\py-scratch\laya-venv` (system Python, CPU torch
-from `https://download.pytorch.org/whl/cpu`, then `pip install laya`; sizes in `B\py-scratch\pip-setup.log` / `pip-laya.log`); `K\laya-official-check.py`
-(E1 / E2 / E3 copied from `K\laya-run.cjs` `EXAMPLES`, `HF_HUB_DISABLE_XET=1`, `USE_TF=0`, `laya.load("convaiinnovations/laya", subfolder="multilingual",
-device="cpu")`, the cached checkpoint — no download expected), run with the venv's python `-I` → both examples' full probabilities → does E2 answer
-`billing`? → section "Official runtime vs the community export" in `K\reports\c-laya.md` + the P19 answer. Then hand off to the orchestrator, who
-re-judges the STOPs on `c-hosted.md` §3–§4 (as the files stand: STOP 1 and STOP 2 stand; T1 noul held) and writes D2. The orchestrator's 07:45
-instruction below is DONE except its item (5).
+**Builder #9, 2026-10-31 08:00 — the orchestrator's 07:45 instruction is DONE in full (items 1–5); no builder step is left under the rulings
+in force. The ONE next instruction is the orchestrator's: re-judge the STOPs on `K\reports\c-hosted.md` §3–§4 and `c-laya.md` §9** — as the
+files stand STOP 1 stands (both GGUFs fail the two hosted terms: T1 choice 27.1 / 47.5 % vs 85.0 %, T2 75.0 / 82.5 % vs 100.0 %, Brier +0.08 …
++0.19 over hosted + 0.05) and STOP 2 stands (Jev wrong-confident 9.6 % at R@1 79.1 %, no τ satisfies both; MSD1 R@1 ≤ 66.8 %); Laya's §8 NOTE
+runs may now be read as measured (the export equals the official runtime to four decimals) and are still far from the rule (T1 choice 50.4 %,
+T2 55.0 %). Then update `D1-spike-report.md` (§2 hosted ran; §4 / §5 / §7 / §8 the hosted rows from `c-hosted.md`, no longer DEFERRED-HASAN;
+§4.4 / §12 Laya's status per `c-laya.md` §9; §11–§13 the re-judgement) and write D2. T1 noul on both providers (54 requests, $0.105 upper) runs
+only after Hasan confirms the 600 reading (P25) — through `K\hosted-live.sh` only.
 
 **Orchestrator, 2026-10-31 07:45 — the run RESUMED on Hasan's answers (ORCHESTRATOR.md "Stops", rulings D-r8 … D-r10). Builder #9's step =
 THE HOSTED LEG:** (1) write `K\hosted-live.sh` per D-r8 — a bash launcher that, in a subshell, `set -a; . /d/repos/VidTSX-STUDIO/.env;
@@ -676,7 +692,9 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   are off needs the official Python runtime (`pip install laya` — D-r3 forbids). Options for a ruling (none taken): (a) a NOTE run
   labelled "export failed the gate" (`laya-run.cjs` is ready); (b) D-r3's English checkpoint as a NOTE (≈ 1.7 GB, no Arabic); (c) Hasan
   allows a one-off Python reference check. As it stands D1 has NO local candidate with a usable T1 (Qwen2.5-0.5B fails it; see the 0.8B
-  result in Done) — step 7's STOP "no local candidate meets the rule" is likely.
+  result in Done) — step 7's STOP "no local candidate meets the rule" is likely. **→ ANSWERED 2026-10-31 (builder #9, D-r10 b, Hasan's option
+  (c); `c-laya.md` §9): the official `laya` 0.4.18 runtime on the cached checkpoint gives the same numbers to four decimals (E2 `sales` 0.5811, E1
+  `billing` 0.9929) — the export is faithful, the card's printed outputs are stale; the §8 NOTE runs stand as measurements of Laya multilingual.**
 - **P20 (D-r6, review) — the Qwen3.5 runs differ from the Qwen2.5 runs by ONE framing flag:** `--thoughts discourage` (empty
   `<think></think>` before the answer). Without it the answer slot is a thinking token (P 0.9999), so a run "exactly as Qwen2.5" would have
   read noise. Also: after the empty think block the model splits its mass between `Yes` and ` Yes` on the bare probe (0.571 / 0.411), but in
@@ -705,6 +723,8 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
 
 ## Do-not-redo
 
+- D-r10 (b) (builder #9): the scratch venv `B\py-scratch\laya-venv` (912 MB, CPU torch + `laya` 0.4.18; keep for a re-check, delete when D1
+  closes) and `K\laya-official-check.py`'s run (`B\logs\laya-official-check.log`) — do not re-run; Laya's worked-example question is settled.
 - The hosted leg (builder #9): the 38 live calls (`K\hosted-calls.jsonl`, `K\answers\hosted-*`, `B\hosted-responses\`) — never re-call; re-score
   only by `node score.cjs`; `K\hosted-live.sh` is the only way to run the runner live (D-r8), and T1 noul stays HELD until Hasan's confirmation is
   recorded in ORCHESTRATOR.md. `c-hosted.md` is written — edit it only for a ruling or a new run.
@@ -760,3 +780,7 @@ with CPU load, disk, the tables from the score files; DirectML only as a note).
   `c-laya.md` §8; step 7: `D1-spike-report.md` drafted from the kit reports while the 31-min T1 noul run went on, then filled → `status:
   BLOCKED`. Over the ~40-call / ~2,500-line budget (≈ 2,300 lines read) — chose not to hand off at the D-r7 / step-7 boundary because the
   report was already drafted during the run and a new builder would have re-read the same ~1,500 lines.
+- 2026-10-31 · builder #9 · ~43 tool calls · the hosted leg (D-r8 launcher `K\hosted-live.sh`, 38 live calls Jev + MSD1 via OpenRouter all 200,
+  six score files, `c-hosted.md`: STOP 1 + STOP 2 stand, T1 noul held) + D-r10 (b) (CPU-torch venv, official `laya` 0.4.18 = the export to four
+  decimals → P19 answered, `c-laya.md` §9); ~1,000 lines read; finished the step's write-up a few calls over the budget rather than hand a
+  measured result off unwritten.

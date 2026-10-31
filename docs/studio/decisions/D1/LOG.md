@@ -43,3 +43,10 @@
   2,269–3,109 MB → `K\reports\c-laya.md` §8. Step 7 DONE: `docs/studio/decisions/D1-spike-report.md` → **status: BLOCKED** — STOP 1 (no
   local candidate passes warm p95 ≤ 300 ms; d1-omni did not load; Laya NOTE-only), STOP 2 (best measured R@1 48.7 % vs the 75.7 % floor;
   hosted DEFERRED-HASAN), STOP 3 for the local leg. Next: the orchestrator takes the STOP to Hasan.
+- 2026-10-31 08:00 · builder #9 · **the hosted leg LIVE** (D-r8 launcher `K\hosted-live.sh`; 38 requests through the counter, Jev `jev-1.14.0`
+  + `microsoft/microsoft-decision-1-20261009` via OpenRouter, all HTTP 200, ≈ $0.038; T1 noul HELD per D-r9) → `K\reports\c-hosted.md`: T2
+  100.0 % and T3 100.0 % on both; T1 choice Jev 85.0 % (D-r2 τ 0.5 R@1 79.1 % at wrong-confident 9.6 %; τ 0.7 67.9 / 7.5; τ 0.9 53.5 / 3.8),
+  MSD1 73.8 % (66.8 / 10.0; over-confident) → STOP 2 NOT overturned; the rule's two hosted terms FAIL for both GGUFs → STOP 1 stands; latency
+  per request Jev p50 404 / p95 743 ms, MSD1 978 / 1,145 (first call 2,983); open P24–P26. **D-r10 (b) DONE:** CPU-torch venv + official `laya`
+  0.4.18 on the cached checkpoint = the community export to four decimals (E2 `sales` 0.5811) → P19 answered (the card's printed outputs are
+  stale; the export is faithful) → `K\reports\c-laya.md` §9. Next: the orchestrator re-judges the STOPs (both stand as the files read) and writes D2.
