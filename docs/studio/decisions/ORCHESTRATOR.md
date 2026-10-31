@@ -765,3 +765,71 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   **Hasan's dev app running** (5 `electron.exe` on `%APPDATA%\VidTSX Studio`, Vite 5173); C: 43.15 GB free. Hasan asked for a new-session prompt →
   `NEXT-SESSION-3.md` written; D4 HANDOFF's status + Next step amended (assess builder #7's leftovers first); docs committed (explicit paths —
   the code leftovers stay uncommitted).
+
+# Session 3 — D4 (f) the UI · D4 (h) the exit check · D5 the verifier (2026-10-31)
+
+> Run brief: Hasan's paste-in in `docs/studio/decisions/NEXT-SESSION-3.md` ("Paste-in"), with that file's "Decisions" block (E-a … E-h) as
+> his answers — given 2026-10-31 ~17:11 ("Read … NEXT-SESSION-3.md and run the fenced "Paste-in" block in it as your brief, exactly as
+> written, with the "Decisions" block in that file as my answers (E-a…E-h) — it is my instruction for this session. Start with its FIRST
+> step."). It follows `docs/studio/END_TO_END_RUN.md`'s loop with the paste-in's overrides (unchanged from session 2). Parts D4 (f) → D4 (h)
+> → D5 run in order with NO stop between them unless a STOP rule fires; **the session STOPS after D5** (the verifier's PASS, or three FAILs
+> — E-h). Rulings D-r12 … D-r23 (session 2) stay in force; D-r8 (keys only through the launchers) still binds.
+
+- Start state (17:11–17:12): main checkout `end-to-end-p0` @ `5d77600` with the other session's 14 ` M` + 6 `??` files (unchanged; never
+  touched); **Hasan's dev app NOT running** (0 `electron.exe`; nothing listening on 5173 / 9222 / 9302 / 9305) — it was running at the
+  17:02 pause and has since been closed. Worktree `.vidtsx-temp\decisions\wt` on `decision-models` @ `bfa181f`; `git status` = builder #7's
+  4 ` M` (`CustomNode.tsx`, `decide-outcome.ts`, `decide-run.ts`, `src/shared/types/flows.ts`) + 10 `??` (the files listed in Stops
+  (session 2)), all still stamped 11:47–11:49 — unchanged since the pause. Resources 17:11: C: 42.99 GB free; memory commit headroom
+  63.29 GB (36.41 of 99.70 GB committed); RAM 31.98 GB free → the guard holds (≥ 3 GB / ≥ 6 GB).
+- The model is Opus 5.5 → commits end `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- **Caps ledger (E-g, whole run):** hosted 0 / 60 requests, $0.000 / $0.50 (D5 ≤ 20 / ≤ $0.05); keyless claude-subscription 0 / 10.
+- Folders / ports as session 2: D4 builders CDP **9302**, profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile`
+  (not yet created); the verifier CDP **9305**, profile `…\profiles\decisions-D5-verify\profile`; both copied from `profiles\source\profile`
+  WITHOUT `settings\settings.db*`. Kits `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\` and `\D5\`; scratch
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\` and `\D5\`.
+
+| Part | Status | Builders spawned | Re-check / verifier | Commit | Numbers | Started / Finished |
+|---|---|---|---|---|---|---|
+| D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | TODO — builder #7's leftovers to judge first | — | — | — | — | — |
+| D4 (h) — the exit check | TODO | — | — | — | — | — |
+| D5 — the verifier (D2 §15) | TODO | — | — | — | — | — |
+
+## Answers in force (session 3 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-3.md, verbatim)
+
+```
+E-a  THE DIRECTION: D2 as amended — a shared DECISION ENGINE shaped like the image / video engines (src/decision-engine/ with
+     presets, providers and one `decisionEngine` instance; main wires it from the user's keys like image-init.ts), usable anywhere;
+     a "Decisions" section in AI → Providers (ProviderCapability 'decision'); first users = the `decide` agent tool that is also a
+     flow node + the two verification gate nodes (D2 §10.1–10.2); request routing = a prompt hint, slice 2 (§10.3); library search
+     keeps S1's design (not a user).
+E-b  T1 noul on the hosted providers: NOT run.
+E-c  Clef-flash and other hosted deciders: not now — "we can add more providers later" (a preset each, later).
+E-d  Mapika decider-2b: YES — spike it as the local rung (D3); it ships (D4 step g) only if it passes D2 §15.1's bar for a local
+     rung; otherwise the rung stays empty (a note, not a stop).
+E-e  NO OpenAI models — the OpenAI adapter is dropped (no preset, no key row). The two hosted providers = TypeSafe Jev (jev-1.14.0
+     pinned) and Microsoft-Decision-1 via OpenRouter's Decisions API (POST https://openrouter.ai/api/alpha/decisions).
+E-f  Keys: a TypeSafe row in AI → Providers (new `typesafe` registry id, capability 'decision'); the existing OpenRouter key is
+     reused (its registry entry gains 'decision'). For the spike / the verifier's live test ONLY: Hasan's keys live in
+     D:\repos\VidTSX-STUDIO\.env (TYPESAFE_API_KEY) and D:\repos\ai-video-lab\.env (OPENROUTER_API_KEY), both gitignored — loaded
+     ONLY by the kit launcher D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D1\hosted-live.sh (ruling D-r8), never printed, read,
+     grepped for a value, or copied.
+E-g  Caps for this session: hosted ≤ 60 requests / ≤ $0.50 in all (D3 needs none; D5 ≤ 20 requests / ≤ $0.05); keyless
+     claude-subscription ≤ 10 calls; Python packages ONLY in a scratch venv outside every repo; NO new npm package (stop and ask).
+E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with the stop report; Hasan's own test and the landing of
+     branch decision-models are his.
+```
+
+## Rulings (session 3)
+
+(none yet)
+
+## Stops (session 3)
+
+(one line per stop: what was reported, what Hasan said)
+
+## Log (session 3)
+
+- 17:11 · start checks: main checkout's uncommitted work still there (14 ` M` + 6 `??`, `end-to-end-p0` @ `5d77600`); Hasan's dev app NOT
+  running (0 `electron.exe`; nothing on 5173 / 9222); worktree HEAD `bfa181f`, builder #7's 4 ` M` + 10 `??` unchanged (11:47–11:49 stamps).
+  Resources: C: 42.99 GB, commit headroom 63.29 GB → the guard holds.
+- 17:13 · this section written; committed with its path only (builder #7's code stays uncommitted for D4 builder #8 to judge).
