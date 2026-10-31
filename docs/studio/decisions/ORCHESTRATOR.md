@@ -21,7 +21,7 @@
 
 | Part | Status | Builders spawned | Re-check | Commit | Numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| D1 — the spike (no product code) | **RESUMED 2026-10-31 — the hosted leg** (Jev + Microsoft-Decision-1 via OpenRouter live; T1 noul held, D-r9); the 2026-10-30 STOP stands until re-judged | 8 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
+| D1 — the spike (no product code) | **DONE-WITH-STOPS** (D-r11, 2026-10-31 08:05: STOP 1 + 2 fire on local AND hosted T1; STOP 3 = a different first user + hosted-first ladder); report update by builder #10 | 9 | steps 1–2 (16:00, 16:13); step 3 part 1 (16:31); steps 5–6 (16:50) | docs `ce3f9e4` `71aa0c5` `bfff9d7` `7f72203` | (a): 22 primary sources, 15 contradictions, no candidate drops · (b): T1 240 / T2 40 / T3 40, self-check 17 / 17 | 2026-10-30 15:51 / — |
 | D2 — the design note + THE ACCEPTANCE BAR (orchestrator) | DRAFT only — waits on Hasan's answer to D1's STOP | — | — | draft `99def5d` | §2 / §5.3 / §15 / §16 pending | 2026-10-30 17:02 / — |
 
 No verifier runs in this session: D1 is checked by the orchestrator against its exit (the S1 precedent); D2 fixes the acceptance bar
@@ -140,6 +140,31 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   E2 with the CACHED multilingual checkpoint (`HF_HUB_DISABLE_XET=1`, `USE_TF=0`); (c) for D2: the app's `python-models` service spawns a
   Python process PER REQUEST (`src/local-python-engine/python-runner.ts:102`) for `image` / `3d` catalogue models on a `pytorch` runtime it
   installs — a Python decider in the app would need a persistent worker (a new piece), not that path as is.
+
+- **D-r11 (orchestrator, 2026-10-31 08:05) — the STOPs re-judged with the hosted leg (`K\reports\c-hosted.md` §3–§4, `c-laya.md` §9).**
+  - **STOP 1 — FIRES, now on every term.** The rule's hosted reference exists (best hosted T1 choice 85.0 % Jev, T2 100.0 % both; Brier 0.131 /
+    0.014): Qwen2.5-0.5B is 57.9 / 25.0 points under, Qwen3.5-0.8B 37.5 / 17.5 under, both over the Brier bound on every task, both over 300 ms
+    warm p95; Laya multilingual 50.4 / 55.0 % (now a measurement — see below); d1-omni did not load. **No local default.**
+  - **STOP 2 — FIRES for every measured model, hosted included (T1 choice form).** Jev τ 0.5: R@1 79.1 % with wrong-confident 9.6 % (baseline
+    80.7 % / 7.1 %, S1 6.3 %); raising τ lowers both, so no τ reaches wc < 6.3 % at R@1 ≥ 75.7 % (τ 0.7: 67.9 % / 7.5 %; τ 0.9: 53.5 % / 3.8 %).
+    MSD1 66.8 % / 10.0 % at τ 0.5. Jev's correct-none 71.7 % < the assistant's 79.2 / 75.5 % — it names a clip on ∅ rows MORE often than the
+    assistant. The one unmeasured hosted cell is T1 noul (held, D-r9).
+  - **STOP 3 — FIRES, and now says WHAT the different design is:** not "no service" but **a different first user and ladder.** (a) On T2 routing
+    and T3 verification both hosted deciders are perfect (100 % / 100 %, Arabic included), 0.3–0.5 s (Jev) / 1–3 s (MSD1) per 40-question
+    request, < $0.012 per 1,000 decisions, with probabilities that behave (Jev's 0.9–1.0 bin: 92.9–100 % right) — the keyless LLM matches the
+    accuracy (100 / 97.5 %) at 10–16 s per call with no usable confidence. (b) On T1 (library search's pick + "nothing fits") no decision
+    model beats the assistant's pick, and none gives a better "nothing fits" signal — so **library search keeps S1's design (the assistant picks
+    over the top-20) and is NOT the first user**; a decision model there would pay a second call for a worse "none". (c) No local candidate
+    qualifies → **the first slice is hosted-first** (Jev → Microsoft-Decision-1 via OpenRouter → the LLM fallback), the local rung designed but
+    empty until a candidate passes the bar (Mapika decider-2b, Python runtime, is the one lead — Hasan's call). **D2 is written on (a)–(c) as the
+    RECOMMENDED direction, with the brief's original first user kept as the alternative; Hasan chooses at the stop.**
+  - **Laya multilingual's status changes from "NOTE, unverified" to a measurement:** the official `laya` 0.4.18 runtime on the official weights
+    reproduces the community export to four decimals on E1 / E2 / E3 (E2 `sales` 0.5811 on both) — the card's printed `billing` is stale, the
+    export and the port are faithful (P19 answered). Its numbers (T1 noul 17.2 %, T1 choice 50.4 %, T2 55.0 %, T3 60.0 %) stand as Laya's.
+  - **D1 → DONE-WITH-STOPS** (the spike's exit is met: every number from a kit file, hosted rows measured for two of three providers; the three
+    STOP conditions judged with their numbers). Remaining unmeasured, listed DEFERRED-HASAN: T1 noul on both providers (54 requests, $0.105
+    upper — needs the 600 reading), the OpenAI Decisions API (no key), Clef-flash and Mapika (not in the brief; proposed). Builder #10 updates
+    `D1-spike-report.md` accordingly; the orchestrator writes D2 (§2, §5.3, §6, §10, §15, §16 from these numbers).
 
 ## Stops
 
@@ -341,4 +366,25 @@ D-h  The session STOPS after D2 (spike report + design note + acceptance bar) fo
   never printed; both files gitignored). Rulings D-r8 … D-r10. The model is now Fable 5.1 (commit attribution changes accordingly).
 - 07:45 · D1 builder #9 (the hosted leg: `K\hosted-live.sh`, one probe call per provider, then T2 / T3 / T1 choice for `jev` and
   `openrouter-msd1`; scores; the rule's two hosted terms + STOP 2 re-judged for these; then the Laya reference check per D-r10 (b) if budget
-  remains) to spawn.
+  remains) to spawn. Spawned 07:43 (HEAD `5844667`).
+- 08:00 · D1 builder #9 HANDOFF (51 calls, ~18 min; docs `b105641` `60564b9`): `K\hosted-live.sh` (D-r8 — sources both `.env` files with stderr to
+  /dev/null, strips a trailing CR by parameter expansion, exports `JEV_API_KEY`, `exec`s the runner; the dry check reports jev / openrouter set,
+  openai unset); **the hosted leg LIVE 07:45:22–07:46:56: 38 requests, 19 per provider (T2 choice probe 1, T3 noul 1, T1 choice 17), all HTTP
+  200, T1 noul NOT run (D-r9)**; Jev `jev-1.14.0` 268–743 ms per request, MSD1 `microsoft/microsoft-decision-1-20261009` 664–2,983 ms; both
+  return full probability maps (Σ 1.0000) + `confidence`; Jev rounds to hundredths (P24). `K\reports\c-hosted.md`: **Jev T2 100.0 % (Arabic
+  10 / 10; Brier 0.021), T3 100.0 % (Brier 0.003), T1 choice 85.0 % (Brier 0.131, ECE 0.094; 0.9–1.0 bin 92.9 % right); D-r2 τ 0.5 R@1 79.1 % /
+  wc 9.6 % (8 named / 15 ∅), correct none 71.7 %; τ 0.7 67.9 / 7.5; τ 0.9 53.5 / 3.8. MSD1 T2 100.0 %, T3 100.0 %, T1 choice 73.8 % (Brier 0.191,
+  over-confident: 0.9–1.0 bin 84.5 %; HELD-OUT 66.0 %); τ 0.5 66.8 / 10.0.** STOP 2 not overturned by either; the rule's two hosted terms FAIL
+  for both GGUFs. Latency p50 / p95 per request: Jev T1 choice 404 / 743 ms (29 / 52 ms per question), T2 499, T3 342; MSD1 978 / 1,145, 2,983
+  (first call), 1,084. Cost: Jev 479,417 input tokens = $0.0201; MSD1 418,770 = $0.0176 (= OpenRouter's own `usage.cost`); ≈ $0.038 in all,
+  counter 38 / 600; T1 choice ≈ $0.07–0.08 per 1,000 picks (the 20 clip lines ride with every question — P26), T2 / T3 < $0.012. **D-r10 (b)
+  DONE:** venv `B\py-scratch\laya-venv` (912 MB: torch 2.15.0+cpu 126.6 MB wheel, laya 0.4.18, transformers 5.22.1; sizes stated first; C: 31 GB
+  after), `K\laya-official-check.py` offline on the cached multilingual checkpoint → **the official runtime = the community export to four
+  decimals on every question of E1 / E2 / E3 (E2 `sales` 0.5811)** → P19 answered: the card's printed outputs are stale; Laya's NOTE runs are
+  measurements (`c-laya.md` §9). New: P24 (hundredth rounding), P25 (T1 noul the one unmeasured hosted cell), P26 (T1 framing cost).
+- 08:02–08:05 · **Orchestrator re-check:** HEAD `60564b9`, tree clean, `efa5e0b..HEAD -- src scripts package*.json` empty; the ledger = 19
+  HTTP-200 requests per provider; a key-pattern scan (`sk-…`, `sk-or-…`, `Bearer …`, `<NAME>=<value>`) over `K`, `B\hosted-responses`,
+  `B\hosted-dryrun` and the docs → nothing; `hosted-live.sh` read (no value in it); 0 node / python processes; `c-hosted.md` §2–§8 and
+  `c-laya.md` §9 read — the numbers above are the files'. → **ruling D-r11** (the STOPs re-judged; D1 DONE-WITH-STOPS; D2's direction).
+  D1 builder #10 (the report's hosted rows + Laya's status + §11–§15 per D-r11) to spawn; the orchestrator writes D2 meanwhile and commits
+  after the builder hands back.
