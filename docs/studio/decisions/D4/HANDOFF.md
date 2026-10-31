@@ -1,5 +1,5 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF (D4 builder #4, 2026-10-31 10:47) — **part (c) DONE: (c1) `b7b1648` + (c2) `d9ec730`** ((c2) = the four `decisions:*`
+status: HANDOFF (D4 builder #4, 2026-10-31 10:45) — **part (c) DONE: (c1) `b7b1648` + (c2) `d9ec730`** ((c2) = the four `decisions:*`
 channels, the handlers, the lazy registration, `src/preload/api/decisions.ts` + its wiring, `electron.d.ts`, the key-save hook; 4 new test files
 / 41 tests green after a red run; related suites 117 / 118 files green — the 1 = the known `builder-libraries` worktree-only suite; tsc web 25 /
 node 10); **part (d) is next** (the `decide` tool / node + the two built-ins). Part (b) DONE at `ed79420`; part (a) DONE at `c7ad6da`.
@@ -462,5 +462,5 @@ D-r18 (1) — `band = act` iff the TOP probability (choice: `probabilities[choic
   HANDOFF + LOG.
 - 2026-10-31 10:20–10:35 · D4 builder #3 · ~50 tool calls · part (c) sub-checkpoint (c1): 4 service tests + registry edits red → services +
   registry + wire types green → `b7b1648`; HANDOFF + LOG → (c2).
-- 2026-10-31 10:37–10:48 · D4 builder #4 · ~35 tool calls · part (c) sub-checkpoint (c2): 4 test files red → channels + handlers + lazy
+- 2026-10-31 10:36–10:46 · D4 builder #4 · ~38 tool calls · part (c) sub-checkpoint (c2): 4 test files red → channels + handlers + lazy
   registration + preload + `electron.d.ts` + the key-save hook green → `d9ec730`; part (c) DONE; HANDOFF + LOG → part (d).
