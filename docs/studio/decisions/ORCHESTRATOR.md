@@ -793,7 +793,7 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 |---|---|---|---|---|---|---|
 | D4 (f) — the UI (Settings row, Providers section, dev tester, `p` handle) | **DONE** (step 5 at `3f50e63` / docs `f86221c`) | 2 (#8, #9) | re-check 17:25 → D-r24; 17:54 (stills looked at) | code `cc754fa` `8f6ff6f` `3f50e63` | related 482 tests + 58; tsc 25 / 10; stills `B4\f5-{settings-decisions-row,providers-decisions}.png` | 2026-10-31 17:13 / 17:46 |
 | D4 (h) — the exit check | **DONE → D4 DONE** (records `ecb69d8`) | 3 (#9, #10, #11) | re-check 17:54 → D-r26; 18:05 → D-r27; 18:20 → D-r28 | docs `8b24e81` `8f55668` `efb1ee9` `ecb69d8` (no `src/` change after `3f50e63`) | stub §15.3 1–5 PASS (max IPC gap 20.4 ms; flow act / act / escalate, p in run.json; agent "Decision: cut (act)", 416 × 0.042e-6; off → 0 / 0 hits; OpenRouter port with criteria); gate 564 passed / 3 failed = E-d2a (import graph 0 / 0 / 0); tsc 25 / 10; sweep clean | 2026-10-31 17:46 / 18:19 |
-| D5 — the verifier (D2 §15) | **DONE — PASS, round 1** (no FAIL round) | — | **PASS** (report `docs/studio/decisions/D5/REPORT.md`, filed by the orchestrator) | verified at `b8e85d0` (`src/` = `3f50e63`) | gated live 2 / 2 PASS: Jev T2 / T3 40 / 40, Brier 0.0199 / 0.0031, 797 / 279 ms; MSD1 40 / 40, 0.0146 / 0.0029, T3 698 ms (T2 2,626 ms excluded); 4 requests $0.001298388; gate 564 / 3 E-d2a (own import-graph proof); tsc 25 / 10; 4 / 4 mutants bite; §15.3 1–5 PASS on its own stub (max gap 19 ms); §15.3 6 DEFERRED-HASAN | 2026-10-31 18:22 / 18:41 |
+| D5 — the verifier (D2 §15) | **DONE — PASS, round 1** (no FAIL round; records `ca4cc81`) | 1 records builder | **PASS** (report `docs/studio/decisions/D5/REPORT.md`, filed by the orchestrator) | verified at `b8e85d0` (`src/` = `3f50e63`) | gated live 2 / 2 PASS: Jev T2 / T3 40 / 40, Brier 0.0199 / 0.0031, 797 / 279 ms; MSD1 40 / 40, 0.0146 / 0.0029, T3 698 ms (T2 2,626 ms excluded); 4 requests $0.001298388; gate 564 / 3 E-d2a (own import-graph proof); tsc 25 / 10; 4 / 4 mutants bite; §15.3 1–5 PASS on its own stub (max gap 19 ms); §15.3 6 DEFERRED-HASAN | 2026-10-31 18:22 / 18:41 |
 
 ## Answers in force (session 3 — Hasan, 2026-10-31, the Decisions block of NEXT-SESSION-3.md, verbatim)
 
@@ -922,6 +922,14 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
 
 (one line per stop: what was reported, what Hasan said)
 
+- 2026-10-31 18:53 · **STOP — E-h (the session stops after D5's PASS).** Reported: D4 DONE ((f) `cc754fa` `8f6ff6f` `3f50e63`; (h) docs only);
+  **D5 verifier round 1 PASS** on every §15 term (report `docs/studio/decisions/D5/REPORT.md`, verified at `b8e85d0`, `src/` = `3f50e63`); the
+  gated live test with Hasan's keys 2 / 2 (4 hosted requests, $0.001298388); records `ca4cc81` (Status.md row + TESTING.md §20 with D5's numbers);
+  caps used hosted 4 / 60, keyless 2 / 10. DEFERRED-HASAN: §15.3 1's "5 real Jev calls" and §15.3 6's one real `check_matches_request` run with
+  his key inside the app; the landing of branch `decision-models` (not pushed, not merged). Open questions for Hasan: D-r16 (e) (do the hosted
+  40 / 40 rows hold in a product-shaped request, state = the evidence?), D3 §10 item 2 (D2 §5.3's "CPU by default" for a later local rung), D-r27
+  (a) (should `skipped` name a rung switched off in Settings?). Hasan said: — (awaiting).
+
 ## Log (session 3)
 
 - 17:11 · start checks: main checkout's uncommitted work still there (14 ` M` + 6 `??`, `end-to-end-p0` @ `5d77600`); Hasan's dev app NOT
@@ -999,4 +1007,11 @@ E-h  The session STOPS after D5 — the verifier's PASS, or three FAILs — with
   | 564 passed | 7 skipped (574)`, `Tests 9 failed | 5890 passed | 39 skipped (5938)`, the three E-d2a files; 0 `electron.exe`, nothing on 9305 /
   18481 / 18482, no stub `node`. The verifier's text filed VERBATIM as `docs/studio/decisions/D5/REPORT.md` (the orchestrator's docs folder) with
   a header saying so. **D5 → PASS.** The verifier's numbers differ from Status.md / TESTING §20 (the live test now RUN and PASS; §15.3 1 19 ms;
-  §15.3 4 339 tokens; D5's verdict) → a records builder updates those two files, then STOP (E-h).
+  §15.3 4 339 tokens; D5's verdict) → a records builder updates those two files, then STOP (E-h). (Commit `6f23b95`, 18:46:05.)
+- 18:46 · D5 records builder spawned (HEAD `6f23b95`; Status.md row + TESTING.md §20 only).
+- 18:52 · D5 records builder DONE (~43 tool calls, ~6.5 min; `ca4cc81` Status.md + TESTING.md, `3557641` D4 LOG line): the top Status.md row
+  updated in place (D5 PASS, the live table, the verifier's numbers beside D4's, DEFERRED-HASAN, notes (1)–(5)); TESTING.md §20 (:590–768) the
+  same. Left alone (its note): the row's "Evidence / re-run" bullet lists only D4's files (the verifier's are named inline and in its report).
+- 18:53 · **Orchestrator re-check:** HEAD `3557641`, tree clean; `6f23b95..HEAD` = Status.md (+/− 91), TESTING.md (131), D4 LOG (1);
+  `0.001298388` in Status.md ×2 / TESTING.md ×3; "20.4 ms (D4) / 19 ms (D5)" at Status.md:68; the added lines' `sk-` / `Bearer` hits are
+  descriptions of the scans, no key. **STOP (E-h)** — Stops (session 3).
