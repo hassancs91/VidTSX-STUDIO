@@ -7,6 +7,63 @@
 
 ---
 
+## 2026-10-31 — DECISION MODELS: one shared decision engine — Jev (TypeSafe) and OpenRouter Decisions (MSD1) over System One, the LLM fallback; the `decide` agent tool / flow node and the two gate nodes `check_matches_request` / `route_request` (band act / escalate, never a claim); the Settings › General "Decisions" row and the AI → Providers "Decisions" section — D4 BUILD DONE (D4's numbers — the independent verifier (D5) has not run yet)
+
+- **Result: D4 (the build, design §14 (a) → (h)) is DONE; part (g), the local rung, was NOT built — D3 FAILED** (Mapika: 3 PASS / 4 FAIL,
+  `docs/studio/decisions/D3-mapika-report.md` §6–§7), so the ladder starts at Jev and the local rung reports "no local model". Every number
+  below is D4's own; **D5, the independent verifier, judges the build ONLY by `docs/studio/DECISION_MODELS_DESIGN.md` §15** read through the
+  orchestrator's rulings D-r16 … D-r27 (`docs/studio/decisions/ORCHESTRATOR.md`) — it has not run yet.
+- **Where / when:** branch `decision-models` (worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt`), range `b2b8a02..1a0c821` + this
+  record: 43 commits, 115 paths (`src/` 106 = 84 created / 22 modified, `docs/` 8, `tsconfig.node.json`). **Not pushed, not merged.** D4 ran
+  2026-10-31 09:52 → 18:20 (parts (a)–(e) 09:52–11:40; the session's end, then (f)–(h) 17:14–18:20; 11 builders). Hand-off with every command
+  and output: `docs/studio/decisions/D4/HANDOFF.md` ("Done", "Verified"); log `docs/studio/decisions/D4/LOG.md`.
+- **What was built** (red first; code commits): (a) `c7ad6da` `src/decision-engine/` validate / ladder / calibration-table / cache +
+  `src/shared/types/decisions.ts` · (b) `ed79420` the engine class, presets (`jev`, `openrouter-decisions`), the System One provider (a transport:
+  the caller's state + questions unchanged, OpenRouter's noul criteria added — D-r16), the LLM fallback, the scrub, D1's recorded bodies as
+  scrubbed fixtures · (c) `b7b1648` + `d9ec730` main's wiring `src/main/services/decisions/` (registered from credentials the `image-init.ts`
+  way; usage rows; settings; the `typesafe` registry entry + `'decision'` capability), IPC `decisions:decide` / `:status` / `:settings:set` + push
+  `decisions:event`, the preload's four functions, the key-save hook · (d) `feb5e69` the `decide` tool / node (band / answer / `p` ports) +
+  `check_matches_request` (D1's T3 framing) + `route_request` (D1's T2 framing) · (e) `5605c48` the committed benchmark (D1's recorded Jev / MSD1
+  T2 / T3 answers, the scorer, the replay), the gated live test (skipped without `VIDTSX_DECISIONS_LIVE=1`), the dev-only stub hook (D-r21) ·
+  (f) `cc754fa` + `8f6ff6f` + `3f50e63` the Settings › General "Decisions" row (mode, hosted order, OpenRouter model), the AI → Providers
+  "Decisions" section (the TypeSafe key row + Test, OpenRouter listed), the dev-preview tester behind `decisions-tester`, the `p` handle hidden on
+  the canvas · (h) the stub live checks + the gate (docs only).
+- **The benchmark (§15.1, offline, in the gate):** the replay = `c-hosted.md` §2 cell for cell — **Jev T2 40 / 40, T3 40 / 40, Brier 0.021 /
+  0.003, ECE 0.059 / 0.044; MSD1 40 / 40, 40 / 40, Brier 0.014 / 0.002** (ECE 0.044 / 0.013), Arabic 10 / 10 and 7 / 7, off-list 0; the shape
+  test maps all 4 recorded bodies × 40 rows to D1's scored probabilities (4 dp), the served model, `usage.input_tokens` 10,858 / 6,087 / 8,241 /
+  5,728 and MSD1's `usage.cost` 0.000346122 / 0.000240576; the calibration table = the 6 rows of D-r17; the no-claim test over every T2 / T3 row
+  × both bands × both tools (whole words, D-r22 (1)) passes. The gated live test is written, skipped in every run (2 skipped), its dry run on the
+  recorded bodies gives the same 40 / 40 × 4.
+- **The gates (§15.2):** full worktree vitest (the counted run, `1a0c821`) **`Test Files 3 failed | 564 passed | 7 skipped (574)` · `Tests 9
+  failed | 5890 passed | 39 skipped (5938)`** — the 3 = the E-d2a package-resolution suites (`builder-libraries` 1, `shot-bundle` 5,
+  `shot-bundle-in-place` 3), shown independent of the range by a runtime import-graph walk (0 / 0 / 0 range files; a fresh detached worktree
+  has the same reds and was removed); the 25 LS-r1c `stream` suites are NOT red in this worktree (28 / 28 files with three same-named shared
+  suites, 286 tests); a first run's extra red was DRIVING's known load entry `shot-module-resolver.test.ts` (green alone). tsc **web 25 / node 10**
+  (= the `b2b8a02` error set). House rules clean (no import of studio / asset-library / renderer from the decisions code; no new code file over
+  300; 0 `any`; 0 `export default`; `package.json` / lock unchanged; the preload exposes exactly four `decisions*` functions; no key in the range).
+- **The live checks (§15.3 1–5, on a local stub serving D1's RECORDED numbers — D-r21 / D-r25; profile `decisions-D4`, CDP 9302, no real key):**
+  1 PASS — max IPC ping gap **20.4 ms** over 20 concurrent `decisionsDecide` (all `jev`, calibrated, 535–549 ms each); 2 PASS — a fake TypeSafe
+  key via the UI flips `jev.hasKey` true, the stub's 401 echo comes back "[message withheld: it echoed the request]", removal flips back, the
+  renderer bundle holds no key / `sk-…` / "Bearer"; 3 PASS — `input_text` ×2 → `check_matches_request` on t3-01 / t3-09 / t3-27 → act yes 0.96 /
+  act no 0.98 / escalate yes 0.88, `p` in each `run.json`, the canvas shows the band only (no `p` handle); 4 PASS — one keyless agent run
+  (`d4/decide-probe`, t2-01): the tool text "Decision: cut (act)" = the tree's chain on the served numbers, no-claim 0, usage `typesafe` /
+  `decision-agent` / `decision` / 416 tokens / $0.000017472 (= 416 × 0.042 / 1e6); 5 PASS — mode off → `no-provider`, 0 stub hits; `jev` out of
+  the order → the OpenRouter-shaped port with the adapter's noul criteria, MSD1 snapshot, cost = the stub's. Hosted calls 0; keyless runs 1.
+- **DEFERRED-HASAN (needs his key):** §15.1's gated live test with the key in the environment (≤ 4 requests) is the VERIFIER's — it runs
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\live-test.sh`; §15.3 1's "5 real Jev calls" and §15.3 6's real `check_matches_request` run
+  need his key inside the app (AI → Providers → Decisions → TypeSafe) — his own test.
+- **Notes for Hasan (not FAILs):** (1) D-r27 (a) — with `jev` switched off in the order, a result's `skipped` names only the rungs AHEAD of the
+  used one (`local`), the switched-off rung is reported by `decisions:status` ("switched off in Settings"): should D2 §3's "the rungs 'auto'
+  passed over" name it? (2) D-r27 (b) — the live agent run showed the `act` band only; `escalate` is covered offline and live by §15.3 3's t3-27.
+  (3) D-r16 (e) — whether the hosted 40 / 40 rows hold in a PRODUCT shape (state = the evidence) is not measured; the built-ins send D1's
+  measured framing. (4) D3 §10 item 2 — the CPU default: a 2B decider on CPU took 2.6–3.9 s per request at ~8.1 GB RSS; D2 §5.3's "CPU by
+  default" needs his reading before any later local candidate.
+- **Evidence / re-run:** logs `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\` (gate `h-gate-1.log` / `h-gate-2.log`, LS-r1c
+  `h-ls-r1c-this-wt.log`, graphs `h-graph-runtime-*.json`, fresh worktree `h-fresh-wt-ed2a.log`, tsc `tsc-{web,node}-h.log`, the stub checks
+  `h1-*.json` … `h5-*.json`); kits `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\` (`stub-server.mjs`, `launch.sh`, the drivers,
+  `make-agent.cjs`, `live-test.sh`); profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile` (from `source` without
+  `settings.db*`; holds a FAKE TypeSafe key and the scratch agent). TESTING.md §20; the design `docs/studio/DECISION_MODELS_DESIGN.md`.
+
 ## 2026-10-29 — LIBRARY SEARCH: one shared, meaning-aware search service — keywords + local multilingual-e5-small (RRF60); `generate_sfx` / `generate_music` answer up to 20 candidates with no claim and the assistant picks (`force` to generate); `list_assets` ranked; the Assets box Smart search; the Settings "Library search" row (Download, Basic / Smart / Smart + AI rerank) — DONE (S4 verifier round 1 PASS, in two parts; §9.3 5 read by ruling LS-r8)
 
 - **Result: PASS over the whole acceptance bar** (`docs/studio/LIBRARY_SEARCH_DESIGN.md` §9), verifier round 1, no FAIL round. The

@@ -1,5 +1,11 @@
 # D4 — THE BUILD: the shared decision engine (D2 §14 (a) → (h))
-status: HANDOFF — **D4 builder #10, 2026-10-31 18:05: part (h)'s stub live checks ALL PASS — §15.3 4 PASS (one keyless agent run, 1 / 3
+status: DONE — D4 complete, ready for D5. **D4 builder #11, 2026-10-31 18:16: the gate half of (h) DONE → part (h) DONE → D4 DONE**
+(full worktree gate, counted run `h-gate-2.log` at `1a0c821`: `Test Files 3 failed | 564 passed | 7 skipped (574)` = the 3 E-d2a suites only,
+resolution errors only, independent of `b2b8a02..HEAD` by a runtime import-graph walk (0 / 0 / 0 range files); 0 of the 25 LS-r1c suites red
+in this worktree (all 25 green here, 28 / 28 files with the 3 same-named shared suites); run 1's one extra red = DRIVING's known load entry
+`shot-module-resolver.test.ts`, green alone; tsc web 25 / node 10 = the `b2b8a02` error set; house-rules sweep clean; Status.md row +
+TESTING.md §20 written — "Part (h) — the gate" under Verified). No `src/` change. 0 hosted calls, 0 keyless runs. Previous status (builder #10,
+18:05): HANDOFF — **D4 builder #10, 2026-10-31 18:05: part (h)'s stub live checks ALL PASS — §15.3 4 PASS (one keyless agent run, 1 / 3
 used) and §15.3 5 PASS** (mode off → `no-provider`, 0 hits on both ports; `jev` out of the order + a fake OpenRouter key → port B with the noul
 criteria, `openrouter-decisions` / `microsoft/microsoft-decision-1-20261009`, usage cost = the stub's `usage.cost`; restored) — "Part (h) — stub
 live checks" under Verified. No `src/` change (as of `8f55668`). **Next step: the gate half of (h).** 0 hosted calls. Previous status (builder #9,
@@ -73,7 +79,7 @@ model is on disk) · (h) the exit check against §15; then D5, the independent v
 | (e) | `src/main/services/decisions/benchmark/` — fixtures (T2 / T3 + the recorded Jev / MSD1 answers), the tree's scorer, the replay test (= `c-hosted.md` §2), the calibration-table test, the gated live test (skipped unless `VIDTSX_DECISIONS_LIVE=1`); **+ the dev-only stub hook of ruling D-r21** (`VIDTSX_DECISIONS_JEV_URL` / `VIDTSX_DECISIONS_OPENROUTER_URL`, honoured only unpackaged + loopback; unit-tested) — (h) and the verifier need it for §15.3 1 / 3 / 4 / 5 | **DONE** (live test written + dry-run-proven, NOT run — DEFERRED-HASAN / the verifier) | `5605c48` |
 | (f) | Settings › General "Decisions" row + the Providers "Decisions" section + the dev-preview tester (UI_SPEC.md) | **DONE** (builder #9, 17:46) — steps 1–4 (f1 + f2); step 5: worktree build + profile `decisions-D4` + two CDP stills `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\f5-settings-decisions-row.png` / `f5-providers-decisions.png` (DOM: `f5-settings-dom-2.json`, `f5-providers-dom.json`); one wording fix found in the first still ("no key · no key" → `rungLineText`) | (f1) `cc754fa`, (f2) `8f6ff6f`, (f3) `3f50e63` |
 | (g) | ONLY if D3 PASSED — `src/local-decider-engine/` + the worker on the `pytorch` runtime path + the download entry | **NOT BUILT — D3 FAILED** (`D3-mapika-report.md` §6–§7: 3 PASS / 4 FAIL). The ladder starts at Jev; the local rung is reported in `skipped` as `'no local model'` (D2 §6); `local-decider-provider.ts` is NOT written in this slice; `provider: 'local'` pinned → `no-provider` | — |
-| (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | **IN PROGRESS** — stub live checks §15.3 2 / 1 / 3 PASS (builder #9, 17:46–17:49); §15.3 4 / 5 PASS (builder #10, 17:58–18:02; 1 / 3 keyless runs); next the gate half (full vitest + fresh-worktree proofs, tsc, house-rules sweep `b2b8a02..HEAD`, Status.md row, TESTING.md §20) for the builder after | — (no code change in (h) so far) |
+| (h) | the exit check (full gate logged, LS-r1b / LS-r1c proofs, tsc, house rules, §15.3 1 / 3 / 4 / 5 on the stub server, Status.md row, TESTING.md §20) | **DONE** (builder #11, 18:16) — stub live checks §15.3 2 / 1 / 3 PASS (builder #9, 17:46–17:49); §15.3 4 / 5 PASS (builder #10, 17:58–18:02; 1 / 3 keyless runs); the gate half (builder #11, 18:07–18:16): full gate 3 failed (E-d2a only, import-graph proof) / 564 passed, LS-r1c 0 red here, tsc 25 / 10, house rules clean, Status.md row + TESTING.md §20 | docs only (no code change in (h)): `8b24e81` `8f55668` `efb1ee9` + this commit |
 
 ## Rulings that bind this part (ORCHESTRATOR.md "Rulings (session 2)")
 
@@ -893,7 +899,93 @@ Part (h) — stub live checks (builder #9, 17:46–17:49, app built from `3f50e6
     `decisions-D4` profile, and the stub's `node`); afterwards 0 `electron.exe`, nothing listening on 9302 / 18471 / 18472.
 - Keyless claude-subscription runs used in (h): **1 / 3**. Hosted calls: 0.
 
+Part (h) — the gate (builder #11, 18:06–18:16, all as of `1a0c821`, tree clean, from the worktree root; outputs in
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`):
+- **Before the run (18:06):** 0 `electron.exe` (Hasan's dev app NOT running; nothing listening on 9222 / 5173 / 9302 / 9305); C: 38.39 GB free,
+  commit headroom 56.91 GB (limit 99.70 / used 42.78), CPU 12 % → default workers (headroom ≥ 10 GB).
+- **Full gate, run 1** (`h-gate-1.log`, 18:07:15–18:08:03): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run` → `Test Files 4
+  failed | 563 passed | 7 skipped (574)`, `Tests 10 failed | 5889 passed | 39 skipped (5938)`. The 4 = the 3 E-d2a suites (below) +
+  `src/main/services/studio/shot-module-resolver.test.ts` 1 test ("a changed transpiler fingerprint misses every tier": `Error: never written:
+  …\shot-modules\intro\v1.json` from `waitForFile` :55, called at :158 — a 1 s poll of 100 × 10 ms; DRIVING "Repo facts" names
+  `shot-module-resolver.test.ts:151` as a known LOAD timeout; `git diff --stat b2b8a02..HEAD -- src/main/services/studio/` is empty).
+  **Alone** (`h-gate-1-smr-alone.log`, 18:08:59): `… vitest.mjs run src/main/services/studio/shot-module-resolver.test.ts` → `Test Files 1
+  passed (1)`, `Tests 10 passed (10)`. CPU over 5 s at 18:09:08 (16 cores): top `vmmemWSL` 4.1 %, `System` 1.4 %; load 26 %.
+- **Full gate, run 2 — THE COUNTED RUN** (`h-gate-2.log`, 18:09:17–18:10:08, the same command, default workers): **`Test Files 3 failed | 564
+  passed | 7 skipped (574)`, `Tests 9 failed | 5890 passed | 39 skipped (5938)`**. DRIVING's load rule met (the load file green alone + a full
+  default run green but the E-d2a three within 3 tries — try 2). The 3, each by its error text: `src/shared/tsx-engine/builder-libraries.test.ts`
+  1 test (the spawned `scripts/builder-unpack.mjs:73` → "Error: @remotion/paths (builder-libraries.ts) is not installed");
+  `src/main/services/studio/shot-bundle.test.ts` 5 (esbuild "Could not resolve" `roughjs` / `@remotion/shapes` / `@react-three/fiber` /
+  `chroma-js` / `@remotion/google-fonts/SpaceGrotesk`); `src/main/services/studio/shot-bundle-in-place.test.ts` 3 (all three are `chroma-js`
+  shots; one prints `'Could not resolve "chroma-js" (v1.tsx…'`, the other two `{ ok: false }` against the expected `{ ok: true, version … }`).
+  No other error line in the log.
+- **(a) LS-r1 / LS-r1b / LS-r1c — 0 red in THIS worktree:** neither run shows a `<wt>\stream` error (`grep -c stream h-gate-1.log` → 0). The 25
+  suites of LS-r1c run explicitly (`h-ls-r1c-files.txt` = the 25 + the 3 same-named `src/shared/studio/{pack-package,project-package}.test.ts`,
+  `src/shared/flows/flow-package.test.ts`; `… vitest.mjs run <the 28>` → `h-ls-r1c-this-wt.log`, 18:10:31): **`Test Files 28 passed (28)`, `Tests
+  286 passed (286)`**, rc 0, 0 `stream` lines. So no (a) suite needs counting and no fresh-worktree proof applies to (a).
+- **(b) the E-d2a three — independence proof (DRIVING :190-193): a static runtime import-graph walk** (kit `h-import-graph.cjs`, a copy of the
+  scratch script): from each test file (+ `scripts/builder-unpack.mjs`, the script `builder-libraries.test.ts` spawns), follow every static /
+  dynamic import, `require` and `export … from` that is relative or a vitest alias (`@shared`, `@main`, `@logging`, `@audio-engine`, plus
+  `@features` / `@renderer`); packages and Node built-ins stop the walk; a module a test replaces with `vi.mock(<spec>, <factory>)` is not
+  followed (shot-bundle-in-place mocks `shot-generator`, `shot-import-land`, `media-import`, none with `importOriginal`; the factories' own
+  `await import(...)` are followed); `RUNTIME=1` drops whole `import type` / `export type` statements (erased before load). Command per suite:
+  `RUNTIME=1 node h-import-graph.cjs <wt> h-diff-names.txt <test> [scripts/builder-unpack.mjs]` against `h-diff-names.txt` = `git diff
+  --name-only b2b8a02..HEAD` (115 paths) → **runtime graphs 3 / 9 / 17 files, overlap 0 / 0 / 0** (`h-graph-runtime-{builder-libraries,
+  shot-bundle,shot-bundle-in-place}.json`). Stricter (type imports kept): builder-libraries 0, shot-bundle 0, shot-bundle-in-place 6 range
+  files (`src/shared/ipc/types/{index,decisions}.ts`, `src/shared/providers/registry.ts`, `src/shared/types/{ai-usage,decisions,flows}.ts`) —
+  every chain enters through `shot-bundle-in-place.ts:14` `import type { StudioShotImportReport } from '../../../shared/ipc/types'`
+  (`h-graph-shot-bundle-in-place.json` `chains`). Not followed by the walk and not in the range: the `?raw` imports
+  `src/shared/tsx-engine/vidtsx-{sim,assets,three-assets}.ts` (0 range paths under `src/shared/tsx-engine/`), the files `builder-unpack.mjs` reads
+  (`builder-libraries.ts`, `electron-builder.yml`, packages' `package.json`); the shot sources inside the tests (`./theme`, `../lib/Card`) are
+  fixture text.
+- **Fresh detached worktree — it does NOT resolve the E-d2a three** (`h-fresh-wt-ed2a.log`, 18:14–18:15:05): `git worktree add --detach
+  D:/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D4/gate-wt 1a0c821` → rc 0 (no `node_modules` in it); from inside it `node
+  D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/shared/tsx-engine/builder-libraries.test.ts
+  src/main/services/studio/shot-bundle.test.ts src/main/services/studio/shot-bundle-in-place.test.ts` → `Test Files 3 failed (3)`, `Tests 9 failed
+  | 23 passed (32)`, rc 1, the same resolution errors; `git worktree remove --force …/gate-wt` → rc 0; `ls -d` → "No such file or directory";
+  `git worktree list` no longer lists it. So the graph walk above is the proof for (b).
+- **tsc** (18:11–18:13:46, run in parallel): `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit`
+  → **25** `error TS` (`tsc-web-h.log`); `-p tsconfig.node.check.json --noEmit` → **10** (`tsc-node-h.log`); both = the `b2b8a02` error set
+  (`diff` of the sorted `error TS` lines with positions removed against `tsc-{web,node}-b2b8a02.log` → identical). Files — web:
+  `src/features/ai-models/hooks/use-embedding-models.ts` 2, `features/player/components/VideoPlayer.tsx` 1,
+  `features/tools/components/FrameExtractorDropZone.tsx` 1, `features/tools/components/thumbnail-tester/YouTubeLivePreview.tsx` 1,
+  `features/tools/hooks/useEmbeddingTester.ts` 6, `features/tools/hooks/useImageAITester.ts` 7, `features/workspace/components/FileTree.tsx` 1,
+  `features/workspace/components/WorkspaceScreen.tsx` 1, `renderer/hooks/useSystemMonitor.ts` 1, `shared/components/TextInput.tsx` 1,
+  `shared/hooks/useThumbnails.ts` 3; node: `src/main/ipc/bundle-handlers.ts` 2, `main/services/module-server.ts` 3,
+  `main/services/remotion-renderer.ts` 1, `shared/components/TextInput.tsx` 1, `shared/hooks/useThumbnails.ts` 3. None is a range path.
+- **House-rules sweep over `git diff --name-only b2b8a02..HEAD`** (43 commits, 115 paths = 90 A / 25 M: `src/` 106 (84 A / 22 M), `docs/` 8,
+  `tsconfig.node.json`):
+  - Feature isolation: the 58 decisions-code paths (`src/decision-engine/`, `src/main/services/decisions/`, `agents/tools/{decide*,
+    check-matches-request,route-request}*`, `src/shared/decisions-*`, `src/shared/types/decisions.ts`, `src/shared/ipc/types/decisions.ts`) →
+    `grep -nE "(from|import\(|require\()\s*['\"][^'\"]*(/studio/|/studio['\"]|asset-library|/renderer/|@renderer|/features/|@features)"` → 0
+    (rc 1); the 7 `src/features/ai-models/` range paths import no other feature (0); the `src/features/flows/` range paths import no other
+    feature (0).
+  - Size: no NEW code file over 300 (largest `src/decision-engine/decision-engine.test.ts` 293, `decision-engine.ts` 266, `decision-runtime.ts`
+    253); 5 new JSON fixtures are over 300 lines (data: `benchmark/fixtures/d1-dry-run-t2-t3.json` 813, `t2-routing.json` 583, `t3-verify.json`
+    509, `hosted-jev-t2-choice.json` 458, `hosted-openrouter-msd1-t2-choice.json` 458). Grown pre-existing files over 300:
+    `src/renderer/types/electron.d.ts` 656 → 661, `src/shared/ipc/channels.ts` 654 → 660, `src/shared/types/flows.ts` 351 → 353 (every other
+    grown file stays under 300; `docs/studio/decisions/ORCHESTRATOR.md` 419 → 956 is a record).
+  - `grep -nE ":\s*any\b|\bas any\b|<any>"` over the 96 range `.ts` / `.tsx` → 0 (rc 1); `grep -n "export default"` → 0 (rc 1).
+  - `git diff --stat b2b8a02..HEAD -- package.json package-lock.json` → empty (`git diff … | wc -l` → 0).
+  - The preload: `src/preload/api/decisions.ts` `decisionsApi` :17 = `decisionsDecide` :19, `decisionsStatus` :21, `decisionsSettingsSet` :22,
+    `onDecisionsEvent` :24 — exactly four; `… vitest.mjs run src/preload/api/decisions.test.ts` → `Tests 10 passed (10)` (`h-preload-surface.log`;
+    also green in the gate).
+  - `src/shared/types/decisions.ts`: its only import is `import type { AiFeatureSource } from './ai-usage'` (:8) — no `electron`, no Node.
+  - Key scan over the range's 13,812 added lines (`git diff b2b8a02..HEAD | grep '^+'` → `h-diff-added.txt`): `sk-` tokens other than
+    `sk-test-FAKE…` / `sk-or-v1-FAKE…` → only a bare `sk-` (14) / `sk-or-` (4), all pattern text (grep commands, the "`sk-…`" mask wording, the
+    scrub regex); `Bearer ` + token → template variables (`${FAKE_KEY}` ×4, `${FAKE_TYPESAFE}`, `${FAKE_TYPESAFE_2}`, `${KEYS[provider]}`,
+    `${REDACTED}`, `${this.options.apiKey}`), `Bearer …` ×4, `Bearer <fake>`, a test title "POST with a Bearer key", `Bearer
+    sk-test-FAKE-decide-0041`; `TYPESAFE_API_KEY=` / `OPENROUTER_API_KEY=` → 0; ≥ 32-char tokens in the range's fixtures other than
+    `microsoft/microsoft-decision-1-20261009` → only repo paths (`src/main/services/studio/agent-tools/*.ts` in `t2-routing.json`,
+    `resources/templates/…/template.json` and `resources/caption-templates/core/manifest.json` in `t3-verify.json`); non-path → 0.
+- Hosted calls 0; keyless runs 0 (this builder); no app launch; no `src/` change.
+
 ## Next step
+
+**D5 — the independent verifier** (the orchestrator spawns it; it judges the build ONLY by `docs/studio/DECISION_MODELS_DESIGN.md` §15 read
+through the rulings D-r16 … D-r27 — D-r17 / D-r18 / D-r20 / D-r22 / D-r23 / D-r24 / D-r25 / D-r26 / D-r27 shape the §15 reading; ≤ 20 live
+requests, ≤ $0.05; the gated live test via `bash D:/repos/VidTSX-STUDIO/.vidtsx-temp/decisions/D4/live-test.sh`). D4 is DONE as of this commit.
+
+<details><summary>Builder #10's Next step for the gate half of (h) (DONE by builder #11 — kept for the record)</summary>
 
 **The gate half of (h), in a FRESH builder context** (no app needed; §15.3 1–5 are all measured on the stub — do not re-run them): the full
 vitest gate from the worktree, logged to a file, with the app OFF (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run >
@@ -903,6 +995,8 @@ HEAD (commands + outputs recorded, the scratch worktree removed after); any othe
 over `b2b8a02..HEAD -- src` (feature isolation, ≤ ~300 lines, no `any`, named exports, `package.json` / lock unchanged, the preload's four
 `decisions:*` functions, no electron / Node import in `src/shared/types/decisions.ts`); then a Status.md row (top, dated) and a TESTING.md §20
 block (after §19) with the measured numbers (the §15.3 numbers are under "Part (h) — stub live checks").
+
+</details>
 
 <details><summary>Builder #9's Next step for §15.3 4 / 5 (DONE by builder #10 — kept for the record)</summary>
 
@@ -1082,3 +1176,8 @@ builder. Stop only your electron.exe (Name='electron.exe' + the profile path) an
   = the tree's chain from the served numbers, kit vitest 1 / 1; no-claim 0; usage typesafe / decision / 416 × 0.042e-6) → `8f55668`; §15.3 5
   PASS (off → no-provider, 0 / 0 hits; fake OpenRouter key via the UI; jev out → port B with noul criteria, MSD1 snapshot, cost = stub's;
   restored); app + stub stopped; no `src/` change; HANDOFF + LOG.
+- 2026-10-31 18:06–18:20 · D4 builder #11 · ~55 tool calls · the gate half of (h): two full gate runs (run 1 + the known
+  `shot-module-resolver` load red, green alone; run 2 counted: 3 failed = E-d2a only / 564 passed), the 25 LS-r1c suites green in this worktree
+  (28 / 28), the E-d2a import-graph proof (runtime 0 / 0 / 0 range files) + a fresh detached worktree (same reds; removed), tsc 25 / 10 = the
+  `b2b8a02` set, the house-rules sweep over `b2b8a02..HEAD` (clean), Status.md row + TESTING.md §20; part (h) DONE → **D4 DONE**; no `src/`
+  change; HANDOFF + LOG.

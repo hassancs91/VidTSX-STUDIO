@@ -587,6 +587,105 @@ its index; the Studio root set in the first CDP call. Never Hasan's own library,
 - [ ] **Landing:** `library-search` lands after `end-to-end-p0-e` — Hasan's call; not pushed, not merged; the track-E exit waits for it.
 - **Notes (never a FAIL — §9.4 and the verifier's):** R@1 / the fused order's first is not a confidence (live ALL R@1 87.7, `j-falling` 33.3); the pick's quality beyond the four turns; E3's corpus `∅` rows a plain-meaning pick fills; image / video retrieval (unit tests only); libraries over 51 clips; timings on other machines; the Embedding Tester's worker-thread DLL exposure. The 25 `stream` suites fail in THIS worktree only — environmental to the directory, cause not found. The int16 fixture: 14 / 1,515 rows have a different top-20 ORDER from float32 (36 clip pairs at cosine gaps ≤ 2.22e-6; the tables are equal — accepted). One query at a time embeds at min cosine 0.991872 vs 1.000000 batched (bar ≥ 0.99). Cosmetic: the row reads "vectors no vectors yet" before a build; the first download progress event comes ~5 s after the click with `percent: -1`. No turn called `generate_sfx` (its answer text ran live only in the §19.3 4 harness). The Basic IPC lists fewer items than the Basic grid ("whoosh" 5 vs 6 — by design, §8.2 vs `filterAssets`). An audio search with no sound class puts `music/docu-pluck` 8th for "things falling over" (the accepted coverage ranking). Pre-existing: an empty filter says "No files here yet. Click Import to add some."; the Assets screen shows "No AI provider is configured" while the keyless subscription answers the assistant.
 
+## 20. Decision models (one shared decision engine — Jev / OpenRouter Decisions, `decide` and the two gate nodes)
+
+*Added 2026-10-31 (the decision-models run; branch `decision-models`, worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\wt`; not pushed,
+not merged). The engine asks System One (Jev via TypeSafe, MSD1 via OpenRouter Decisions) or the LLM fallback; the tools show the answer and
+the band (act / escalate) only — a probability is never a claim. **D4's numbers — the independent verifier (D5) has not run yet.** Design and
+THE ACCEPTANCE BAR: `docs/studio/DECISION_MODELS_DESIGN.md` (§15 — the items below are §15's; D5 fails only by them, read through the rulings
+D-r16 … D-r27 in `docs/studio/decisions/ORCHESTRATOR.md`); build parts with their exact commands and outputs: `docs/studio/decisions/D4/HANDOFF.md`
+("Done", "Verified"). Code: `src/` as of `3f50e63` (range `b2b8a02..1a0c821`); part (g), the local rung, NOT built (D3 FAILED). Items marked ✎
+ran in the app over CDP on the isolated profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\decisions-D4\profile` (CDP 9302, from
+`profiles\source\profile` WITHOUT `settings.db*`), launched from the worktree's own `out/` with the two D-r21 stub URLs; everything else is a
+committed test. **Re-running:** every command from the worktree root; vitest as `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run …`
+(never `npx`); `<L>` = `C:\Users\hasan\AppData\Local\vidtsx-e2e\decisions\D4\`, `<K>` = `D:\repos\VidTSX-STUDIO\.vidtsx-temp\decisions\D4\`. No
+real key anywhere in D4: fakes only (`sk-test-FAKE-…`, `sk-or-v1-FAKE-…`, `ts-FAKE-D4-h-0001`); 0 hosted calls.*
+
+### 20.1 The committed benchmark (design §15.1)
+- [x] **Fixtures:** `src/main/services/decisions/benchmark/fixtures/` — D1's `t2-routing.json` / `t3-verify.json` (byte copies, 40 + 40), the
+  recorded Jev / MSD1 T2 / T3 answer files (scrubbed), `d1-dry-run-t2-t3.json`; the raw bodies for the shape tests in
+  `src/decision-engine/providers/fixtures/`. No T1. Key-pattern scans over every fixture empty (HANDOFF parts (b) / (d) / (e)). *(D4 `ed79420`,
+  `feb5e69`, `5605c48`)*
+- [x] **Shape:** `src/decision-engine/providers/system-one-provider.contract.test.ts` — all 4 recorded bodies × 40 rows → D1's scored `probs`
+  (choice = D1's argmax, every probability to 4 dp) / `pTrue`, the served model, `usage.input_tokens` 10,858 / 6,087 / 8,241 / 5,728, MSD1
+  `usage.cost` 0.000346122 / 0.000240576 read exactly; the transport sends D1's dry-run state + questions EQUAL to D1's dry-run body for both
+  presets (D-r16 (a)); `system-one-provider.test.ts` — off-list / cut JSON → `invalid-answer`, every error message free of the fake key and the
+  state. *(D4 `ed79420`)*
+- [x] **Replay = `c-hosted.md` §2, table equality:** `src/main/services/decisions/benchmark/score.test.ts` asserts every cell — Jev T2 100.0
+  (40 / 40), Arabic 10 / 10, Brier 0.021 (0.001), ECE 0.059, sel ≥ 0.5 / 0.7 / 0.9 = 100.0 (100.0) / 100.0 (90.0) / 100.0 (82.5), off-list 0 ·
+  Jev T3 40 / 40, 7 / 7, 0.003, 0.044, 100.0 (100.0) / 100.0 (100.0) / 100.0 (97.5) · MSD1 T2 40 / 40, 10 / 10, 0.014 (0.000), 0.044, 100.0
+  (100.0) / 100.0 (95.0) / 100.0 (87.5), off-list 0 · MSD1 T3 40 / 40, 7 / 7, 0.002, 0.013, 100.0 (100.0) / 100.0 (100.0) / 100.0 (95.0).
+  *(D4 `5605c48`)*
+- [x] **Calibration table:** `src/decision-engine/calibration-table.test.ts` — `calibrated: true` for exactly 6 rows (D-r17: `jev` /
+  `jev-1.14.0` and `openrouter-decisions` / `microsoft/microsoft-decision-1` AND its served snapshot `-20261009`, × routing | verify); false for
+  any other snapshot, `llm`, `local`, family `other` / absent. *(D4 `c7ad6da`)*
+- [ ] **Gated LIVE test — written, NOT run (DEFERRED: the verifier's):** `src/main/services/decisions/benchmark/live.test.ts`, skipped without
+  `VIDTSX_DECISIONS_LIVE=1` (its 2 cases skipped in every D4 run); D-r23: one request per task, hard cap 4, latency = the product's
+  `engine.decide` wall time, MSD1's first (T2) call excluded. Its dry run on the recorded bodies (`live-dry-run.test.ts`) → 40 / 40 × 4, Brier
+  0.021 / 0.003 / 0.014 / 0.002. The verifier runs `bash <K>live-test.sh` (≤ 4 requests).
+- [x] **No-claim strings:** `src/main/services/agents/tools/decide-no-claim.test.ts` — every T3 row × 2 bands × 2 tools (160 texts), every T2
+  row × 2 bands × 2 tools, uncalibrated ± allow, refused, every error code × 3 tools, the descriptions: none of `%`, a digit, or the words
+  `match` / `matches` / `sure` / `confident` / `definitely` / `certain` / `probability` (whole words, D-r22 (1) — "uncertain" is the hedge).
+  *(D4 `feb5e69`)*
+
+### 20.2 The gates (design §15.2)
+- [x] **Full worktree vitest:** `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run > <log> 2>&1` at `1a0c821`, app off (0
+  `electron.exe`), headroom 56.91 GB → counted run `<L>h-gate-2.log`: **`Test Files 3 failed | 564 passed | 7 skipped (574)` · `Tests 9 failed |
+  5890 passed | 39 skipped (5938)`**. The 3 = the E-d2a suites, package resolution only — `builder-libraries` 1 ("@remotion/paths
+  (builder-libraries.ts) is not installed"), `shot-bundle` 5 and `shot-bundle-in-place` 3 (esbuild "Could not resolve" `roughjs`,
+  `@remotion/shapes`, `@react-three/fiber`, `chroma-js`, `@remotion/google-fonts/SpaceGrotesk`); independent of `b2b8a02..HEAD` by a static
+  runtime import-graph walk (`<L>h-import-graph.cjs`: relative + the vitest aliases, factory `vi.mock`'d modules not followed, `import type`
+  dropped) → 0 / 0 / 0 range files (`<L>h-graph-runtime-*.json`); a fresh `git worktree add --detach <K>gate-wt 1a0c821` runs the three with the
+  same 9 reds (no `node_modules` there) and was removed after (`<L>h-fresh-wt-ed2a.log`). **The 25 LS-r1c `stream` suites are NOT red in this
+  worktree:** run explicitly with the 3 same-named `src/shared` suites → `Test Files 28 passed (28)`, 286 tests (`<L>h-ls-r1c-this-wt.log`). A
+  first run (`<L>h-gate-1.log`) had one more red, DRIVING's known load entry `shot-module-resolver.test.ts` (a 1 s `waitForFile` poll) → 10 / 10
+  alone (`<L>h-gate-1-smr-alone.log`); run 2 is green but the E-d2a three (DRIVING's load rule, try 2). *(D4 builder #11)*
+- [x] **tsc:** `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` → **25**; `-p
+  tsconfig.node.check.json --noEmit` → **10** (bar ≤ 25 / ≤ 10 at `b2b8a02`); the same error set as `<L>tsc-{web,node}-b2b8a02.log`; no range
+  file has an error (`<L>tsc-{web,node}-h.log`). *(D4 builder #11)*
+- [x] **House rules over `b2b8a02..HEAD`** (115 paths): the decisions code (58 paths) imports nothing from `studio/`, `asset-library/`, the
+  renderer or a feature; `src/features/ai-models/` imports no other feature; no new code file over ~300 lines (largest
+  `decision-engine.test.ts` 293; five JSON fixtures are longer — data); grown files already over 300: `electron.d.ts` 656 → 661, `channels.ts`
+  654 → 660, `shared/types/flows.ts` 351 → 353; 0 `any`; 0 `export default`; `package.json` / lock unchanged; the preload exposes exactly
+  `decisionsDecide` / `decisionsStatus` / `decisionsSettingsSet` / `onDecisionsEvent` and `src/preload/api/decisions.test.ts` (no key crosses
+  IPC) is green, 10 / 10; `src/shared/types/decisions.ts` imports only `type { AiFeatureSource } from './ai-usage'`; the key-pattern scan over the
+  range's 13,812 added lines finds fakes, template variables and pattern text only. *(D4 builder #11; commands in HANDOFF "Part (h) — the gate")*
+
+### 20.3 The live checks (design §15.3, on the stub — D-r21 / D-r25)
+*Setup: `node <K>stub-server.mjs 18471 18472` (port A Jev-shaped = `VIDTSX_DECISIONS_JEV_URL`, port B OpenRouter-shaped =
+`VIDTSX_DECISIONS_OPENROUTER_URL`; 500 ms delay; D1's RAW recorded answer objects matched by the exact T3 question / T2 request text, 422 when
+unmatched — never a made-up number); the app from `bash <K>launch.sh` (worktree `out/` built from `3f50e63`); Studio root set in the first CDP
+call. The engine's 15-min cache turns a repeated identical request into a hit with no HTTP call (D-r26 (3)) — restart between checks that
+reuse rows.*
+
+- [x] ✎ **1. Main stays responsive:** an IPC ping loop (`window.api.studioRootGet()` back to back) around 20 concurrent `decisionsDecide` (T3 rows
+  t3-01 … t3-20 in `check_matches_request`'s framing, `featureSource: 'decision-test'`) → `<L>h1-concurrency.json`: **max gap 20.4 ms** (bar ≤ 250)
+  over 2,431 pings in the 550 ms window; all 20 `ok`, `jev`, calibrated, not cached, 535–549 ms. *(D4 builder #9)*
+- [x] ✎ **2. Keys:** the TypeSafe row inside AI → Providers "Decisions" (OpenRouter listed, D-r24 (1)); a fake key typed + saved → `jev.hasKey`
+  true; the stub's 401 in echo mode → `provider-error` "[message withheld: it echoed the request]" (no key, no state, no "Bearer"); removal → `hasKey`
+  false, `why: 'no key'`; the renderer bundle: 0 files with the fake key, 0 `sk-…`, no "Bearer" (`<L>h2-keys-*.json`). *(D4 builder #9)*
+- [x] ✎ **3. The flow node:** one flow `input_text` ×2 → `check_matches_request`, three runs (D-r25 (2)) → `<L>h3-flow-runs-2.json`: t3-01 (true)
+  **act / yes / 0.96**, t3-09 (false) **act / no / 0.98**, t3-27 (true) **escalate / yes / 0.88**; `p` read from each `run.json` on disk; the canvas
+  shows "escalate" and no `p` handle (`<L>h3-flow-canvas.png`, looked at); usage rows `decision-flow`, tokens × 0.042 / 1e6. *(D4 builder #9)*
+- [x] ✎ **4. The agent tool:** one keyless agent run (scratch agent `d4/decide-probe`, `tools: ['decide']`, t2-01) → `calls.json` holds one
+  `decide` with D1's T2 framing and no `isError`; the stub matched t2-01; the quoted tool text **"Decision: cut (act)"** = the tree's chain on the
+  served numbers (kit test `<K>h4-text\`); no-claim 0; usage `typesafe` / `decision-agent` / `decision` / 416 tokens / **$0.000017472** = 416 × 0.042 /
+  1e6 (`<L>h4-*.json`; D-r26 (6), D-r27). *(D4 builder #10)*
+- [x] ✎ **5. Settings:** mode off → `no-provider` in 1 ms, **0 hits** on both ports; a fake OpenRouter key saved, `jev` removed from the order →
+  port B hit with the adapter's noul criteria `true` / `false`, result `openrouter-decisions` / `microsoft/microsoft-decision-1-20261009`, p 0.95,
+  calibrated, usage cost = the stub's `usage.cost` ($0.000011214); restored after (`<L>h5-*.json`). *(D4 builder #10)*
+
+### 20.4 Not measured — Hasan's list (DEFERRED-HASAN) and the notes
+- [ ] **§15.1's gated live test with a key in the environment** — the VERIFIER's (D5 runs `bash <K>live-test.sh`, ≤ 4 requests, < $0.01).
+- [ ] **§15.3 1's "5 real Jev calls" and §15.3 6's real `check_matches_request` run** — need Hasan's TypeSafe key saved inside the app (AI →
+  Providers → Decisions); his own test.
+- **Notes (never a FAIL):** D-r27 (a) — with `jev` switched off, a result's `skipped` lists only the rungs ahead of the used one (`local`); the
+  switched-off rung shows in `decisions:status` — whether D2 §3's "the rungs 'auto' passed over" should name it is his question. D-r27 (b) — the
+  live agent run showed `act` only; `escalate` is covered offline and by check 3's t3-27. D-r16 (e) — the hosted rows were measured only in
+  D1's framing; whether they hold in a product shape (state = the evidence) is not measured. D3 §10 item 2 — a 2B local decider on CPU took
+  2.6–3.9 s per request at ~8.1 GB RSS; D2 §5.3's "CPU by default" needs his reading before any later local candidate. The scratch agent
+  `d4/decide-probe` and a FAKE TypeSafe key stay in the `decisions-D4` profile.
+
 ---
 
 ## Cut-phase hardening follow-ups (not blocking, log as issues)
