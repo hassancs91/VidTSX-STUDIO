@@ -27,9 +27,12 @@
 - **Gates:** check:types web 26 / node 10; built-ins test green (six flows, all `verified`); full vitest 3540
   passed, 4 failed in shot-generator / shot-module-resolver (load flakes, 28/28 alone).
 - **Release notes:** `docs/release-notes/2.0.0.md`, a DRAFT (version and wording are Hasan's call).
-- **Open:** fal's Kling 3 Pro rate ($0.112 a second on the model page, $0.14 from the pricing API: a reel is
-  $2.25 or $2.70; check an invoice) · per-node pricing on the Run form (known follow-up) · Hasan deletes
-  `vidtsx-2.pem` · merging the branch into main is his call.
+- **Kling 3 Pro's rate, settled by fal's usage page (2026-10-31):** $0.112 a second with audio off, so a reel
+  is about $2.25 as the description says. The page bills 64 s (16 lab + 48 part 4) = $7.168 exactly; it
+  shows every Kling 3 row at the flat $0.14 and divides the cost by it ("51.20 seconds"), so its Quantity
+  is not real seconds.
+- **Open:** per-node pricing on the Run form (known follow-up) · Hasan deletes `vidtsx-2.pem` · merging the
+  branch into main is his call.
 
 ---
 

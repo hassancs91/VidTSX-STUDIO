@@ -88,8 +88,12 @@ export const FAL_VIDEO_MODELS: readonly VideoModelCatalogEntry[] = [
   },
   // Kling 3 and 4 (schemas and prices read 2026-10-30). fal's pricing API
   // quotes a flat $0.14/s for both Kling 3 tiers; the model pages split it by
-  // audio, and a billed Kling 3 Standard run matched the page. The catalog
-  // has one rate per model, so it carries the audio-off one (what flows send).
+  // audio, and a billed Kling 3 Standard run matched the page. So did the
+  // fal usage page on 2026-10-31: 64 s of Kling 3 Pro, audio off, = $7.168
+  // ($0.112/s). That page shows every row at the flat $0.14 and divides the
+  // cost by it ("51.20 seconds"), so its Quantity is not real seconds. The
+  // catalog has one rate per model, so it carries the audio-off one (what
+  // flows send).
   {
     id: 'kling-3-pro',
     name: 'Kling 3 Pro',
