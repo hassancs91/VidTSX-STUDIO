@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { setupVirtualModuleGlobals } from '@features/player';
-import type { StudioMediaAsset, StudioTimeline, TransitionRuntimeProps } from '@shared/types/studio';
+import type { StudioMediaAsset, StudioShot, StudioTimeline, TransitionRuntimeProps } from '@shared/types/studio';
 import type { StudioTransitionInfo } from '@shared/ipc/types';
 import { describeJoin, joinStatuses, type JoinStatus, type JoinTargetInfo } from '../services/join-status';
 import { TRANSITIONS_CHANGED_EVENT } from './usePackImport';
@@ -148,23 +148,26 @@ export function useJoinStatus({
   timeline,
   fps,
   assets,
+  shots,
   installed,
   targetId,
 }: {
   timeline: StudioTimeline;
   fps: number;
   assets: readonly StudioMediaAsset[];
+  shots: readonly StudioShot[];
   installed: ReadonlyMap<string, string> | null;
   targetId: string | null;
 }): { statuses: ReadonlyMap<string, JoinStatus>; target: JoinTargetInfo | null } {
   const assetsById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets]);
+  const shotsById = useMemo(() => new Map(shots.map((s) => [s.id, s])), [shots]);
   const statuses = useMemo(
     () => joinStatuses(timeline, fps, (id) => assetsById.get(id)?.probe.duration, installed),
     [timeline, fps, assetsById, installed],
   );
   const target = useMemo(
-    () => describeJoin(timeline, targetId, statuses, assetsById),
-    [timeline, targetId, statuses, assetsById],
+    () => describeJoin(timeline, targetId, statuses, assetsById, shotsById),
+    [timeline, targetId, statuses, assetsById, shotsById],
   );
   return { statuses, target };
 }

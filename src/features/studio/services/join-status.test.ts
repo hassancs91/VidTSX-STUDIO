@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { StudioClip, StudioMediaAsset, StudioTimeline } from '../types';
-import { clipDisplayName, describeJoin, joinStatuses, transitionName } from './join-status';
+import type { StudioClip, StudioMediaAsset, StudioShot, StudioTimeline } from '../types';
+import { describeJoin, joinStatuses, transitionName } from './join-status';
 import { isJoin, joinTarget, setTransition } from './transition-ops';
 
 const FPS = 30;
@@ -148,8 +148,11 @@ describe('describeJoin', () => {
     expect(describeJoin(audio, 'x', new Map(), ASSETS)).toMatchObject({ pictureJoin: false, maxSeconds: 2, status: null });
   });
 
-  it('prefers a clip label over the file name', () => {
-    expect(clipDisplayName({ ...video('a', 'long', 0, 0), label: 'Opening' }, ASSETS)).toBe('Opening');
-    expect(clipDisplayName({ id: 't', kind: 'tsx', timelineStart: 0, duration: 1 }, ASSETS)).toBe('tsx');
+  it('names both sides as the timeline does: a label first, a shot by its name', () => {
+    const shotClip: StudioClip = { id: 't', kind: 'tsx', timelineStart: 4, duration: 3, tsx: { shotId: 's1', mode: 'cutaway' } };
+    const t = timeline({ ...video('a', 'long', 0, 0), label: 'Opening' }, shotClip);
+    const shots = new Map([['s1', { id: 's1', name: 'Pricing chart' } as StudioShot]]);
+    expect(describeJoin(t, 'a', new Map(), ASSETS, shots)).toMatchObject({ leadLabel: 'Opening', trailLabel: 'Pricing chart' });
+    expect(describeJoin(t, 'a', new Map(), ASSETS)).toMatchObject({ trailLabel: 'Shot' });
   });
 });

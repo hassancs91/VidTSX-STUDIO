@@ -6,7 +6,8 @@
 
 import { transitionSpanFrames } from '@shared/studio/serialize';
 import { isNativeTransitionKind } from '@shared/studio/transition-windows';
-import type { StudioClip, StudioClipKind, StudioMediaAsset, StudioTimeline } from '../types';
+import type { StudioClip, StudioClipKind, StudioMediaAsset, StudioShot, StudioTimeline } from '../types';
+import { clipDisplayLabel } from './clip-label';
 import { clipEndTime } from './timeline-ops';
 import { contiguousNext } from './transition-ops';
 
@@ -97,19 +98,12 @@ export interface JoinTargetInfo {
   status: JoinStatus | null;
 }
 
-/** A clip's name as the timeline shows it: its label, else the file name, else its kind. */
-export function clipDisplayName(clip: StudioClip, assetsById: ReadonlyMap<string, StudioMediaAsset>): string {
-  if (clip.label) return clip.label;
-  const asset = clip.assetId ? assetsById.get(clip.assetId) : undefined;
-  if (asset) return asset.path.split(/[\\/]/).pop() ?? asset.path;
-  return clip.kind;
-}
-
 export function describeJoin(
   timeline: StudioTimeline,
   leadId: string | null,
   statuses: ReadonlyMap<string, JoinStatus>,
   assetsById: ReadonlyMap<string, StudioMediaAsset>,
+  shotsById: ReadonlyMap<string, StudioShot> = new Map(),
 ): JoinTargetInfo | null {
   if (!leadId) return null;
   for (const track of timeline.tracks) {
@@ -119,8 +113,8 @@ export function describeJoin(
     if (!trail) return null;
     return {
       leadId,
-      leadLabel: clipDisplayName(lead, assetsById),
-      trailLabel: clipDisplayName(trail, assetsById),
+      leadLabel: clipDisplayLabel(lead, assetsById, shotsById),
+      trailLabel: clipDisplayLabel(trail, assetsById, shotsById),
       at: clipEndTime(lead),
       pictureJoin: PICTURE_KINDS.has(lead.kind) && PICTURE_KINDS.has(trail.kind),
       maxSeconds: Math.min(lead.duration, trail.duration),
