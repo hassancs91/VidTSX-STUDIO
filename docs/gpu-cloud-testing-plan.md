@@ -1,8 +1,10 @@
 # GPU Cloud Testing Plan — local image models on rented hardware
 
-> **Status: PARKED (2026-08-23).** Agreed to revisit after all V1 features are
-> finished. Nothing here is implemented; this doc captures the research and the
-> agreed approach so a future session can start immediately.
+> **Status: PICKED UP (2026-11-01).** Hasan chose TensorDock for the full
+> end-to-end test of the 2.0 candidate (every feature, local models included),
+> step 11 of `docs/v1-go-live-runbook.md`. Waiting on his account + API key.
+> Parked 2026-08-23 until V1 was done; nothing below is implemented yet, and
+> the prices are from August.
 
 ## Goal
 
