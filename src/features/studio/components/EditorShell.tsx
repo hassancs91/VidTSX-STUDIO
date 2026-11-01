@@ -157,6 +157,7 @@ export function EditorShell({ projectId, onBack }: Props) {
   const playback = usePlayback(project?.settings.fps ?? 30);
   const { loadThumbnail, getThumbnail } = useStudioThumbnails(projectId);
   const assets = useMemo(() => project?.assets ?? [], [project?.assets]);
+  const shots = useMemo(() => project?.shots ?? [], [project?.shots]);
   const {
     resolvePreviewUrl,
     getWaveform,
@@ -858,6 +859,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     timeline: tl.timeline,
     fps: project?.settings.fps ?? 30,
     assets,
+    shots,
     installed: transitionList.installed,
     targetId: tl.joinTargetId,
   });

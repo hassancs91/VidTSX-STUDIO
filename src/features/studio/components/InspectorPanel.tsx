@@ -115,6 +115,7 @@ export function InspectorPanel({
           <ClipSection
             timeline={timeline}
             assets={project.assets}
+            shots={project.shots}
             selectedClipIds={selectedClipIds}
             dispatch={timelineDispatch}
           />

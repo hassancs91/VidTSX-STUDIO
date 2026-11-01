@@ -16,6 +16,7 @@ import { useRippleMode } from '../hooks/useRippleMode';
 import { usePaneSize } from '../hooks/usePaneSize';
 import { clipAt, clipEndTime, findClip, makeClipId } from '../services/timeline-ops';
 import { makeMarkerId } from '../services/marker-ops';
+import { clipDisplayLabel } from '../services/clip-label';
 import { trackMenuItems } from '../services/track-menu';
 import {
   DEFAULT_ZOOM_INDEX,
@@ -124,6 +125,10 @@ export function TimelinePanel({
   const assetById = useMemo(
     () => new Map(project.assets.map((a) => [a.id, a])),
     [project.assets],
+  );
+  const shotById = useMemo(
+    () => new Map(project.shots.map((s) => [s.id, s])),
+    [project.shots],
   );
 
   const sourceDurationOf = useCallback(
@@ -447,13 +452,8 @@ export function TimelinePanel({
   });
 
   const clipLabel = useCallback(
-    (clip: StudioClip): string => {
-      if (clip.label) return clip.label;
-      const asset = clip.assetId ? assetById.get(clip.assetId) : undefined;
-      if (asset) return asset.path.split(/[\\/]/).pop() ?? asset.path;
-      return clip.kind;
-    },
-    [assetById],
+    (clip: StudioClip): string => clipDisplayLabel(clip, assetById, shotById),
+    [assetById, shotById],
   );
 
   // Track-header column width — user-resizable (drag the divider right of the

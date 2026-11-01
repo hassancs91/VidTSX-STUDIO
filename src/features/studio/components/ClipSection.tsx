@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import type { Dispatch } from 'react';
 import { TextInput } from '@shared/components/TextInput';
 import { CopyButton } from '@shared/components/CopyButton';
-import type { StudioClip, StudioMediaAsset, StudioTimeline } from '../types';
+import type { StudioClip, StudioMediaAsset, StudioShot, StudioTimeline } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
+import { clipDisplayLabel } from '../services/clip-label';
 import { findClip } from '../services/timeline-ops';
 import type { ClipPatch } from '../services/clip-update-ops';
 import {
@@ -17,6 +18,7 @@ import {
 interface Props {
   timeline: StudioTimeline;
   assets: StudioMediaAsset[];
+  shots: StudioShot[];
   selectedClipIds: string[];
   dispatch: Dispatch<TimelineAction>;
 }
@@ -40,9 +42,11 @@ function fmtSeconds(t: number): string {
  * one undo step. Sliders and fields commit on release/blur — one committed
  * control change = one undo step.
  */
-export function ClipSection({ timeline, assets, selectedClipIds, dispatch }: Props) {
+export function ClipSection({ timeline, assets, shots, selectedClipIds, dispatch }: Props) {
   // Gains before muting, per clip id, so unmute restores the previous level.
   const preMuteGains = useRef(new Map<string, number>());
+  const assetsById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets]);
+  const shotsById = useMemo(() => new Map(shots.map((s) => [s.id, s])), [shots]);
 
   const rememberAndMute = (clips: StudioClip[]) => {
     for (const clip of clips) {
@@ -88,8 +92,9 @@ export function ClipSection({ timeline, assets, selectedClipIds, dispatch }: Pro
   const found = selectedClipIds.length === 1 ? findClip(timeline, selectedClipIds[0]) : null;
   if (!found) return null;
   const { clip, track } = found;
-  const asset = clip.assetId ? assets.find((a) => a.id === clip.assetId) : undefined;
-  const name = clip.label ?? asset?.path.split(/[\\/]/).pop() ?? clip.kind;
+  const name = clipDisplayLabel(clip, assetsById, shotsById);
+  // What the clip shows when the label field is left empty.
+  const unlabeled = clipDisplayLabel({ ...clip, label: undefined }, assetsById, shotsById);
   const speed = clip.speed ?? 1;
   const muted = (clip.gain ?? 1) === 0;
 
@@ -239,7 +244,7 @@ export function ClipSection({ timeline, assets, selectedClipIds, dispatch }: Pro
         <TextInput
           key={`label-${clip.id}`}
           defaultValue={clip.label ?? ''}
-          placeholder={asset?.path.split(/[\\/]/).pop() ?? clip.kind}
+          placeholder={unlabeled}
           onBlur={(e) => patchClip({ label: e.target.value })}
           onKeyDown={(e) => {
             if (e.key === 'Enter') e.currentTarget.blur();
