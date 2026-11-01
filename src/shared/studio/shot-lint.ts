@@ -56,17 +56,19 @@ export function lintShotSource(code: string, options: ShotLintOptions = {}): Sho
   for (const spec of collectImportSpecifiers(code)) {
     if (spec.startsWith('.') || spec.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(spec)) {
       errors.push(
-        `Import "${spec}" is not allowed: shots are single-file — inline everything, no relative imports.`,
+        `Import "${spec}" is not allowed: a composition is single-file — inline everything, no relative imports.`,
       );
     } else if (!ALLOWED_IMPORTS.has(spec)) {
+      // "a composition", not "shots": templates, agent packages and transition
+      // packs are refused through this same gate.
       errors.push(
-        `Import "${spec}" is not allowed: shots may only import from 'react', 'remotion', and '@vidtsx/kit'.`,
+        `Import "${spec}" is not allowed: a composition may only import from 'react', 'remotion', and '@vidtsx/kit'.`,
       );
     }
   }
 
   if (!/export\s+default\s/.test(code)) {
-    errors.push('The shot must have a default export (the composition component).');
+    errors.push('The composition must have a default export (its component).');
   }
 
   if (
@@ -74,7 +76,7 @@ export function lintShotSource(code: string, options: ShotLintOptions = {}): Sho
     !/export\s+const\s+compositionConfig\s*=/.test(code)
   ) {
     errors.push(
-      'The shot must export `const compositionConfig = { ... }` with literal values.',
+      'The composition must export `const compositionConfig = { ... }` with literal values.',
     );
   }
 
