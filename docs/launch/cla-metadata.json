@@ -1,0 +1,33 @@
+{
+    "name": {
+        "title": "Full name",
+        "type": "string",
+        "githubKey": "name",
+        "required": true
+    },
+    "email": {
+        "title": "E-mail",
+        "type": "string",
+        "githubKey": "email",
+        "required": true
+    },
+    "category": {
+        "title": "How do you sign?",
+        "type": {
+            "enum": [
+                "I am signing on behalf of myself.",
+                "I am signing on behalf of my employer or another company."
+            ]
+        },
+        "required": true
+    },
+    "company": {
+        "title": "Company name (only if you sign on behalf of a company)",
+        "type": "string"
+    },
+    "agreement": {
+        "title": "I have read and agree to the VidTSX Contributor License Agreement",
+        "type": "boolean",
+        "required": true
+    }
+}

@@ -10,9 +10,10 @@ matching the house rules".
 - **Open an issue first** for anything bigger than a bug fix. Most of the
   architecture is written down in `PLAN.md` and `docs/`; a two-line issue
   saves a two-day PR that cannot land.
-- **Sign the CLA** when the bot asks on your first PR. The license lets every
-  release become MIT after two years, and the CLA is what makes that promise
-  possible to keep.
+- **Sign the [CLA](CLA.md)** when the bot asks on your first PR. You keep
+  the copyright in your work. The CLA lets every release become MIT after
+  two years, as the license promises, and lets a future release change
+  license without tracking down every past contributor.
 
 ## Setting up
 
